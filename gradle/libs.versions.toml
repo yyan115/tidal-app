@@ -7,7 +7,7 @@ lifecycle = "2.10.0"
 media3 = "1.11.1"
 coroutines = "1.10.2"
 okhttp = "5.4.0"
-coil = "3.3.0"
+coil = "3.6.3"
 junit = "4.13.2"
 
 [libraries]
