@@ -1,0 +1,27 @@
+name: Bug report
+description: Something does not work as expected
+body:
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include what you expected and what happened.
+    validations:
+      required: true
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshots or logs
+      description: Remove account details, tokens, signed audio URLs, and private recordings.
