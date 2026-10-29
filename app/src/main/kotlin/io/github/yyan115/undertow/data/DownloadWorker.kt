@@ -33,14 +33,16 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val encoded = inputData.getString("track") ?: return@withContext Result.failure()
         val track = JsonCodec.decodeTrack(JSONObject(encoded))
-        if (track.localUri != null) return@withContext Result.success()
+        if (track.isLocal || app.library.get(track.id)?.isLocal == true) return@withContext Result.success()
         var temporary: File? = null
+        var dash: DashDownloader? = null
         try {
             setForeground(notification(track.title, 0))
             val stream = app.tidal.stream(track.id, app.settings.state.value.quality)
             val localUri = if (stream.dashManifest != null) {
                 val item = MediaItem.Builder().setUri(app.sources.manifestUri(stream)).setMimeType(MimeTypes.APPLICATION_MPD).build()
                 val downloader = DashDownloader.Factory(app.sources.downloadSource()).setExecutor(java.util.concurrent.Executor { it.run() }).create(item)
+                dash = downloader
                 try {
                     downloader.download { _, _, percent ->
                         if (isStopped) throw InterruptedIOException("Download cancelled")
@@ -83,6 +85,7 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
             Result.success()
         } catch (error: Exception) {
             temporary?.delete()
+            dash?.let { runCatching { it.remove() } }
             if (isStopped) throw error
             val message = when (error) {
                 is io.github.yyan115.undertow.core.ServiceException -> error.message

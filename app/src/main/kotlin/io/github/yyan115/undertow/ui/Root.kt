@@ -103,7 +103,10 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
     }
 
     if (login) LoginSheet(state, vm, onClose = { login = false; vm.cancelLogin() })
-    if (nowPlaying && state.playback.track != null) NowPlayingScreen(state, vm, onClose = { nowPlaying = false }, onQueue = { queue = true }, onMenu = { trackMenu = it })
+    if (nowPlaying && state.playback.track != null) NowPlayingScreen(state, vm, onClose = { nowPlaying = false }, onQueue = { queue = true }, onMenu = { trackMenu = it }, onDownload = { track ->
+        if (Build.VERSION.SDK_INT >= 33) notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        vm.download(track)
+    })
     if (queue) QueueSheet(state, vm) { queue = false }
     trackMenu?.let { track ->
         ModalBottomSheet(onDismissRequest = { trackMenu = null }) {

@@ -53,7 +53,7 @@ fun MiniPlayer(state: PlaybackState, onOpen: () -> Unit, onPlay: () -> Unit, onN
 
 @UnstableApi
 @Composable
-fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, onQueue: () -> Unit, onMenu: (Track) -> Unit) {
+fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, onQueue: () -> Unit, onMenu: (Track) -> Unit, onDownload: (Track) -> Unit) {
     val player = state.playback
     val track = player.track ?: return
     var lyrics by remember { mutableStateOf(false) }
@@ -81,12 +81,12 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
                     if (landscape) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 32.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(32.dp)) {
                             Artwork(track.artwork, "Artwork for ${track.album.ifBlank { track.title }}", Modifier.size(artSize))
-                            Column(Modifier.weight(1f)) { PlayerControls(state, vm, onQueue) { lyrics = true; vm.loadLyrics() } }
+                            Column(Modifier.weight(1f)) { PlayerControls(state, vm, onQueue, onDownload) { lyrics = true; vm.loadLyrics() } }
                         }
                     } else {
                         Artwork(track.artwork, "Artwork for ${track.album.ifBlank { track.title }}", Modifier.size(artSize).align(Alignment.CenterHorizontally).padding(4.dp))
                         Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 8.dp)) {
-                            PlayerControls(state, vm, onQueue) { lyrics = true; vm.loadLyrics() }
+                            PlayerControls(state, vm, onQueue, onDownload) { lyrics = true; vm.loadLyrics() }
                         }
                     }
                 }
@@ -101,7 +101,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
 
 @UnstableApi
 @Composable
-private fun PlayerControls(state: AppState, vm: MainViewModel, onQueue: () -> Unit, onLyrics: () -> Unit) {
+private fun PlayerControls(state: AppState, vm: MainViewModel, onQueue: () -> Unit, onDownload: (Track) -> Unit, onLyrics: () -> Unit) {
     val player = state.playback
     val track = player.track ?: return
     val saved = state.favorites.any { it.id == track.id }
@@ -144,6 +144,12 @@ private fun PlayerControls(state: AppState, vm: MainViewModel, onQueue: () -> Un
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         TextButton(onClick = onLyrics) { Icon(Icons.Outlined.Lyrics, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Lyrics") }
+        val downloaded = track.isLocal || state.local.any { it.id == track.id }
+        val pending = state.downloads.any { "track:${track.id}" in it.tags && !it.state.isFinished }
+        IconButton(onClick = { onDownload(track) }, enabled = !downloaded && !pending) {
+            if (pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            else Icon(if (downloaded) Icons.Outlined.DownloadDone else Icons.Outlined.Download, if (downloaded) "Downloaded" else "Download track")
+        }
         TextButton(onClick = onQueue) { Icon(Icons.AutoMirrored.Outlined.PlaylistPlay, null, Modifier.size(20.dp)); Spacer(Modifier.width(6.dp)); Text("Queue · ${player.queue.size}") }
     }
 }

@@ -301,7 +301,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun download(track: Track) = viewModelScope.launch {
-        if (track.isLocal) { notify("This track is already on your device"); return@launch }
+        if (track.isLocal || withContext(Dispatchers.IO) { app.library.get(track.id)?.isLocal == true }) { notify("This track is already on your device"); return@launch }
         if (!app.tidal.signedIn) { notify("Sign in to TIDAL before downloading"); return@launch }
         if (ui.value.settings.offline) { notify("Turn off offline mode before downloading"); return@launch }
         withContext(Dispatchers.IO) { app.library.save(track) }

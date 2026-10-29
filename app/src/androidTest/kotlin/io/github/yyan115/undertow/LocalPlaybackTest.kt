@@ -67,6 +67,17 @@ class LocalPlaybackTest {
         screenshot("queue")
     }
 
+    @Test fun localFlacRemainsPlayableInOfflineMode() {
+        compose.runOnIdle { model.settings { it.copy(offline = true) }; model.play(listOf(track)) }
+        compose.waitUntil(15_000) { model.state.value.playback.playing || model.state.value.playback.error != null }
+        assertNull(model.state.value.playback.error)
+        assertTrue(model.state.value.playback.playing)
+        compose.waitUntil(5_000) { model.state.value.playback.position > 500 }
+        compose.runOnIdle { model.seek(15_000) }
+        compose.waitUntil(5_000) { model.state.value.playback.position in 15_000..25_000 }
+        compose.runOnIdle { model.togglePlay() }
+    }
+
     @Test fun localPlaylistCreationAndSavingArePersistent() {
         compose.onNodeWithTag("nav-2").performClick()
         compose.onNodeWithText("Playlists").performClick()

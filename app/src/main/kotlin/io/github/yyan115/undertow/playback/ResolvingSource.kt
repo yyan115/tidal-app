@@ -41,9 +41,10 @@ class ResolvingSource(private val app: UndertowApp, private val original: MediaI
                     val track = encoded?.let { JsonCodec.decodeTrack(JSONObject(it)) } ?: app.library.get(original.mediaId)
                         ?: throw IOException("This track is no longer in the library.")
                     val resolved = app.sources.resolve(track)
+                    val offlineCopy = app.library.get(track.id)?.localUri?.startsWith("undertow-offline:") == true
                     handler.post {
                         if (scope === owner) {
-                            val factory = DefaultMediaSourceFactory(app.sources.dataSource(app.settings.state.value.offline || track.localUri?.startsWith("undertow-offline:") == true))
+                            val factory = DefaultMediaSourceFactory(app.sources.dataSource(app.settings.state.value.offline || offlineCopy || track.localUri?.startsWith("undertow-offline:") == true))
                             drmProvider?.let(factory::setDrmSessionManagerProvider)
                             loadPolicy?.let(factory::setLoadErrorHandlingPolicy)
                             val source = factory.createMediaSource(resolved)

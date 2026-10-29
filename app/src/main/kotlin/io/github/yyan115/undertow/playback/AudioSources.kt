@@ -34,7 +34,8 @@ class AudioSources(private val app: UndertowApp) {
     private val upstream: DataSource.Factory by lazy { DefaultDataSource.Factory(app, OkHttpDataSource.Factory(app.http)) }
     fun dataSource(offlineOnly: Boolean = false): CacheDataSource.Factory = CacheDataSource.Factory()
         .setCache(cache).setCacheWriteDataSinkFactory(null)
-        .setUpstreamDataSourceFactory(if (offlineOnly) null else CacheDataSource.Factory().setCache(streamingCache).setUpstreamDataSourceFactory(upstream))
+        .setUpstreamDataSourceFactory(if (offlineOnly) DefaultDataSource.Factory(app, androidx.media3.datasource.PlaceholderDataSource.FACTORY)
+            else CacheDataSource.Factory().setCache(streamingCache).setUpstreamDataSourceFactory(upstream))
         .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 
     fun downloadSource(): CacheDataSource.Factory = CacheDataSource.Factory().setCache(cache).setUpstreamDataSourceFactory(upstream)
@@ -46,9 +47,10 @@ class AudioSources(private val app: UndertowApp) {
     }
 
     suspend fun resolve(track: Track): MediaItem {
-        track.localUri?.let { local ->
-            if (local.startsWith("undertow-offline:")) return item(track, readOffline(track.id))
-            return metadata(track).setUri(local).build()
+        val saved = app.library.get(track.id)?.takeIf { it.isLocal } ?: track
+        saved.localUri?.let { local ->
+            if (local.startsWith("undertow-offline:")) return item(saved, readOffline(saved.id))
+            return metadata(saved).setUri(local).build()
         }
         check(!app.settings.state.value.offline) { "This track is not available offline. Download it first." }
         val settings = app.settings.state.value

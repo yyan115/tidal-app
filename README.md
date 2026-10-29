@@ -2,7 +2,7 @@
 
 Android music player for TIDAL and local audio files. Built with Kotlin, Compose, and Media3. Google Play Services are not required.
 
-Development is in progress. Local playback and the main interface have been tested on an Android emulator. Live TIDAL authentication, streaming, and downloads still need verification; see [verification](docs/verification.md).
+Development is in progress. Local playback, browser sign-in, and live TIDAL lossless playback have been checked on an Android emulator. Downloads and wider device compatibility are still under verification; see [verification](docs/verification.md).
 
 ## Features
 

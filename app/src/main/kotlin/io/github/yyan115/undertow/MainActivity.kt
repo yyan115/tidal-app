@@ -56,7 +56,10 @@ class MainActivity : ComponentActivity() {
         value?.let { text ->
             Regex("https://tidal\\.com/android/login/auth\\?[^\\s]+") .find(text)?.value?.let { incomingCallback = it }
         }
-        // Authorization codes should not remain in the activity's launch intent.
-        setIntent(Intent(this, MainActivity::class.java))
+        // Keep the launch action intact; lifecycle observers use it to identify this activity.
+        // Remove only callback data so one-time codes do not remain in its intent.
+        if (incoming.action == Intent.ACTION_SEND) incoming.removeExtra(Intent.EXTRA_TEXT)
+        if (incoming.action == Intent.ACTION_VIEW) incoming.data = null
+        setIntent(incoming)
     }
 }

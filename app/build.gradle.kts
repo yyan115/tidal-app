@@ -17,8 +17,16 @@ android {
         versionName = releaseVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+    val releaseKeyPath = providers.environmentVariable("UNDERTOW_KEYSTORE").orNull
+    if (releaseKeyPath != null) signingConfigs.create("release") {
+        storeFile = file(releaseKeyPath)
+        storePassword = providers.environmentVariable("UNDERTOW_STORE_PASSWORD").get()
+        keyAlias = providers.environmentVariable("UNDERTOW_KEY_ALIAS").getOrElse("undertow")
+        keyPassword = providers.environmentVariable("UNDERTOW_KEY_PASSWORD").get()
+    }
     buildTypes {
         release {
+            if (releaseKeyPath != null) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
