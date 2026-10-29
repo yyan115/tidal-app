@@ -14,6 +14,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,10 +58,19 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
     val track = player.track ?: return
     var lyrics by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        val window = (LocalView.current.parent as DialogWindowProvider).window
+        val light = MaterialTheme.colorScheme.background.luminance() > .5f
+        LaunchedEffect(light) {
+            withFrameNanos { }
+            WindowCompat.getInsetsController(window, window.decorView).apply {
+                isAppearanceLightStatusBars = light
+                isAppearanceLightNavigationBars = light
+            }
+        }
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             BoxWithConstraints(Modifier.fillMaxSize().systemBarsPadding()) {
                 val landscape = maxWidth > 600.dp && maxWidth > maxHeight
-                val artSize = if (landscape) minOf(maxHeight - 96.dp, 320.dp) else minOf(maxWidth - 64.dp, maxHeight * .37f)
+                val artSize = if (landscape) minOf(maxHeight - 96.dp, 320.dp) else minOf(maxWidth - 64.dp, maxHeight * .30f)
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = onClose) { Icon(Icons.Outlined.KeyboardArrowDown, "Close player") }
@@ -72,7 +85,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
                         }
                     } else {
                         Artwork(track.artwork, "Artwork for ${track.album.ifBlank { track.title }}", Modifier.size(artSize).align(Alignment.CenterHorizontally).padding(4.dp))
-                        Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 16.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 8.dp)) {
                             PlayerControls(state, vm, onQueue) { lyrics = true; vm.loadLyrics() }
                         }
                     }

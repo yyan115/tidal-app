@@ -5,7 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -24,7 +25,8 @@ class MainActivity : ComponentActivity() {
             val model: MainViewModel = viewModel()
             val state by model.state.collectAsStateWithLifecycle()
             val dark = state.settings.theme == "dark" || (state.settings.theme == "system" && isSystemInDarkTheme())
-            SideEffect {
+            LaunchedEffect(dark) {
+                withFrameNanos { }
                 WindowCompat.getInsetsController(window, window.decorView).apply {
                     isAppearanceLightStatusBars = !dark
                     isAppearanceLightNavigationBars = !dark

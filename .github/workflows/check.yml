@@ -31,7 +31,8 @@ jobs:
         with:
           cache-provider: basic
       - name: Install Android SDK packages
-        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;35.0.0'
       - name: Test, lint, and build both variants
         run: ./gradlew --no-daemon :core:test :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease
       - name: Upload reports and debug APK
