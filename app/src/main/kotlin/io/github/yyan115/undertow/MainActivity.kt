@@ -10,6 +10,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -18,6 +19,7 @@ import androidx.media3.common.util.UnstableApi
 import io.github.yyan115.undertow.ui.MainViewModel
 import io.github.yyan115.undertow.ui.UndertowRoot
 import io.github.yyan115.undertow.ui.UndertowTheme
+import io.github.yyan115.undertow.ui.LocalOfflineMode
 
 @UnstableApi
 class MainActivity : ComponentActivity() {
@@ -41,7 +43,7 @@ class MainActivity : ComponentActivity() {
                     isAppearanceLightNavigationBars = !dark
                 }
             }
-            UndertowTheme(state.settings.theme) { UndertowRoot(model, state) }
+            UndertowTheme(state.settings.theme) { CompositionLocalProvider(LocalOfflineMode provides state.settings.offline) { UndertowRoot(model, state) } }
         }
     }
 

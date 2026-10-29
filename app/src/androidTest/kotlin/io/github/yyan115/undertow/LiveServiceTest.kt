@@ -67,6 +67,30 @@ class LiveServiceTest {
         assertFalse(app.tidal.allPlaylists().any { it.id == playlist.id })
     }
 
+    @Test fun favoriteChangesMadeOfflineAreUploadedWhenReconnected() = runBlocking {
+        compose.runOnIdle { model.settings { it.copy(offline = false) } }
+        val track = app.tidal.search("Nujabes Feather").tracks.first()
+        val accountId = app.tidal.accountId
+        val wasSaved = app.tidal.allFavorites().any { it.id == track.id }
+        compose.waitUntil(30_000) { !model.state.value.syncing }
+        try {
+            compose.runOnIdle { model.settings { it.copy(offline = true) } }
+            app.library.setFavorite(track, wasSaved)
+            compose.waitUntil(5_000) { model.state.value.favorites.any { it.id == track.id } == wasSaved }
+            compose.runOnIdle { model.favorite(track) }
+            compose.waitUntil(5_000) { app.library.pendingFavorites(accountId)[track.id] == !wasSaved }
+            assertEquals(!wasSaved, model.state.value.favorites.any { it.id == track.id })
+            compose.runOnIdle { model.settings { it.copy(offline = false) } }
+            compose.waitUntil(30_000) { app.library.pendingFavorites(accountId).isEmpty() && !model.state.value.syncing }
+            assertEquals(!wasSaved, app.tidal.allFavorites().any { it.id == track.id })
+        } finally {
+            compose.runOnIdle { model.settings { it.copy(offline = false) } }
+            app.tidal.setFavorite(track.id, wasSaved)
+            app.library.setFavorite(track, wasSaved)
+            app.library.favoriteSynced(accountId, track.id, !wasSaved)
+        }
+    }
+
     @Test fun losslessStreamDownloadsAndPlaysWithoutAnAccount() = runBlocking {
         val query = InstrumentationRegistry.getArguments().getString("liveQuery") ?: "Norah Jones Don't Know Why"
         val track = app.tidal.search(query).tracks.first()

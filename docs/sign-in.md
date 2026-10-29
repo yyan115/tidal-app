@@ -10,6 +10,6 @@ The browser flow uses PKCE. Undertow checks the callback address and a random st
 
 This extra share step is required because the unofficial client identity's registered callback belongs to TIDAL. TIDAL rejected a dedicated Undertow callback during testing. Undertow does not claim ownership of TIDAL's website links.
 
-Device-code sign-in is also available, including authorization from another device. In our live test, that client received full-length AAC even when requesting lossless. Browser sign-in received a clear 16-bit/44.1 kHz FLAC stream. The player shows the delivered format; quality settings are requests, not guarantees.
+Device-code sign-in is also available, including authorization from another device. In our live test, that client received full-length AAC even when requesting lossless. Browser sign-in received clear FLAC streams at 16-bit/44.1 kHz and 24-bit/192 kHz. The player shows the delivered format; quality settings are requests, not guarantees.
 
 Both methods use unofficial client identities and can be affected by service changes. Browser login follows the [native OAuth guidance](https://www.rfc-editor.org/rfc/rfc8252.html). The protocol was checked against [tidalapi](https://github.com/EbbLabs/python-tidal).

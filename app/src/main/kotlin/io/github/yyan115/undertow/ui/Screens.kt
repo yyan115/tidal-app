@@ -51,19 +51,20 @@ private fun ConnectCard(onLogin: () -> Unit) {
 @UnstableApi
 @Composable
 fun ListenScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLogin: () -> Unit, onLibrary: () -> Unit, onMenu: (Track) -> Unit) {
+    val recent = if (state.settings.offline) state.recent.filter(Track::isLocal) else state.recent
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Spacer(Modifier.height(8.dp)) }
-        if (!state.signedIn) item { ConnectCard(onLogin) }
+        if (!state.signedIn && !state.settings.offline) item { ConnectCard(onLogin) }
         item {
-            Row(Modifier.padding(horizontal = 24.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            FlowRow(Modifier.padding(horizontal = 24.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilledTonalButton(onClick = onImport) { Icon(Icons.Outlined.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Import audio") }
                 OutlinedButton(onClick = onLibrary) { Text("Your library") }
             }
         }
-        if (state.recent.isNotEmpty()) {
+        if (recent.isNotEmpty()) {
             item { SectionTitle("Recently played") }
-            items(state.recent.take(8), key = { "recent:${it.id}" }) { track -> TrackRow(track, state.playback.track?.id == track.id,
-                onPlay = { vm.play(state.recent, state.recent.indexOf(track)) }, onMenu = { onMenu(track) }) }
+            items(recent.take(8), key = { "recent:${it.id}" }) { track -> TrackRow(track, state.playback.track?.id == track.id,
+                onPlay = { vm.play(recent, recent.indexOf(track)) }, onMenu = { onMenu(track) }) }
         } else item { EmptyState(Icons.Outlined.Headphones, "Nothing played yet", "Play a track from your library or search TIDAL.") }
         if (state.albums.isNotEmpty()) {
             item { SectionTitle("Saved albums", "View all", onLibrary) }
@@ -90,7 +91,7 @@ fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu
     val local = remember(state.local, query) { if (query.isBlank()) emptyList() else state.local.filter {
         it.title.contains(query, true) || it.artist.contains(query, true) || it.album.contains(query, true)
     } }
-    val songs = (local + state.search.tracks).distinctBy(Track::id)
+    val songs = (local + if (state.settings.offline) emptyList() else state.search.tracks).distinctBy(Track::id)
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Spacer(Modifier.height(12.dp)) }
         item { OutlinedTextField(query, vm::search, Modifier.fillMaxWidth().padding(horizontal = 24.dp),
@@ -99,8 +100,8 @@ fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu
             singleLine = true, shape = MaterialTheme.shapes.large, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() })) }
         if (query.isBlank()) {
-            item { EmptyState(Icons.Outlined.Search, "Find something to play", "Search your audio files${if (state.signedIn) " and TIDAL" else ""} by track, album, or artist.") }
-            if (!state.signedIn) item { ConnectCard(onLogin) }
+            item { EmptyState(Icons.Outlined.Search, "Find something to play", "Search your audio files${if (state.signedIn && !state.settings.offline) " and TIDAL" else ""} by track, album, or artist.") }
+            if (!state.signedIn && !state.settings.offline) item { ConnectCard(onLogin) }
         } else {
             item { LazyRow(state = filters, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 itemsIndexed(listOf("Tracks", "Albums", "Artists", "Playlists")) { index, label -> FilterChip(filter == index, { filter = index }, label = { Text(label) }) }
@@ -114,7 +115,7 @@ fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu
                     "No tracks found", if (!state.signedIn) "Search is limited to files on your device until you connect TIDAL." else "Try another title or artist name.",
                     if (!state.signedIn) "Connect TIDAL" else null, onLogin) }
             } else {
-                val releases = when (filter) { 1 -> state.search.albums; 2 -> state.search.artists; else -> state.search.playlists }
+                val releases = if (state.settings.offline) emptyList() else when (filter) { 1 -> state.search.albums; 2 -> state.search.artists; else -> state.search.playlists }
                 items(releases, key = Release::id) { release -> ReleaseRow(release) { keyboard?.hide(); vm.open(release) } }
                 if (releases.isEmpty() && !state.searching && state.error == null) item { EmptyState(Icons.Outlined.SearchOff,
                     "No results", if (!state.signedIn) "Connect TIDAL to search its catalogue." else "Try another search.", if (!state.signedIn) "Connect TIDAL" else null, onLogin) }
@@ -336,7 +337,7 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit) {
         }) }
         item { SettingRow(Icons.Outlined.PrivacyTip, "Privacy", "No ads, analytics, or account proxy. Streaming connects directly to TIDAL.") }
         item { SettingRow(Icons.Outlined.Description, "Open-source licenses", "GPL-3.0-or-later and dependency notices", { licenses = true }) }
-        item { SettingRow(Icons.Outlined.Key, "Client configuration", "Use a different TIDAL OAuth client", { client = true }) }
+        item { SettingRow(Icons.Outlined.Key, "Device-code client", "Override the client used for device-code sign-in", { client = true }) }
     }
     if (licenses) LicensesDialog { licenses = false }
     if (quality || mobile) AlertDialog(onDismissRequest = { quality = false; mobile = false }, title = { Text(if (mobile) "Mobile audio quality" else "Wi-Fi audio quality") },
@@ -354,8 +355,8 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit) {
     } }, confirmButton = {})
     if (signOut) AlertDialog(onDismissRequest = { signOut = false }, title = { Text("Disconnect TIDAL?") }, text = { Text("Audio saved on this device stays in your library.") },
         confirmButton = { TextButton(onClick = { vm.signOut(); signOut = false }) { Text("Disconnect") } }, dismissButton = { TextButton(onClick = { signOut = false }) { Text("Cancel") } })
-    if (client) AlertDialog(onDismissRequest = { client = false }, title = { Text("Client configuration") }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Changing the OAuth client disconnects the current TIDAL session.", style = MaterialTheme.typography.bodyMedium)
+    if (client) AlertDialog(onDismissRequest = { client = false }, title = { Text("Device-code client") }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("This applies to device-code sign-in. Saving disconnects the current TIDAL session.", style = MaterialTheme.typography.bodyMedium)
         OutlinedTextField(clientId, { clientId = it }, label = { Text("Client ID") }, singleLine = true)
         OutlinedTextField(clientSecret, { clientSecret = it }, label = { Text("Client secret") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
     } }, confirmButton = { TextButton(enabled = clientId.isNotBlank() && clientSecret.isNotBlank(), onClick = { vm.configureClient(clientId, clientSecret); clientId = ""; clientSecret = ""; client = false }) { Text("Save") } },

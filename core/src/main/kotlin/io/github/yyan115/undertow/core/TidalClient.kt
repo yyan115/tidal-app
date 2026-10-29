@@ -130,7 +130,8 @@ class TidalClient(
         JsonCodec.items(request("users/${userId()}/favorites/albums", mapOf("limit" to "100", "offset" to "$offset"))).map { JsonCodec.release(it, ReleaseType.ALBUM) }
 
     suspend fun playlists(offset: Int = 0): List<Release> =
-        JsonCodec.items(request("users/${userId()}/playlists", mapOf("limit" to "100", "offset" to "$offset"))).map { JsonCodec.release(it, ReleaseType.PLAYLIST) }
+        JsonCodec.items(request("users/${userId()}/playlistsAndFavoritePlaylists", mapOf("limit" to "50", "offset" to "$offset")))
+            .map { JsonCodec.release(it.optJSONObject("playlist") ?: it, ReleaseType.PLAYLIST) }
 
     suspend fun tracks(release: Release, offset: Int = 0): List<Track> {
         val path = when (release.type) {
@@ -142,18 +143,18 @@ class TidalClient(
     }
 
     suspend fun allTracks(release: Release): List<Track> = allPages { tracks(release, it) }
-    suspend fun allFavorites(): List<Track> = allPages(::favorites)
-    suspend fun allFavoriteAlbums(): List<Release> = allPages(::favoriteAlbums)
-    suspend fun allPlaylists(): List<Release> = allPages(::playlists)
+    suspend fun allFavorites(): List<Track> = allPages(page = ::favorites)
+    suspend fun allFavoriteAlbums(): List<Release> = allPages(page = ::favoriteAlbums)
+    suspend fun allPlaylists(): List<Release> = allPages(50, ::playlists)
 
-    private suspend fun <T> allPages(page: suspend (Int) -> List<T>): List<T> {
+    private suspend fun <T> allPages(pageSize: Int = 100, page: suspend (Int) -> List<T>): List<T> {
         val result = mutableListOf<T>()
         var offset = 0
         while (true) {
             currentCoroutineContext().ensureActive()
             val next = page(offset)
             result.addAll(next)
-            if (next.size < 100) return result
+            if (next.size < pageSize) return result
             offset += next.size
         }
     }
@@ -198,9 +199,9 @@ class TidalClient(
         else request("users/${userId()}/favorites/albums/$id", method = "DELETE")
     }
 
-    suspend fun lyrics(id: String): String = request("tracks/$id/lyrics").let {
-        it.optString("lyrics").ifBlank { it.optString("text") }
-    }
+    suspend fun lyrics(id: String): String = try {
+        request("tracks/$id/lyrics").let { it.optString("lyrics").ifBlank { it.optString("text") } }
+    } catch (error: ServiceException) { if (error.status == 404) "" else throw error }
 
     fun signOut() = synchronized(accountLock) { generation.incrementAndGet(); sessions.clear(); etags.clear() }
 

@@ -70,4 +70,17 @@ object JsonCodec {
     fun decodeTracks(value: String): List<Track> = JSONArray(value).let { array ->
         (0 until array.length()).map { decodeTrack(array.getJSONObject(it)) }
     }
+
+    fun encodeReleases(releases: List<Release>) = JSONArray().apply { releases.forEach { release -> put(JSONObject().apply {
+        put("id", release.id); put("title", release.title); put("artist", release.artist); put("artwork", release.artwork)
+        put("subtitle", release.subtitle); put("type", release.type.name); put("ownerId", release.ownerId)
+    }) } }.toString()
+
+    fun decodeReleases(value: String): List<Release> = JSONArray(value).let { array ->
+        (0 until array.length()).map { index -> array.getJSONObject(index).let { json ->
+            Release(json.getString("id"), json.getString("title"), json.getString("artist"),
+                json.optString("artwork").takeIf { it.isNotBlank() && it != "null" }, json.optString("subtitle"),
+                ReleaseType.valueOf(json.getString("type")), json.optString("ownerId"))
+        } }
+    }
 }

@@ -17,25 +17,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.CachePolicy
+import androidx.compose.ui.platform.LocalContext
 import io.github.yyan115.undertow.core.Release
 import io.github.yyan115.undertow.core.Track
 
-@Composable
-fun Artwork(uri: String?, description: String?, modifier: Modifier = Modifier) {
-    Box(modifier.clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-        Icon(Icons.Outlined.MusicNote, null, Modifier.fillMaxSize(.36f), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f))
-        if (uri != null) AsyncImage(uri, description, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-    }
-}
+val LocalOfflineMode = staticCompositionLocalOf { false }
 
 @Composable
-fun PageTitle(title: String, subtitle: String? = null, action: (@Composable () -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold)
-            subtitle?.let { Text(it, Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        }
-        action?.invoke()
+fun Artwork(uri: String?, description: String?, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val offline = LocalOfflineMode.current
+    val request = remember(uri, offline, context) { ImageRequest.Builder(context).data(uri)
+        .networkCachePolicy(if (offline) CachePolicy.DISABLED else CachePolicy.ENABLED).build() }
+    Box(modifier.clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+        Icon(Icons.Outlined.MusicNote, null, Modifier.fillMaxSize(.36f), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f))
+        if (uri != null) AsyncImage(request, description, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
     }
 }
 

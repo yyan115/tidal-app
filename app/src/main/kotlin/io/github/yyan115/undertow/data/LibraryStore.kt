@@ -13,7 +13,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-class LibraryStore(context: Context) : SQLiteOpenHelper(context, "library.db", null, 1) {
+class LibraryStore(context: Context, databaseName: String = "library.db") : SQLiteOpenHelper(context, databaseName, null, 2) {
     private val revision = MutableStateFlow(0L)
     val changes = revision.asStateFlow()
     override fun onCreate(db: SQLiteDatabase) {
@@ -21,9 +21,45 @@ class LibraryStore(context: Context) : SQLiteOpenHelper(context, "library.db", n
         db.execSQL("CREATE TABLE playlists (id TEXT PRIMARY KEY, title TEXT NOT NULL)")
         db.execSQL("CREATE TABLE playlist_tracks (playlist_id TEXT NOT NULL, track_id TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY(playlist_id,track_id), FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE)")
         db.execSQL("CREATE INDEX recent_tracks ON tracks(played DESC)")
+        createCollectionTables(db)
     }
     override fun onConfigure(db: SQLiteDatabase) { db.setForeignKeyConstraintsEnabled(true); db.enableWriteAheadLogging() }
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) createCollectionTables(db)
+    }
+
+    private fun createCollectionTables(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE cloud_cache (account TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(account,kind))")
+        db.execSQL("CREATE TABLE pending_favorites (account TEXT NOT NULL, track_id TEXT NOT NULL, favorite INTEGER NOT NULL, PRIMARY KEY(account,track_id))")
+    }
+
+    @Synchronized fun cache(account: String, kind: String): String? = readableDatabase.rawQuery(
+        "SELECT payload FROM cloud_cache WHERE account=? AND kind=?", arrayOf(account, kind)).use { if (it.moveToFirst()) it.getString(0) else null }
+
+    @Synchronized fun cache(account: String, kind: String, payload: String) {
+        if (account.isBlank()) return
+        writableDatabase.insertWithOnConflict("cloud_cache", null, ContentValues().apply {
+            put("account", account); put("kind", kind); put("payload", payload)
+        }, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    @Synchronized fun clearCache(account: String) { writableDatabase.delete("cloud_cache", "account=?", arrayOf(account)) }
+
+    @Synchronized fun queueFavorite(account: String, trackId: String, favorite: Boolean) {
+        if (account.isBlank()) return
+        writableDatabase.insertWithOnConflict("pending_favorites", null, ContentValues().apply {
+            put("account", account); put("track_id", trackId); put("favorite", if (favorite) 1 else 0)
+        }, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    @Synchronized fun pendingFavorites(account: String): Map<String, Boolean> = readableDatabase.rawQuery(
+        "SELECT track_id,favorite FROM pending_favorites WHERE account=?", arrayOf(account)).use { cursor ->
+        buildMap { while (cursor.moveToNext()) put(cursor.getString(0), cursor.getInt(1) == 1) }
+    }
+
+    @Synchronized fun favoriteSynced(account: String, trackId: String, favorite: Boolean) {
+        writableDatabase.delete("pending_favorites", "account=? AND track_id=? AND favorite=?", arrayOf(account, trackId, if (favorite) "1" else "0"))
+    }
 
     @Synchronized fun save(track: Track) {
         val previous = get(track.id)
@@ -56,10 +92,15 @@ class LibraryStore(context: Context) : SQLiteOpenHelper(context, "library.db", n
     }
 
     @Synchronized fun removeLocal(id: String) {
-        get(id)?.let { save(it.copy(localUri = null)) }
-        // save() preserves existing local copies, so removal is explicit.
-        get(id)?.let { track -> writableDatabase.update("tracks", ContentValues().apply {
-            put("payload", JsonCodec.encodeTrack(track.copy(localUri = null)).toString())
+        if (id.startsWith("local:")) {
+            writableDatabase.beginTransaction()
+            try {
+                writableDatabase.delete("playlist_tracks", "track_id=?", arrayOf(id))
+                writableDatabase.delete("tracks", "id=?", arrayOf(id))
+                writableDatabase.setTransactionSuccessful()
+            } finally { writableDatabase.endTransaction() }
+        } else get(id)?.let { track -> writableDatabase.update("tracks", ContentValues().apply {
+            put("payload", JsonCodec.encodeTrack(track.copy(localUri = null, quality = null)).toString())
         }, "id=?", arrayOf(id)) }
         revision.value++
     }

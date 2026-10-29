@@ -144,6 +144,25 @@ class TidalClientTest {
         assertNotEquals(login.state, client.beginPkce().state)
     }
 
+    @Test fun loadsOwnedAndFollowedPlaylistsAcrossFiftyItemPages() = runBlocking {
+        val page = (1..50).joinToString(",") { """{"playlist":{"uuid":"list-$it","title":"List $it","creator":{"id":123}}}""" }
+        server.enqueue(MockResponse().setBody("""{"items":[$page]}"""))
+        server.enqueue(MockResponse().setBody("""{"items":[{"playlist":{"uuid":"followed","title":"Followed","creator":{"id":456}}}]}"""))
+        val lists = client.allPlaylists()
+        assertEquals(51, lists.size)
+        assertEquals("123", lists.first().ownerId)
+        assertEquals("456", lists.last().ownerId)
+        val first = server.takeRequest()
+        assertEquals("/v1/users/123/playlistsAndFavoritePlaylists", first.requestUrl!!.encodedPath)
+        assertEquals("50", first.requestUrl!!.queryParameter("limit"))
+        assertEquals("50", server.takeRequest().requestUrl!!.queryParameter("offset"))
+    }
+
+    @Test fun missingLyricsAreAnEmptyResultRatherThanAnUnavailableTrack() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(404))
+        assertEquals("", client.lyrics("42"))
+    }
+
     @Test fun pkceRejectsWrongOriginStateAndExpiredRequestsWithoutSendingCodes() = runBlocking {
         val login = client.beginPkce()
         val callbacks = listOf(

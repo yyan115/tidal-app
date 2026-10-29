@@ -3,6 +3,8 @@ package io.github.yyan115.undertow.ui
 import android.app.Application
 import android.content.ComponentName
 import android.net.Uri
+import android.net.ConnectivityManager
+import android.net.Network
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -31,11 +33,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 
 data class PlaybackState(
@@ -82,6 +88,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var lyricsJob: Job? = null
     private var cloudFavorites = emptyList<Track>()
     private var favoritesOffset = 0
+    private val favoriteSyncLock = Mutex()
+    private var collectionReady = false
+    private var networkCallbackRegistered = false
+    private val connectivity = application.getSystemService(ConnectivityManager::class.java)
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) { viewModelScope.launch { if (collectionReady) sync() } }
+    }
 
     init {
         controllerFuture.addListener({
@@ -114,7 +127,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch { while (true) { delay(10_000); persistQueue() } }
         viewModelScope.launch { app.library.changes.collect { refreshLocal() } }
-        viewModelScope.launch { app.settings.state.collect { settings -> ui.update { it.copy(settings = settings) } } }
+        viewModelScope.launch { app.settings.state.collect { settings ->
+            val wasOffline = ui.value.settings.offline
+            ui.update { it.copy(settings = settings) }
+            if (!wasOffline && settings.offline) app.http.dispatcher.cancelAll()
+            if (wasOffline && !settings.offline && collectionReady) sync()
+        } }
         viewModelScope.launch {
             WorkManager.getInstance(application).getWorkInfosByTagFlow("audio-download").collect { jobs ->
                 val tracks = withContext(Dispatchers.IO) { jobs.mapNotNull { work ->
@@ -124,9 +142,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         viewModelScope.launch {
-            query.debounce(350).distinctUntilChanged().collectLatest { text ->
+            combine(query.debounce(350).distinctUntilChanged(), app.settings.state.map { it.offline }.distinctUntilChanged(),
+                ui.map { it.signedIn }.distinctUntilChanged()) { text, offline, signedIn -> Triple(text, offline, signedIn) }
+                .collectLatest { (text, offline, signedIn) ->
                 ui.update { it.copy(searchQuery = text, error = null) }
-                if (text.isBlank() || !app.tidal.signedIn || ui.value.settings.offline) {
+                if (text.isBlank() || !signedIn || offline) {
                     ui.update { it.copy(search = SearchResult(), searching = false) }
                 } else {
                     ui.update { it.copy(searching = true) }
@@ -135,7 +155,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-        if (app.tidal.signedIn && !ui.value.settings.offline) sync()
+        try { connectivity.registerDefaultNetworkCallback(networkCallback); networkCallbackRegistered = true }
+        catch (_: SecurityException) { /* Local playback also works with network access disabled. */ }
+        viewModelScope.launch {
+            hydrateCollection()
+            collectionReady = true
+            sync()
+        }
+    }
+
+    private suspend fun hydrateCollection() {
+        val account = app.tidal.accountId
+        if (account.isBlank()) return
+        val cached = withContext(Dispatchers.IO) {
+            Triple(app.library.cache(account, "favorites"), app.library.cache(account, "albums"), app.library.cache(account, "playlists"))
+        }
+        if (account != app.tidal.accountId) return
+        cloudFavorites = cached.first?.let { runCatching { JsonCodec.decodeTracks(it) }.getOrNull() }.orEmpty()
+        ui.update { it.copy(albums = cached.second?.let { value -> runCatching { JsonCodec.decodeReleases(value) }.getOrNull() }.orEmpty(),
+            playlists = cached.third?.let { value -> runCatching { JsonCodec.decodeReleases(value) }.getOrNull() }.orEmpty()) }
+        refreshLocal()
     }
 
     private suspend fun refreshLocal() {
@@ -143,8 +182,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val favorites = withContext(Dispatchers.IO) { app.library.favorites() }
         val recent = withContext(Dispatchers.IO) { app.library.recent() }
         val playlists = withContext(Dispatchers.IO) { app.library.playlists() }
+        val pending = withContext(Dispatchers.IO) { app.library.pendingFavorites(app.tidal.accountId) }
         val localById = local.associateBy(Track::id)
-        ui.update { it.copy(local = local, favorites = (favorites + cloudFavorites).distinctBy(Track::id)
+        ui.update { it.copy(local = local, favorites = (favorites + cloudFavorites).filter { track -> pending[track.id] != false }.distinctBy(Track::id)
             .map { track -> localById[track.id] ?: track }, recent = recent, localPlaylists = playlists) }
     }
 
@@ -198,9 +238,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun cancelLogin() { loginJob?.cancel(); app.sessions.clearPkce(); ui.update { it.copy(signingIn = false, login = null, pkceLogin = null, error = null) } }
     fun signOut() {
+        val account = app.tidal.accountId
+        val saved = ui.value.local.filter { track -> cloudFavorites.any { it.id == track.id } }
         cancelLogin(); syncJob?.cancel(); detailJob?.cancel(); app.tidal.signOut(); cloudFavorites = emptyList()
         ui.update { it.copy(signedIn = false, syncing = false, hasMoreFavorites = false, albums = emptyList(), playlists = emptyList(), search = SearchResult(), detail = null) }
-        viewModelScope.launch { refreshLocal() }
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { saved.forEach { app.library.setFavorite(it, true) }; app.library.clearCache(account) }
+            refreshLocal()
+        }
     }
 
     fun sync() {
@@ -208,12 +253,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         syncJob = viewModelScope.launch {
             ui.update { it.copy(syncing = true, error = null) }
             try {
-                cloudFavorites = app.tidal.allFavorites(); favoritesOffset = cloudFavorites.size
+                val account = app.tidal.accountId
+                favoriteSyncLock.withLock {
+                    drainFavorites(account)
+                    cloudFavorites = app.tidal.allFavorites(); favoritesOffset = cloudFavorites.size
+                    withContext(Dispatchers.IO) { app.library.cache(account, "favorites", JsonCodec.encodeTracks(cloudFavorites)) }
+                }
                 ui.update { it.copy(hasMoreFavorites = false) }
                 refreshLocal()
                 val albums = app.tidal.allFavoriteAlbums()
+                withContext(Dispatchers.IO) { app.library.cache(account, "albums", JsonCodec.encodeReleases(albums)) }
                 ui.update { it.copy(albums = albums) }
                 val playlists = app.tidal.allPlaylists()
+                withContext(Dispatchers.IO) { app.library.cache(account, "playlists", JsonCodec.encodeReleases(playlists)) }
                 ui.update { it.copy(playlists = playlists) }
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
@@ -235,10 +287,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         ui.update { it.copy(detail = release, detailLoading = true, detailTracks = emptyList(), detailAlbums = emptyList(), error = null) }
         detailJob = viewModelScope.launch {
             try {
-                val tracks = if (release.id.startsWith("local:")) withContext(Dispatchers.IO) { app.library.playlistTracks(release.id) }
-                    else app.tidal.allTracks(release)
+                val account = app.tidal.accountId
+                val tracks = when {
+                    release.id.startsWith("local:") -> withContext(Dispatchers.IO) { app.library.playlistTracks(release.id) }
+                    ui.value.settings.offline -> withContext(Dispatchers.IO) {
+                        val cached = app.library.cache(account, "release:${release.type}:${release.id}")?.let { runCatching { JsonCodec.decodeTracks(it) }.getOrNull() }
+                        val saved = app.library.localTracks()
+                        val byId = saved.associateBy(Track::id)
+                        cached?.mapNotNull { byId[it.id] } ?: saved.filter { release.type == ReleaseType.ALBUM && it.albumId == release.id }
+                    }
+                    else -> app.tidal.allTracks(release).also { tracks ->
+                        withContext(Dispatchers.IO) { app.library.cache(account, "release:${release.type}:${release.id}", JsonCodec.encodeTracks(tracks)) }
+                    }
+                }
                 ui.update { it.copy(detailTracks = tracks, detailLoading = false) }
-                if (release.type == ReleaseType.ARTIST) {
+                if (release.type == ReleaseType.ARTIST && !ui.value.settings.offline) {
                     val albums = app.tidal.artistAlbums(release.id); ui.update { it.copy(detailAlbums = albums) }
                 }
             } catch (error: Exception) { if (error is CancellationException) throw error; ui.update { it.copy(detailLoading = false, error = userMessage(error)) } }
@@ -281,12 +344,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun favorite(track: Track) = viewModelScope.launch {
         val previous = ui.value.favorites.any { it.id == track.id }
-        withContext(Dispatchers.IO) { app.library.setFavorite(track, !previous) }
+        val account = app.tidal.accountId
+        try { withContext(Dispatchers.IO) {
+            app.library.setFavorite(track, !previous)
+            if (!track.id.startsWith("local:")) app.library.queueFavorite(account, track.id, !previous)
+        } } catch (error: Exception) {
+            if (error is CancellationException) throw error
+            notify("The track could not be saved. Check available storage and try again."); return@launch
+        }
         cloudFavorites = if (previous) cloudFavorites.filterNot { it.id == track.id } else cloudFavorites
         refreshLocal()
         if (!track.id.startsWith("local:") && app.tidal.signedIn && !ui.value.settings.offline) {
-            try { app.tidal.setFavorite(track.id, !previous) }
+            try { favoriteSyncLock.withLock { drainFavorites(account) } }
             catch (error: Exception) { if (error is CancellationException) throw error; notify("Saved on this device. TIDAL could not be updated: ${userMessage(error)}") }
+        }
+    }
+
+    private suspend fun drainFavorites(account: String) {
+        while (account.isNotBlank() && account == app.tidal.accountId && !ui.value.settings.offline) {
+            val changes = withContext(Dispatchers.IO) { app.library.pendingFavorites(account) }
+            if (changes.isEmpty()) return
+            for ((id, favorite) in changes) {
+                if (account != app.tidal.accountId || ui.value.settings.offline) return
+                app.tidal.setFavorite(id, favorite)
+                val track = withContext(Dispatchers.IO) { app.library.favoriteSynced(account, id, favorite); app.library.get(id) }
+                if (account != app.tidal.accountId) return
+                cloudFavorites = if (favorite && track != null) (listOf(track) + cloudFavorites).distinctBy(Track::id) else cloudFavorites.filterNot { it.id == id }
+            }
+            withContext(Dispatchers.IO) { app.library.cache(account, "favorites", JsonCodec.encodeTracks(cloudFavorites)) }
+            refreshLocal()
         }
     }
 
@@ -327,21 +413,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } finally { ui.update { it.copy(exportProgress = null) } }
     }
 
-    fun removeLocal(track: Track) = viewModelScope.launch(Dispatchers.IO) {
-        WorkManager.getInstance(app).cancelUniqueWork("download:${track.id}")
-        if (track.localUri?.startsWith("undertow-offline:") == true) {
-            try { app.sources.removeOffline(track.id) }
-            catch (_: Exception) { notify("The downloaded audio could not be removed. Try again."); return@launch }
+    fun removeLocal(track: Track) = viewModelScope.launch {
+        try {
+            controller?.let { player ->
+                if (track.id.startsWith("local:")) {
+                    (player.mediaItemCount - 1 downTo 0).filter { player.getMediaItemAt(it).mediaId == track.id }.forEach(player::removeMediaItem)
+                } else if (player.currentMediaItem?.mediaId == track.id) player.stop()
+            }
+            withContext(Dispatchers.IO) {
+                WorkManager.getInstance(app).cancelUniqueWork("download:${track.id}").result.get()
+                if (track.localUri?.startsWith("undertow-offline:") == true) app.sources.removeOffline(track.id)
+                if (track.localUri?.startsWith("file:") == true) {
+                    val file = java.io.File(Uri.parse(track.localUri).path.orEmpty())
+                    if (file.canonicalPath.startsWith(app.filesDir.canonicalPath + "/downloads/") && file.exists()) check(file.delete())
+                }
+                app.library.removeLocal(track.id)
+                if (track.id.startsWith("local:") && track.localUri?.startsWith("content:") == true) runCatching {
+                    app.contentResolver.releasePersistableUriPermission(Uri.parse(track.localUri), android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+            }
+            ui.value.detail?.takeIf { it.id.startsWith("local:") }?.let(::open)
+        } catch (error: Exception) {
+            if (error is CancellationException) throw error
+            notify("The audio could not be removed. Try again.")
         }
-        if (track.localUri?.startsWith("file:") == true) {
-            val file = java.io.File(Uri.parse(track.localUri).path.orEmpty())
-            if (file.canonicalPath.startsWith(app.filesDir.canonicalPath + "/downloads/")) file.delete()
-        }
-        app.library.removeLocal(track.id)
     }
 
-    fun createPlaylist(title: String) = viewModelScope.launch(Dispatchers.IO) {
-        if (title.isNotBlank()) { app.library.createPlaylist(title); notify("Playlist created") }
+    fun createPlaylist(title: String, initialTrack: Track? = null) = viewModelScope.launch(Dispatchers.IO) {
+        try {
+            if (title.isNotBlank()) {
+                val playlist = app.library.createPlaylist(title)
+                initialTrack?.let { app.library.addToPlaylist(playlist.id, it) }
+                notify("Playlist created")
+            }
+        } catch (_: Exception) { notify("The playlist could not be saved. Check available storage and try again.") }
     }
     fun addToPlaylist(playlist: LocalPlaylist, track: Track) = viewModelScope.launch(Dispatchers.IO) {
         app.library.addToPlaylist(playlist.id, track); notify("Added to ${playlist.title}")
@@ -358,6 +463,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         lyricsJob?.cancel()
         lyricsJob = viewModelScope.launch {
         val track = ui.value.playback.track ?: return@launch
+        if (ui.value.settings.offline) { ui.update { it.copy(lyrics = "Lyrics are not available offline.", lyricsLoading = false) }; return@launch }
         ui.update { it.copy(lyrics = null, lyricsLoading = true) }
         try {
             val lyrics = if (track.id.startsWith("local:")) "Lyrics are not available for this local file." else app.tidal.lyrics(track.id).ifBlank { "No lyrics are available for this track." }
@@ -405,9 +511,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun canEdit(release: Release): Boolean = release.type == ReleaseType.PLAYLIST &&
         (release.id.startsWith("local:") || (app.tidal.signedIn && release.ownerId.isNotBlank() && release.ownerId == app.tidal.accountId))
 
-    fun createCloudPlaylist(title: String) = accountAction {
+    fun createCloudPlaylist(title: String, initialTrack: Track? = null) = accountAction {
         val playlist = app.tidal.createPlaylist(title.trim())
         ui.update { it.copy(playlists = it.playlists + playlist) }
+        initialTrack?.let { app.tidal.addToPlaylist(playlist.id, it.id) }
         notify("Playlist created in TIDAL")
     }
 
@@ -461,5 +568,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         is java.io.IOException -> "The connection failed. Check your network and try again."
         else -> "The request could not be completed. Please retry."
     }
-    override fun onCleared() { persistQueue(); MediaController.releaseFuture(controllerFuture); super.onCleared() }
+    override fun onCleared() {
+        if (networkCallbackRegistered) runCatching { connectivity.unregisterNetworkCallback(networkCallback) }
+        persistQueue(); MediaController.releaseFuture(controllerFuture); super.onCleared()
+    }
 }

@@ -2,14 +2,23 @@
 
 Android music player for TIDAL and local audio files. Built with Kotlin, Compose, and Media3. Google Play Services are not required.
 
-Development is in progress. Local playback, browser sign-in, and live TIDAL lossless playback have been checked on an Android emulator. Downloads and wider device compatibility are still under verification; see [verification](docs/verification.md).
+## Install
+
+[Download Undertow 0.1.0](https://github.com/yyan115/tidal-app/releases/download/v0.1.0/undertow-0.1.0.apk) for Android 8 or later. The [release page](https://github.com/yyan115/tidal-app/releases/tag/v0.1.0) includes checksums. Allow installation from your browser or file manager when Android asks.
+
+| Player | Library | Dark theme |
+| --- | --- | --- |
+| ![Player](docs/screenshots/player.png) | ![Device library](docs/screenshots/library.png) | ![Settings in dark theme](docs/screenshots/settings.png) |
+
+Screenshots show the running app with the project's original test recording.
 
 ## Features
 
 - Search TIDAL, browse your collection, and play full tracks with a subscription.
 - Play local FLAC, AAC, MP3, and other formats supported by Android.
-- Manage a queue, save tracks, and combine local and TIDAL tracks in device playlists.
-- Keep supported audio offline, with Wi-Fi-only download controls.
+- Edit and reorder the queue, use shuffle/repeat, and combine local and TIDAL tracks in device playlists.
+- Create, rename, and edit your TIDAL playlists. Keep your collection cached and sync saved-track changes after leaving offline mode.
+- Download supported audio with Wi-Fi-only controls and play saved copies after signing out.
 - Export clear lossless downloads as tagged FLAC files without re-encoding.
 - Control playback from notifications, the lock screen, or a Bluetooth device.
 - Show the audio format returned by the service rather than assuming the requested quality was delivered.
@@ -17,6 +26,12 @@ Development is in progress. Local playback, browser sign-in, and live TIDAL loss
 TIDAL integration is unofficial. It connects directly to TIDAL and requires your own account. Service changes can affect authentication and playback. Protected streams are not supported.
 
 Use [browser sign-in](docs/sign-in.md) for lossless access. The final TIDAL page must be shared back to Undertow; device-code login can return AAC instead.
+
+## Offline files
+
+Choose **Download** in a track's menu or player. Completed downloads appear in **Downloads** and remain playable without an account. Enable **Settings → Offline mode** to use only saved audio.
+
+To keep a standalone file, open a downloaded track's menu and choose **Export audio file**. Pick a destination with Android's file picker. Clear FLAC downloads become tagged `.flac` files without re-encoding; original local files are copied unchanged. Exports stay in the location you choose. Downloads held in app data are removed if you uninstall Undertow or clear its storage.
 
 ## Build
 
@@ -49,7 +64,7 @@ The file picker grants access only to the audio files you choose. Imported files
 
 The `core` module contains the service client, models, and stream parsing. The `app` module contains storage, playback, downloads, and the Android interface. Tests do not need a TIDAL password. Keep real accounts, tokens, signing material, and private recordings out of the repository and issue reports.
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a change. Report vulnerabilities using [SECURITY.md](SECURITY.md).
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a change. Maintainers can follow the [release guide](docs/releasing.md). Report vulnerabilities using [SECURITY.md](SECURITY.md).
 
 ## License
 

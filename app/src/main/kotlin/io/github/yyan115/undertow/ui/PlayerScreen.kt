@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
@@ -56,7 +57,7 @@ fun MiniPlayer(state: PlaybackState, onOpen: () -> Unit, onPlay: () -> Unit, onN
 fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, onQueue: () -> Unit, onMenu: (Track) -> Unit, onDownload: (Track) -> Unit) {
     val player = state.playback
     val track = player.track ?: return
-    var lyrics by remember { mutableStateOf(false) }
+    var lyrics by remember(track.id) { mutableStateOf(false) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val window = (LocalView.current.parent as DialogWindowProvider).window
         val light = MaterialTheme.colorScheme.background.luminance() > .5f
@@ -68,25 +69,34 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
             }
         }
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            BoxWithConstraints(Modifier.fillMaxSize().systemBarsPadding()) {
-                val landscape = maxWidth > 600.dp && maxWidth > maxHeight
-                val artSize = if (landscape) minOf(maxHeight - 96.dp, 320.dp) else minOf(maxWidth - 64.dp, maxHeight * .30f)
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
+                val landscape = maxWidth >= 480.dp && maxWidth > maxHeight && LocalDensity.current.fontScale <= 1.3f
+                val artSize = if (landscape) minOf(maxHeight - 80.dp, maxWidth * .34f, 320.dp)
+                    else if (LocalDensity.current.fontScale > 1.3f) minOf(96.dp, maxWidth - 64.dp)
+                    else minOf(maxWidth - 64.dp, maxHeight * .30f)
+                Column(Modifier.fillMaxSize()) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = onClose) { Icon(Icons.Outlined.KeyboardArrowDown, "Close player") }
                         Text("Now playing", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            textAlign = if (landscape) androidx.compose.ui.text.style.TextAlign.Start else androidx.compose.ui.text.style.TextAlign.Center)
+                        if (landscape) {
+                            IconButton(onClick = { lyrics = true; vm.loadLyrics() }) { Icon(Icons.Outlined.Lyrics, "Lyrics") }
+                            DownloadButton(state, onDownload)
+                            IconButton(onClick = onQueue) { Icon(Icons.AutoMirrored.Outlined.PlaylistPlay, "Queue · ${player.queue.size}") }
+                        }
                         IconButton(onClick = { onMenu(track) }) { Icon(Icons.Outlined.MoreHoriz, "Track options") }
                     }
                     if (landscape) {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 32.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                        Row(Modifier.fillMaxWidth().weight(1f).padding(start = 32.dp, end = 32.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(32.dp)) {
                             Artwork(track.artwork, "Artwork for ${track.album.ifBlank { track.title }}", Modifier.size(artSize))
-                            Column(Modifier.weight(1f)) { PlayerControls(state, vm, onQueue, onDownload) { lyrics = true; vm.loadLyrics() } }
+                            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) { PlayerControls(state, vm, onQueue, onDownload, compact = true) { lyrics = true; vm.loadLyrics() } }
                         }
                     } else {
-                        Artwork(track.artwork, "Artwork for ${track.album.ifBlank { track.title }}", Modifier.size(artSize).align(Alignment.CenterHorizontally).padding(4.dp))
-                        Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 8.dp)) {
-                            PlayerControls(state, vm, onQueue, onDownload) { lyrics = true; vm.loadLyrics() }
+                        Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
+                            Artwork(track.artwork, "Artwork for ${track.album.ifBlank { track.title }}", Modifier.size(artSize).align(Alignment.CenterHorizontally).padding(4.dp))
+                            Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 8.dp)) {
+                                PlayerControls(state, vm, onQueue, onDownload) { lyrics = true; vm.loadLyrics() }
+                            }
                         }
                     }
                 }
@@ -101,15 +111,15 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
 
 @UnstableApi
 @Composable
-private fun PlayerControls(state: AppState, vm: MainViewModel, onQueue: () -> Unit, onDownload: (Track) -> Unit, onLyrics: () -> Unit) {
+private fun PlayerControls(state: AppState, vm: MainViewModel, onQueue: () -> Unit, onDownload: (Track) -> Unit, compact: Boolean = false, onLyrics: () -> Unit) {
     val player = state.playback
     val track = player.track ?: return
     val saved = state.favorites.any { it.id == track.id }
     var seeking by remember(track.id) { mutableStateOf<Float?>(null) }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(track.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(track.artist, Modifier.padding(top = 5.dp), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Text(track.title, style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(track.artist, Modifier.padding(top = if (compact) 3.dp else 5.dp), style = if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         IconButton(onClick = { vm.favorite(track) }) { Icon(if (saved) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
@@ -118,19 +128,19 @@ private fun PlayerControls(state: AppState, vm: MainViewModel, onQueue: () -> Un
     if (player.error != null) {
         Text(player.error, Modifier.padding(top = 10.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
     } else if (player.quality.isNotBlank()) {
-        Text(player.quality, Modifier.padding(top = 10.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+        Text(player.quality, Modifier.padding(top = if (compact) 4.dp else 10.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
     } else Spacer(Modifier.height(14.dp))
     Slider(value = seeking ?: player.position.toFloat().coerceIn(0f, player.duration.coerceAtLeast(1).toFloat()),
         onValueChange = { seeking = it }, valueRange = 0f..player.duration.coerceAtLeast(1).toFloat(), enabled = player.duration > 0,
-        onValueChangeFinished = { seeking?.let { vm.seek(it.toLong()) }; seeking = null }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+        onValueChangeFinished = { seeking?.let { vm.seek(it.toLong()) }; seeking = null }, modifier = Modifier.fillMaxWidth().padding(top = if (compact) 0.dp else 6.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(formatDuration(seeking?.toLong() ?: player.position), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(formatDuration(player.duration), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(vertical = if (compact) 4.dp else 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         IconToggleButton(player.shuffle, onCheckedChange = { vm.toggleShuffle() }) { Icon(Icons.Outlined.Shuffle, "Shuffle") }
         IconButton(onClick = vm::previous, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.SkipPrevious, "Previous track", Modifier.size(32.dp)) }
-        FilledIconButton(onClick = vm::togglePlay, modifier = Modifier.size(68.dp)) {
+        FilledIconButton(onClick = vm::togglePlay, modifier = Modifier.size(if (compact) 56.dp else 68.dp)) {
             if (player.buffering) CircularProgressIndicator(Modifier.size(28.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
             else Icon(if (player.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, if (player.playing) "Pause" else "Play", Modifier.size(36.dp))
         }
@@ -142,15 +152,21 @@ private fun PlayerControls(state: AppState, vm: MainViewModel, onQueue: () -> Un
                 when (player.repeat) { Player.REPEAT_MODE_ONE -> "Repeat one track"; Player.REPEAT_MODE_ALL -> "Repeat queue"; else -> "Repeat off" })
         }
     }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+    if (!compact) FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         TextButton(onClick = onLyrics) { Icon(Icons.Outlined.Lyrics, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Lyrics") }
-        val downloaded = track.isLocal || state.local.any { it.id == track.id }
-        val pending = state.downloads.any { "track:${track.id}" in it.tags && !it.state.isFinished }
-        IconButton(onClick = { onDownload(track) }, enabled = !downloaded && !pending) {
-            if (pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-            else Icon(if (downloaded) Icons.Outlined.DownloadDone else Icons.Outlined.Download, if (downloaded) "Downloaded" else "Download track")
-        }
+        DownloadButton(state, onDownload)
         TextButton(onClick = onQueue) { Icon(Icons.AutoMirrored.Outlined.PlaylistPlay, null, Modifier.size(20.dp)); Spacer(Modifier.width(6.dp)); Text("Queue · ${player.queue.size}") }
+    }
+}
+
+@Composable
+private fun DownloadButton(state: AppState, onDownload: (Track) -> Unit) {
+    val track = state.playback.track ?: return
+    val downloaded = track.isLocal || state.local.any { it.id == track.id }
+    val pending = state.downloads.any { "track:${track.id}" in it.tags && !it.state.isFinished }
+    IconButton(onClick = { onDownload(track) }, enabled = !downloaded && !pending) {
+        if (pending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+        else Icon(if (downloaded) Icons.Outlined.DownloadDone else Icons.Outlined.Download, if (downloaded) "Downloaded" else "Download track")
     }
 }
 

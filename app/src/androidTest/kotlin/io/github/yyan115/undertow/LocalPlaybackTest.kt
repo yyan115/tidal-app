@@ -94,6 +94,33 @@ class LocalPlaybackTest {
         screenshot("local-playlist")
     }
 
+    @Test fun aNewPlaylistFromTrackOptionsContainsThatTrack() {
+        compose.onNodeWithTag("nav-2").performClick()
+        compose.onNodeWithTag("library-filters").performScrollToNode(hasText("On device"))
+        compose.onNodeWithText("On device").performClick()
+        compose.onNodeWithContentDescription("Options for Night Walk").performClick()
+        compose.onNodeWithText("Add to playlist").performClick()
+        compose.onNodeWithText("New playlist").performClick()
+        compose.onNodeWithText("Name").performTextInput("Evening")
+        compose.onNodeWithText("Create", useUnmergedTree = true).performClick()
+        compose.waitUntil(5_000) { app.library.playlists().any { it.title == "Evening" && it.trackIds == listOf(track.id) } }
+        val playlist = app.library.playlists().single { it.title == "Evening" }
+        assertEquals(track.id, app.library.playlistTracks(playlist.id).single().id)
+    }
+
+    @Test fun removingAnImportedTrackClearsItsQueueAndPlaylistButKeepsTheFile() {
+        val playlist = app.library.createPlaylist("Removal check")
+        try {
+            app.library.addToPlaylist(playlist.id, track)
+            compose.runOnIdle { model.play(listOf(track, track)) }
+            compose.waitUntil(10_000) { model.state.value.playback.queue.size == 2 }
+            compose.runOnIdle { model.removeLocal(track) }
+            compose.waitUntil(5_000) { model.state.value.local.none { it.id == track.id } && model.state.value.playback.queue.isEmpty() }
+            assertTrue(app.library.playlistTracks(playlist.id).isEmpty())
+            assertTrue(File(Uri.parse(track.localUri).path!!).isFile)
+        } finally { app.library.deletePlaylist(playlist.id) }
+    }
+
     @Test fun mainScreensAndThemeCanBeOpened() {
         screenshot("listen")
         compose.onNodeWithTag("nav-1").performClick()

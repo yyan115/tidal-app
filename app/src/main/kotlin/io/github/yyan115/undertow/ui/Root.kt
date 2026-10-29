@@ -21,6 +21,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +43,7 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
     var trackMenu by remember { mutableStateOf<Track?>(null) }
     var addToPlaylist by remember { mutableStateOf<Track?>(null) }
     var newPlaylist by remember { mutableStateOf(false) }
+    var newPlaylistTrack by remember { mutableStateOf<Track?>(null) }
     var playlistTitle by remember { mutableStateOf("") }
     var cloudPlaylist by remember { mutableStateOf(false) }
     var playlistPosition by remember { mutableStateOf<Int?>(null) }
@@ -48,6 +51,13 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
     var deletePlaylist by remember { mutableStateOf(false) }
     var removeTrack by remember { mutableStateOf<Track?>(null) }
     var exportTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var navigationMenu by rememberSaveable { mutableStateOf(false) }
+    val configuration = LocalConfiguration.current
+    val landscape = configuration.screenWidthDp > configuration.screenHeightDp
+    val largeText = LocalDensity.current.fontScale > 1.3f
+    val rail = landscape && !largeText
+    val navigationTitles = listOf("Listen", "Search", "Library", "Downloads")
+    val navigationIcons = listOf(Icons.Outlined.Headphones, Icons.Outlined.Search, Icons.Outlined.LibraryMusic, Icons.Outlined.Download)
     val snackbar = remember { SnackbarHostState() }
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> vm.import(uris) }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -58,16 +68,27 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
     }
     val importAudio = { importer.launch(arrayOf("audio/*")) }
     val openLogin = { login = true }
+    val openTrackMenu: (Track) -> Unit = { trackMenu = it; playlistPosition = null }
     LaunchedEffect(state.message) { state.message?.let { snackbar.showSnackbar(it); vm.messageShown() } }
     LaunchedEffect(state.signedIn) { if (state.signedIn) login = false }
     BackHandler(enabled = state.detail != null || settings) { if (settings) settings = false else vm.closeDetail() }
 
-    Scaffold(
+    Row(Modifier.fillMaxSize().then(if (landscape) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Start)) else Modifier)) {
+    if (rail) NavigationRail(windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical)) {
+        navigationTitles.forEachIndexed { index, title -> NavigationRailItem(selected = tab == index,
+            modifier = Modifier.testTag("nav-$index"), onClick = { tab = index; settings = false; vm.closeDetail() },
+            icon = { Icon(navigationIcons[index], null) }, label = { Text(title) }) }
+    }
+    Scaffold(modifier = Modifier.weight(1f),
         topBar = {
             TopAppBar(title = { Text(if (settings) "Settings" else state.detail?.let {
                 when (it.type) { ReleaseType.ALBUM -> "Album"; ReleaseType.ARTIST -> "Artist"; ReleaseType.PLAYLIST -> "Playlist" }
-            } ?: listOf("Listen", "Search", "Library", "Downloads")[tab], style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold) },
-                navigationIcon = { if (settings || state.detail != null) IconButton(onClick = { if (settings) settings = false else vm.closeDetail() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
+            } ?: navigationTitles[tab], style = if (LocalDensity.current.fontScale > 1.3f) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                navigationIcon = {
+                    if (settings || state.detail != null) IconButton(onClick = { if (settings) settings = false else vm.closeDetail() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") }
+                    else if (largeText) IconButton(onClick = { navigationMenu = true }) { Icon(Icons.Outlined.Menu, "Open navigation") }
+                },
                 actions = {
                     if (!settings) {
                         if (tab == 2 && state.detail == null && state.signedIn && !state.settings.offline) IconButton(onClick = vm::sync, enabled = !state.syncing) { Icon(Icons.Outlined.Refresh, "Refresh library") }
@@ -86,11 +107,9 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
         bottomBar = {
             Column {
                 if (state.playback.track != null) MiniPlayer(state.playback, onOpen = { nowPlaying = true }, onPlay = vm::togglePlay, onNext = vm::next)
-                if (!settings) NavigationBar {
-                    val titles = listOf("Listen", "Search", "Library", "Downloads")
-                    val icons = listOf(Icons.Outlined.Headphones, Icons.Outlined.Search, Icons.Outlined.LibraryMusic, Icons.Outlined.Download)
-                    titles.forEachIndexed { index, title -> NavigationBarItem(selected = tab == index, modifier = Modifier.testTag("nav-$index"),
-                        onClick = { tab = index; settings = false; vm.closeDetail() }, icon = { Icon(icons[index], null) }, label = { Text(title) }) }
+                if (!settings && !landscape && !largeText) NavigationBar {
+                    navigationTitles.forEachIndexed { index, title -> NavigationBarItem(selected = tab == index, modifier = Modifier.testTag("nav-$index"),
+                        onClick = { tab = index; settings = false; vm.closeDetail() }, icon = { Icon(navigationIcons[index], null) }, label = { Text(title) }) }
                 }
             }
         },
@@ -100,10 +119,10 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
             when {
                 settings -> SettingsScreen(state, vm, openLogin)
                 state.detail != null -> DetailScreen(state, vm, { track, index -> trackMenu = track; playlistPosition = index })
-                tab == 0 -> ListenScreen(state, vm, importAudio, openLogin, { tab = 2 }, { trackMenu = it })
-                tab == 1 -> SearchScreen(state, vm, openLogin, { trackMenu = it })
-                tab == 2 -> LibraryScreen(state, vm, importAudio, openLogin, { newPlaylist = true }, { trackMenu = it })
-                else -> DownloadsScreen(state, vm, { trackMenu = it })
+                tab == 0 -> ListenScreen(state, vm, importAudio, openLogin, { tab = 2 }, openTrackMenu)
+                tab == 1 -> SearchScreen(state, vm, openLogin, openTrackMenu)
+                tab == 2 -> LibraryScreen(state, vm, importAudio, openLogin, { newPlaylistTrack = null; playlistTitle = ""; newPlaylist = true }, openTrackMenu)
+                else -> DownloadsScreen(state, vm, openTrackMenu)
             }
             state.exportProgress?.let { percent -> Surface(Modifier.fillMaxWidth().align(androidx.compose.ui.Alignment.BottomCenter), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                 Column(Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
@@ -113,17 +132,33 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
             } }
         }
     }
+    }
+
+    if (navigationMenu) ModalBottomSheet(onDismissRequest = { navigationMenu = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
+            navigationTitles.forEachIndexed { index, title -> NavigationDrawerItem(selected = tab == index, label = { Text(title) },
+                icon = { Icon(navigationIcons[index], null) }, modifier = Modifier.padding(horizontal = 12.dp),
+                onClick = { tab = index; settings = false; vm.closeDetail(); navigationMenu = false }) }
+        }
+    }
 
     if (login) LoginSheet(state, vm, onClose = { login = false; vm.cancelLogin() })
-    if (nowPlaying && state.playback.track != null) NowPlayingScreen(state, vm, onClose = { nowPlaying = false }, onQueue = { queue = true }, onMenu = { trackMenu = it }, onDownload = { track ->
+    if (nowPlaying && state.playback.track != null) NowPlayingScreen(state, vm, onClose = { nowPlaying = false }, onQueue = { queue = true }, onMenu = openTrackMenu, onDownload = { track ->
         if (Build.VERSION.SDK_INT >= 33) notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
         vm.download(track)
     })
     if (queue) QueueSheet(state, vm) { queue = false }
     trackMenu?.let { track ->
-        ModalBottomSheet(onDismissRequest = { trackMenu = null }) {
+        ModalBottomSheet(onDismissRequest = { trackMenu = null; playlistPosition = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
             Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
-                TrackRow(track, onPlay = { vm.play(listOf(track)); trackMenu = null }, onMenu = { trackMenu = null })
+                Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Artwork(track.artwork, null, Modifier.size(52.dp))
+                    Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                        Text(track.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        Text(track.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                    }
+                    IconButton(onClick = { trackMenu = null }) { Icon(Icons.Outlined.Close, "Close track options") }
+                }
                 HorizontalDivider(Modifier.padding(vertical = 12.dp))
                 val saved = state.favorites.any { it.id == track.id }
                 SettingRow(if (saved) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder, if (saved) "Remove from saved tracks" else "Save track", onClick = { vm.favorite(track); trackMenu = null })
@@ -151,7 +186,7 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
                 if (localCopy != null) SettingRow(Icons.Outlined.SaveAlt, "Export audio file", onClick = {
                     try {
                         exportTarget = JsonCodec.encodeTrack(localCopy).toString()
-                        exporter.launch(vm.app.exporter.describe(localCopy)); trackMenu = null
+                        exporter.launch(vm.app.exporter.describe(localCopy)); trackMenu = null; nowPlaying = false
                     } catch (_: Exception) { vm.notify("This audio file is no longer readable") }
                 })
             }
@@ -166,18 +201,18 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
                     TextButton(onClick = { vm.addToCloudPlaylist(playlist, track); addToPlaylist = null }) { Text("${playlist.title} · TIDAL") }
                 }
             }
-        }, confirmButton = { TextButton(onClick = { addToPlaylist = null; newPlaylist = true }) { Text("New playlist") } }, dismissButton = { TextButton(onClick = { addToPlaylist = null }) { Text("Cancel") } })
+        }, confirmButton = { TextButton(onClick = { newPlaylistTrack = track; playlistTitle = ""; addToPlaylist = null; newPlaylist = true }) { Text("New playlist") } }, dismissButton = { TextButton(onClick = { addToPlaylist = null }) { Text("Cancel") } })
     }
     if (newPlaylist) AlertDialog(onDismissRequest = { newPlaylist = false }, title = { Text("New playlist") }, text = {
         Column {
             OutlinedTextField(playlistTitle, { playlistTitle = it }, label = { Text("Name") }, singleLine = true)
-            if (state.signedIn && !state.settings.offline) Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            if (state.signedIn && !state.settings.offline && newPlaylistTrack?.id?.startsWith("local:") != true) Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Checkbox(cloudPlaylist, { cloudPlaylist = it }); Text("Create in TIDAL")
             }
         }
     }, confirmButton = { TextButton(enabled = playlistTitle.isNotBlank(), onClick = {
-        if (cloudPlaylist && state.signedIn) vm.createCloudPlaylist(playlistTitle) else vm.createPlaylist(playlistTitle)
-        playlistTitle = ""; cloudPlaylist = false; newPlaylist = false
+        if (cloudPlaylist && state.signedIn && newPlaylistTrack?.id?.startsWith("local:") != true) vm.createCloudPlaylist(playlistTitle, newPlaylistTrack) else vm.createPlaylist(playlistTitle, newPlaylistTrack)
+        playlistTitle = ""; cloudPlaylist = false; newPlaylist = false; newPlaylistTrack = null
     }) { Text("Create") } },
         dismissButton = { TextButton(onClick = { newPlaylist = false }) { Text("Cancel") } })
     if (editPlaylist) state.detail?.let { release -> AlertDialog(onDismissRequest = { editPlaylist = false }, title = { Text("Edit playlist") }, text = {

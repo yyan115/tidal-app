@@ -34,7 +34,9 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
         val encoded = inputData.getString("track") ?: return@withContext Result.failure()
         val track = JsonCodec.decodeTrack(JSONObject(encoded))
         if (track.isLocal || app.library.get(track.id)?.isLocal == true) return@withContext Result.success()
+        if (app.settings.state.value.offline) return@withContext Result.retry()
         var temporary: File? = null
+        var completedFile: File? = null
         var dash: DashDownloader? = null
         try {
             setForeground(notification(track.title, 0))
@@ -45,7 +47,7 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
                 dash = downloader
                 try {
                     downloader.download { _, _, percent ->
-                        if (isStopped) throw InterruptedIOException("Download cancelled")
+                        if (isStopped || app.settings.state.value.offline) throw InterruptedIOException("Download paused")
                         progress(percent.toInt())
                     }
                     app.sources.saveOffline(track.id, stream)
@@ -64,7 +66,7 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
                     response.body.byteStream().use { input -> part.outputStream().use { output ->
                         val buffer = ByteArray(64 * 1024)
                         while (true) {
-                            if (isStopped) throw InterruptedIOException("Download cancelled")
+                            if (isStopped || app.settings.state.value.offline) throw InterruptedIOException("Download paused")
                             val count = input.read(buffer)
                             if (count < 0) break
                             output.write(buffer, 0, count); total += count
@@ -79,14 +81,18 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
                 val extension = if (header.contentEquals("fLaC".toByteArray())) ".flac" else ".m4a"
                 val destination = File(directory, AudioSources.safeId(track.id) + extension)
                 check(part.renameTo(destination)) { "The audio file could not be saved." }
+                completedFile = destination
                 android.net.Uri.fromFile(destination).toString()
             }
             app.library.save(track.copy(localUri = localUri, quality = stream.qualityLabel))
             Result.success()
         } catch (error: Exception) {
             temporary?.delete()
+            completedFile?.delete()
             dash?.let { runCatching { it.remove() } }
+            if (dash != null) app.sources.offlineFile(track.id).delete()
             if (isStopped) throw error
+            if (app.settings.state.value.offline) return@withContext Result.retry()
             val message = when (error) {
                 is io.github.yyan115.undertow.core.ServiceException -> error.message
                 is io.github.yyan115.undertow.core.ProtectedStreamException -> error.message

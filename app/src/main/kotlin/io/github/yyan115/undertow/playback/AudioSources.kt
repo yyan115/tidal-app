@@ -47,7 +47,7 @@ class AudioSources(private val app: UndertowApp) {
     }
 
     suspend fun resolve(track: Track): MediaItem {
-        val saved = app.library.get(track.id)?.takeIf { it.isLocal } ?: track
+        val saved = app.library.get(track.id) ?: track
         saved.localUri?.let { local ->
             if (local.startsWith("undertow-offline:")) return item(saved, readOffline(saved.id))
             return metadata(saved).setUri(local).build()
