@@ -18,6 +18,8 @@ import javax.crypto.spec.GCMParameterSpec
 class SecureSessionStore(context: Context) : SessionStore {
     private val preferences = context.getSharedPreferences("private_session", Context.MODE_PRIVATE)
     private val alias = "undertow.session.v1"
+    private var sessionLoaded = false
+    private var cachedSession: Session? = null
 
     @Synchronized private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -52,21 +54,30 @@ class SecureSessionStore(context: Context) : SessionStore {
         }
     }
 
-    override fun read(): Session? = readEncrypted("session")?.let { text ->
-        try {
-            val value = JSONObject(text)
-            Session(value.getString("accessToken"), value.getString("refreshToken"), value.getLong("expiresAt"),
-                value.optString("userId"), value.optString("country", "US"), value.optString("authMethod", "device"))
-        } catch (_: Exception) { null }
+    @Synchronized override fun read(): Session? {
+        if (!sessionLoaded) {
+            cachedSession = readEncrypted("session")?.let { text ->
+                try {
+                    val value = JSONObject(text)
+                    Session(value.getString("accessToken"), value.getString("refreshToken"), value.getLong("expiresAt"),
+                        value.optString("userId"), value.optString("country", "US"), value.optString("authMethod", "device"))
+                } catch (_: Exception) { null }
+            }
+            sessionLoaded = true
+        }
+        return cachedSession
     }
 
-    override fun write(session: Session) = writeEncrypted("session", JSONObject().apply {
-        put("accessToken", session.accessToken); put("refreshToken", session.refreshToken)
-        put("expiresAt", session.expiresAt); put("userId", session.userId); put("country", session.country)
-        put("authMethod", session.authMethod)
-    }.toString())
+    @Synchronized override fun write(session: Session) {
+        writeEncrypted("session", JSONObject().apply {
+            put("accessToken", session.accessToken); put("refreshToken", session.refreshToken)
+            put("expiresAt", session.expiresAt); put("userId", session.userId); put("country", session.country)
+            put("authMethod", session.authMethod)
+        }.toString())
+        cachedSession = session; sessionLoaded = true
+    }
 
-    override fun clear() { preferences.edit().remove("session").apply() }
+    @Synchronized override fun clear() { preferences.edit().remove("session").apply(); cachedSession = null; sessionLoaded = true }
 
     fun savePkce(login: PkceLogin) = writeEncrypted("pending_pkce", JSONObject().apply {
         put("url", login.authorizationUrl); put("verifier", login.verifier); put("state", login.state)

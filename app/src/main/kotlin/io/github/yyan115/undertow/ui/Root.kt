@@ -47,9 +47,15 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
     var editPlaylist by remember { mutableStateOf(false) }
     var deletePlaylist by remember { mutableStateOf(false) }
     var removeTrack by remember { mutableStateOf<Track?>(null) }
+    var exportTarget by rememberSaveable { mutableStateOf<String?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> vm.import(uris) }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val exporter = rememberLauncherForActivityResult(ExportContract()) { uri ->
+        val encoded = exportTarget
+        exportTarget = null
+        if (uri != null && encoded != null) vm.export(JsonCodec.decodeTrack(org.json.JSONObject(encoded)), uri)
+    }
     val importAudio = { importer.launch(arrayOf("audio/*")) }
     val openLogin = { login = true }
     LaunchedEffect(state.message) { state.message?.let { snackbar.showSnackbar(it); vm.messageShown() } }
@@ -99,6 +105,12 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
                 tab == 2 -> LibraryScreen(state, vm, importAudio, openLogin, { newPlaylist = true }, { trackMenu = it })
                 else -> DownloadsScreen(state, vm, { trackMenu = it })
             }
+            state.exportProgress?.let { percent -> Surface(Modifier.fillMaxWidth().align(androidx.compose.ui.Alignment.BottomCenter), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                Column(Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
+                    Text("Exporting audio · $percent%", style = MaterialTheme.typography.bodySmall)
+                    LinearProgressIndicator(progress = { percent / 100f }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                }
+            } }
         }
     }
 
@@ -135,6 +147,13 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
                         .putExtra(Intent.EXTRA_TEXT, "https://tidal.com/browse/track/${track.id}"), "Share track")); trackMenu = null
                 })
                 if (track.isLocal) SettingRow(Icons.Outlined.RemoveCircleOutline, "Remove from device library", onClick = { removeTrack = track; trackMenu = null })
+                val localCopy = state.local.firstOrNull { it.id == track.id } ?: track.takeIf(Track::isLocal)
+                if (localCopy != null) SettingRow(Icons.Outlined.SaveAlt, "Export audio file", onClick = {
+                    try {
+                        exportTarget = JsonCodec.encodeTrack(localCopy).toString()
+                        exporter.launch(vm.app.exporter.describe(localCopy)); trackMenu = null
+                    } catch (_: Exception) { vm.notify("This audio file is no longer readable") }
+                })
             }
         }
     }

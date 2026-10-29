@@ -61,6 +61,7 @@ data class AppState(
     val downloadTracks: Map<String, Track> = emptyMap(),
     val lyrics: String? = null, val lyricsLoading: Boolean = false,
     val hasMoreFavorites: Boolean = false,
+    val exportProgress: Int? = null,
 )
 
 @OptIn(FlowPreview::class)
@@ -313,6 +314,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun cancelDownload(work: WorkInfo) { WorkManager.getInstance(app).cancelWorkById(work.id) }
     fun clearDownloadHistory() { WorkManager.getInstance(app).pruneWork() }
+
+    fun export(track: Track, destination: Uri) = viewModelScope.launch {
+        if (ui.value.exportProgress != null) { notify("Wait for the current export to finish"); return@launch }
+        ui.update { it.copy(exportProgress = 0) }
+        try {
+            app.exporter.write(track, destination) { percent -> ui.update { it.copy(exportProgress = percent) } }
+            notify("Audio file exported")
+        } catch (error: Exception) {
+            if (error is CancellationException) throw error
+            notify("The audio could not be exported. Check the destination and try again.")
+        } finally { ui.update { it.copy(exportProgress = null) } }
+    }
 
     fun removeLocal(track: Track) = viewModelScope.launch(Dispatchers.IO) {
         WorkManager.getInstance(app).cancelUniqueWork("download:${track.id}")

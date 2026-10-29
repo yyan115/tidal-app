@@ -309,6 +309,7 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit) {
     var theme by remember { mutableStateOf(false) }
     var signOut by remember { mutableStateOf(false) }
     var client by remember { mutableStateOf(false) }
+    var licenses by remember { mutableStateOf(false) }
     var clientId by remember { mutableStateOf("") }
     var clientSecret by remember { mutableStateOf("") }
     LazyColumn(Modifier.fillMaxSize().testTag("settings-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -334,8 +335,10 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit) {
             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/yyan115/tidal-app"))) }
         }) }
         item { SettingRow(Icons.Outlined.PrivacyTip, "Privacy", "No ads, analytics, or account proxy. Streaming connects directly to TIDAL.") }
+        item { SettingRow(Icons.Outlined.Description, "Open-source licenses", "GPL-3.0-or-later and dependency notices", { licenses = true }) }
         item { SettingRow(Icons.Outlined.Key, "Client configuration", "Use a different TIDAL OAuth client", { client = true }) }
     }
+    if (licenses) LicensesDialog { licenses = false }
     if (quality || mobile) AlertDialog(onDismissRequest = { quality = false; mobile = false }, title = { Text(if (mobile) "Mobile audio quality" else "Wi-Fi audio quality") },
         text = { Column { AudioQuality.entries.forEach { value -> Row(Modifier.fillMaxWidth().clickable {
             if (mobile) vm.settings { it.copy(mobileQuality = value) } else vm.settings { it.copy(quality = value) }

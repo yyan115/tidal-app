@@ -102,8 +102,9 @@ class LocalPlaybackTest {
         compose.onNodeWithText("Night Walk").assertIsDisplayed()
         screenshot("search-local")
         compose.onNodeWithTag("nav-3").performClick()
-        compose.onNodeWithText("No downloads yet").assertIsDisplayed()
-        screenshot("downloads-empty")
+        compose.onNodeWithText("Available without a connection").assertIsDisplayed()
+        if (model.state.value.local.none { !it.id.startsWith("local:") }) compose.onNodeWithText("No downloads yet").assertIsDisplayed()
+        screenshot("downloads")
         compose.onNodeWithContentDescription("Settings").performClick()
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Theme"))
         compose.onNodeWithText("Theme").performClick()
@@ -114,6 +115,7 @@ class LocalPlaybackTest {
 
     private fun screenshot(name: String) {
         compose.waitForIdle()
+        InstrumentationRegistry.getInstrumentation().uiAutomation.waitForIdle(250, 5_000)
         val output = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
         val directory = (output?.let(::File) ?: File(app.getExternalFilesDir(null), "screenshots")).apply { mkdirs() }
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()

@@ -10,6 +10,7 @@ Development is in progress. Local playback, browser sign-in, and live TIDAL loss
 - Play local FLAC, AAC, MP3, and other formats supported by Android.
 - Manage a queue, save tracks, and combine local and TIDAL tracks in device playlists.
 - Keep supported audio offline, with Wi-Fi-only download controls.
+- Export clear lossless downloads as tagged FLAC files without re-encoding.
 - Control playback from notifications, the lock screen, or a Bluetooth device.
 - Show the audio format returned by the service rather than assuming the requested quality was delivered.
 

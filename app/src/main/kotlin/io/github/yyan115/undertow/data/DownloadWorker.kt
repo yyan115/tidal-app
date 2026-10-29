@@ -109,7 +109,7 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
     private fun notification(title: String, percent: Int): ForegroundInfo {
         val manager = applicationContext.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel("downloads", "Downloads", NotificationManager.IMPORTANCE_LOW))
-        val notification = Notification.Builder(applicationContext, "downloads").setSmallIcon(R.drawable.ic_undertow)
+        val notification = Notification.Builder(applicationContext, "downloads").setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title).setContentText("Saving audio for offline listening")
             .setProgress(100, percent, percent == 0).setOngoing(true).build()
         val notificationId = 2100 + (id.hashCode() and 1023)

@@ -5,6 +5,7 @@ import io.github.yyan115.undertow.core.TidalClient
 import io.github.yyan115.undertow.data.AppSettings
 import io.github.yyan115.undertow.data.LibraryStore
 import io.github.yyan115.undertow.data.LocalImporter
+import io.github.yyan115.undertow.data.OfflineExporter
 import io.github.yyan115.undertow.data.SecureSessionStore
 import okhttp3.OkHttpClient
 import io.github.yyan115.undertow.playback.AudioSources
@@ -18,5 +19,6 @@ class UndertowApp : Application() {
     val http by lazy { OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(45, TimeUnit.SECONDS).build() }
     val tidal by lazy { TidalClient(sessions::identity, sessions, http, pkceIdentity = sessions::pkceIdentity) }
     val importer by lazy { LocalImporter(this, library) }
+    val exporter by lazy { OfflineExporter(this) }
     val sources by lazy { AudioSources(this) }
 }
