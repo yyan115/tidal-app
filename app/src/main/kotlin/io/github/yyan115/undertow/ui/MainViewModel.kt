@@ -55,6 +55,7 @@ data class AppState(
     val search: SearchResult = SearchResult(), val searchQuery: String = "", val searching: Boolean = false,
     val syncing: Boolean = false, val error: String? = null, val message: String? = null,
     val login: DeviceLogin? = null, val signingIn: Boolean = false,
+    val pkceLogin: PkceLogin? = null,
     val detail: Release? = null, val detailTracks: List<Track> = emptyList(), val detailAlbums: List<Release> = emptyList(), val detailLoading: Boolean = false,
     val downloads: List<WorkInfo> = emptyList(), val playback: PlaybackState = PlaybackState(),
     val downloadTracks: Map<String, Track> = emptyMap(),
@@ -66,7 +67,8 @@ data class AppState(
 @UnstableApi
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     val app = application as UndertowApp
-    private val ui = MutableStateFlow(AppState(signedIn = app.tidal.signedIn, settings = app.settings.state.value))
+    private val ui = MutableStateFlow(AppState(signedIn = app.tidal.signedIn, settings = app.settings.state.value,
+        pkceLogin = app.sessions.pendingPkce()))
     val state = ui.asStateFlow()
     private val query = MutableStateFlow("")
     private val preferences = application.getSharedPreferences("playback", Application.MODE_PRIVATE)
@@ -150,9 +152,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun notify(message: String) { ui.update { it.copy(message = message) } }
 
     fun beginLogin() {
+        app.sessions.clearPkce()
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
-            ui.update { it.copy(signingIn = true, login = null, error = null) }
+            ui.update { it.copy(signingIn = true, login = null, pkceLogin = null, error = null) }
             try {
                 val login = app.tidal.beginLogin()
                 ui.update { it.copy(login = login) }
@@ -166,7 +169,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun cancelLogin() { loginJob?.cancel(); ui.update { it.copy(signingIn = false, login = null, error = null) } }
+    fun beginBrowserLogin(): PkceLogin {
+        loginJob?.cancel()
+        val login = app.tidal.beginPkce()
+        app.sessions.savePkce(login)
+        ui.update { it.copy(pkceLogin = login, login = null, signingIn = false, error = null) }
+        return login
+    }
+
+    fun completeBrowserLogin(callback: String) {
+        if (loginJob?.isActive == true) return
+        val pending = app.sessions.pendingPkce() ?: run { notify("Start a new TIDAL sign-in before sharing the final link."); return }
+        loginJob = viewModelScope.launch {
+            ui.update { it.copy(signingIn = true, error = null) }
+            try {
+                app.tidal.completePkce(pending, callback)
+                app.sessions.clearPkce()
+                ui.update { it.copy(pkceLogin = null, signedIn = true, signingIn = false, error = null) }
+                notify("TIDAL connected"); sync()
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                ui.update { it.copy(signingIn = false, error = userMessage(error)) }
+                notify(userMessage(error))
+            }
+        }
+    }
+
+    fun cancelLogin() { loginJob?.cancel(); app.sessions.clearPkce(); ui.update { it.copy(signingIn = false, login = null, pkceLogin = null, error = null) } }
     fun signOut() {
         cancelLogin(); syncJob?.cancel(); detailJob?.cancel(); app.tidal.signOut(); cloudFavorites = emptyList()
         ui.update { it.copy(signedIn = false, syncing = false, hasMoreFavorites = false, albums = emptyList(), playlists = emptyList(), search = SearchResult(), detail = null) }

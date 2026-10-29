@@ -143,7 +143,7 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLo
     LaunchedEffect(filter) { filters.animateScrollToItem(filter) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Spacer(Modifier.height(8.dp)) }
-        item { LazyRow(state = filters, contentPadding = PaddingValues(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { LazyRow(modifier = Modifier.testTag("library-filters"), state = filters, contentPadding = PaddingValues(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(listOf("Saved tracks", "Albums", "Playlists", "On device")) { index, label -> FilterChip(filter == index, { filter = index }, label = { Text(label) }) }
         } }
         if (state.syncing) item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) }
@@ -250,12 +250,29 @@ fun DownloadsScreen(state: AppState, vm: MainViewModel, onMenu: (Track) -> Unit)
 @Composable
 fun LoginSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
     val context = LocalContext.current
+    var paste by remember { mutableStateOf(false) }
+    var callback by remember { mutableStateOf("") }
+    val openBrowser = {
+        try {
+            val pending = state.pkceLogin?.takeIf { it.expiresAt > System.currentTimeMillis() } ?: vm.beginBrowserLogin()
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(pending.authorizationUrl)))
+        } catch (_: Exception) { vm.notify("A browser is needed to sign in. Install one and try again.") }
+    }
     ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 28.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Connect TIDAL", style = MaterialTheme.typography.headlineSmall)
             Text("Sign in on TIDAL's website. Your password stays with TIDAL.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (state.signingIn && state.login == null) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (state.login == null) {
+                if (state.pkceLogin != null) {
+                    Text("After signing in, share the final page from your browser to Undertow. You can also paste its address below.")
+                    FilledTonalButton(onClick = { paste = true }, enabled = !state.signingIn, modifier = Modifier.fillMaxWidth()) { Text("Paste final sign-in link") }
+                }
+                Button(onClick = openBrowser, enabled = !state.signingIn, modifier = Modifier.fillMaxWidth()) { Text(if (state.pkceLogin == null) "Sign in in browser" else "Reopen browser") }
+                TextButton(onClick = vm::beginLogin, enabled = !state.signingIn, modifier = Modifier.fillMaxWidth()) { Text("Use a device code instead") }
+                Text("Browser sign-in supports lossless streaming. Device-code access can be limited to AAC by TIDAL.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             state.login?.let { link ->
                 Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                     Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -272,9 +289,15 @@ fun LoginSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
                     Text("Waiting for authorization", style = MaterialTheme.typography.bodySmall)
                 }
                 Text("You can also open link.tidal.com on another device and enter this code.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } ?: Button(onClick = vm::beginLogin, enabled = !state.signingIn, modifier = Modifier.fillMaxWidth()) { Text("Continue to TIDAL") }
+                TextButton(onClick = openBrowser) { Text("Use browser sign-in instead") }
+            }
         }
     }
+    if (paste) AlertDialog(onDismissRequest = { paste = false; callback = "" }, title = { Text("Finish TIDAL sign-in") }, text = {
+        OutlinedTextField(callback, { callback = it }, label = { Text("Final TIDAL page address") }, maxLines = 4,
+            supportingText = { Text("The address starts with https://tidal.com/android/login/auth") })
+    }, confirmButton = { TextButton(enabled = callback.isNotBlank(), onClick = { vm.completeBrowserLogin(callback); callback = ""; paste = false }) { Text("Connect") } },
+        dismissButton = { TextButton(onClick = { callback = ""; paste = false }) { Text("Cancel") } })
 }
 
 @UnstableApi

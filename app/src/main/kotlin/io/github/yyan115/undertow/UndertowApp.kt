@@ -16,7 +16,7 @@ class UndertowApp : Application() {
     val settings by lazy { AppSettings(this) }
     val library by lazy { LibraryStore(this) }
     val http by lazy { OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(45, TimeUnit.SECONDS).build() }
-    val tidal by lazy { TidalClient(sessions::identity, sessions, http) }
+    val tidal by lazy { TidalClient(sessions::identity, sessions, http, pkceIdentity = sessions::pkceIdentity) }
     val importer by lazy { LocalImporter(this, library) }
     val sources by lazy { AudioSources(this) }
 }

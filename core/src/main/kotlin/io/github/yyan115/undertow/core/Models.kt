@@ -47,9 +47,15 @@ data class Session(
     val expiresAt: Long,
     val userId: String = "",
     val country: String = "US",
+    val authMethod: String = "device",
 ) {
     fun needsRefresh(now: Long = System.currentTimeMillis()) = expiresAt <= now + 60_000
     override fun toString() = "Session(authenticated=${accessToken.isNotBlank()}, country=$country)"
+}
+
+data class PkceLogin(val authorizationUrl: String, val verifier: String, val state: String,
+    val uniqueKey: String, val expiresAt: Long) {
+    override fun toString() = "PkceLogin(expiresAt=$expiresAt)"
 }
 
 data class DeviceLogin(

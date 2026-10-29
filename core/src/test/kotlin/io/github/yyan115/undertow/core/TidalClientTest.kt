@@ -13,6 +13,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.RecordedRequest
+import okhttp3.HttpUrl.Companion.toHttpUrl
 
 class TidalClientTest {
     private lateinit var server: MockWebServer
@@ -129,6 +130,46 @@ class TidalClientTest {
         assertEquals("DELETE", deletion.method)
         assertEquals("checked-version", deletion.getHeader("If-None-Match"))
         assertEquals("/v1/playlists/playlist/items/3", deletion.requestUrl!!.encodedPath)
+    }
+
+    @Test fun pkceUsesASha256ChallengeAndMinimalScopes() {
+        val login = client.beginPkce()
+        val url = login.authorizationUrl.toHttpUrl()
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(login.verifier.toByteArray())
+        assertEquals(java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(digest), url.queryParameter("code_challenge"))
+        assertEquals("S256", url.queryParameter("code_challenge_method"))
+        assertEquals("r_usr w_usr", url.queryParameter("scope"))
+        assertFalse(login.toString().contains(login.verifier))
+        assertFalse(login.toString().contains(login.state))
+        assertNotEquals(login.state, client.beginPkce().state)
+    }
+
+    @Test fun pkceRejectsWrongOriginStateAndExpiredRequestsWithoutSendingCodes() = runBlocking {
+        val login = client.beginPkce()
+        val callbacks = listOf(
+            "http://tidal.com/android/login/auth?code=private-code&state=${login.state}",
+            "https://tidal.com.attacker.example/android/login/auth?code=private-code&state=${login.state}",
+            "https://tidal.com/android/login/auth?code=private-code&state=wrong-state",
+            "https://tidal.com/android/login/auth?error=access_denied&state=${login.state}")
+        callbacks.forEach { callback ->
+            try { client.completePkce(login, callback); fail("Untrusted callback accepted") }
+            catch (error: ServiceException) { assertFalse(error.message.orEmpty().contains("private-code")) }
+        }
+        try { client.completePkce(login.copy(expiresAt = 0), "https://tidal.com/android/login/auth?code=private-code&state=${login.state}"); fail("Expired request accepted") }
+        catch (_: ServiceException) { }
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test fun pkceExchangesVerifierAndKeepsItsAuthenticationMethodForRefresh() = runBlocking {
+        val login = client.beginPkce()
+        server.enqueue(MockResponse().setBody("""{"access_token":"browser-access","refresh_token":"browser-refresh","expires_in":3600}"""))
+        server.enqueue(MockResponse().setBody("""{"userId":456,"countryCode":"IN"}"""))
+        client.completePkce(login, "https://tidal.com/android/login/auth?code=one-time-code&state=${login.state}")
+        val exchange = server.takeRequest().body.readUtf8()
+        assertTrue(exchange.contains("code_verifier=${login.verifier}"))
+        assertFalse(exchange.contains("w_sub"))
+        assertEquals("pkce", store.read()!!.authMethod)
+        assertEquals("456", store.read()!!.userId)
     }
 
     private class MemoryStore(var value: Session?) : SessionStore {

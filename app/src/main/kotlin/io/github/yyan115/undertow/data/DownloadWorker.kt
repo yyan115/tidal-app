@@ -40,7 +40,7 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
             val stream = app.tidal.stream(track.id, app.settings.state.value.quality)
             val localUri = if (stream.dashManifest != null) {
                 val item = MediaItem.Builder().setUri(app.sources.manifestUri(stream)).setMimeType(MimeTypes.APPLICATION_MPD).build()
-                val downloader = DashDownloader(item, app.sources.downloadSource(), java.util.concurrent.Executor { it.run() })
+                val downloader = DashDownloader.Factory(app.sources.downloadSource()).setExecutor(java.util.concurrent.Executor { it.run() }).create(item)
                 try {
                     downloader.download { _, _, percent ->
                         if (isStopped) throw InterruptedIOException("Download cancelled")

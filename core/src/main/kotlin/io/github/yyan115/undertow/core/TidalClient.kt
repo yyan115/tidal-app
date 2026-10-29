@@ -36,6 +36,7 @@ class TidalClient(
         .followSslRedirects(false).build(),
     private val apiBase: String = "https://api.tidal.com/v1/",
     private val authBase: String = "https://auth.tidal.com/v1/oauth2/",
+    private val pkceIdentity: () -> ClientIdentity = identity,
 ) {
     private val refreshLock = Mutex()
     private val generation = AtomicLong()
@@ -43,6 +44,38 @@ class TidalClient(
     private val etags = ConcurrentHashMap<String, String>()
     val signedIn get() = sessions.read() != null
     val accountId get() = sessions.read()?.userId.orEmpty()
+
+    fun beginPkce(): PkceLogin {
+        fun random(size: Int): String = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(size).also { java.security.SecureRandom().nextBytes(it) })
+        val verifier = random(32)
+        val state = random(24)
+        val unique = random(16)
+        val challenge = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(java.security.MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)))
+        val url = "https://login.tidal.com/authorize".toHttpUrl().newBuilder().apply {
+            mapOf("response_type" to "code", "redirect_uri" to PKCE_REDIRECT, "client_id" to pkceIdentity().id,
+                "lang" to "EN", "appMode" to "android", "client_unique_key" to unique,
+                "code_challenge" to challenge, "code_challenge_method" to "S256", "restrict_signup" to "true",
+                "scope" to "r_usr w_usr", "state" to state).forEach { (k, v) -> addQueryParameter(k, v) }
+        }.build()
+        return PkceLogin(url.toString(), verifier, state, unique, System.currentTimeMillis() + 15 * 60_000)
+    }
+
+    suspend fun completePkce(login: PkceLogin, redirect: String) {
+        if (System.currentTimeMillis() >= login.expiresAt) throw ServiceException(401, "This sign-in link expired. Start again.")
+        val url = try { redirect.trim().toHttpUrl() } catch (_: Exception) { throw ServiceException(400, "Share the final TIDAL sign-in link, or paste it here.") }
+        if (url.scheme != "https" || url.host != "tidal.com" || url.encodedPath != "/android/login/auth" || url.username.isNotBlank() || url.password.isNotBlank() || url.fragment != null) {
+            throw ServiceException(400, "This is not a TIDAL sign-in callback.")
+        }
+        val returnedState = url.queryParameter("state").orEmpty()
+        if (!java.security.MessageDigest.isEqual(login.state.toByteArray(), returnedState.toByteArray())) throw ServiceException(400, "This link belongs to a different sign-in. Start again.")
+        val code = url.queryParameter("code")?.takeIf(String::isNotBlank) ?: throw ServiceException(400, "TIDAL did not return an authorization code.")
+        val expectedGeneration = generation.get()
+        val response = withContext(Dispatchers.IO) {
+            form("token", mapOf("code" to code, "client_id" to pkceIdentity().id, "grant_type" to "authorization_code",
+                "redirect_uri" to PKCE_REDIRECT, "scope" to "r_usr w_usr", "code_verifier" to login.verifier, "client_unique_key" to login.uniqueKey))
+        }
+        authenticate(response, "pkce", expectedGeneration)
+    }
 
     suspend fun beginLogin(): DeviceLogin = withContext(Dispatchers.IO) {
         val json = form("device_authorization", mapOf("client_id" to identity().id, "scope" to "r_usr w_usr"))
@@ -66,10 +99,7 @@ class TidalClient(
                         "device_code" to login.deviceCode, "grant_type" to "urn:ietf:params:oauth:grant-type:device_code",
                         "scope" to "r_usr w_usr"))
                 }
-                saveSession(tokenSession(response), loginGeneration)
-                val profile = request("sessions")
-                val current = sessions.read() ?: throw ServiceException(401, "The session was not saved.")
-                saveSession(current.copy(userId = profile.get("userId").toString(), country = profile.optString("countryCode", "US")), loginGeneration)
+                authenticate(response, "device", loginGeneration)
                 return
             } catch (error: OAuthException) {
                 when (error.code) {
@@ -179,6 +209,18 @@ class TidalClient(
         sessions.write(session)
     }
 
+    private suspend fun authenticate(response: JSONObject, method: String, expectedGeneration: Long) {
+        val pending = tokenSession(response).copy(authMethod = method)
+        val profile = withContext(Dispatchers.IO) {
+            http.newCall(Request.Builder().url(apiBase + "sessions").header("Authorization", "Bearer ${pending.accessToken}").build()).execute().use { result ->
+                if (!result.isSuccessful) throw ServiceException(result.code, errorMessage(result.code))
+                try { JSONObject(result.body.string()) } catch (_: Exception) { throw ServiceException(502, "TIDAL returned an unreadable account response.") }
+            }
+        }
+        currentCoroutineContext().ensureActive()
+        saveSession(pending.copy(userId = profile.get("userId").toString(), country = profile.optString("countryCode", "US")), expectedGeneration)
+    }
+
     private fun userId() = sessions.read()?.userId?.takeIf(String::isNotBlank)
         ?: throw ServiceException(401, "Sign in to access your TIDAL collection.")
 
@@ -187,7 +229,7 @@ class TidalClient(
             generation.get() to (sessions.read() ?: throw ServiceException(401, "Sign in to TIDAL to continue."))
         }
         if (!force && !session.needsRefresh()) return@withLock session.accessToken
-        val client = identity()
+        val client = if (session.authMethod == "pkce") pkceIdentity() else identity()
         val response = try {
             withContext(Dispatchers.IO) { form("token", mapOf("client_id" to client.id, "client_secret" to client.secret,
                 "grant_type" to "refresh_token", "refresh_token" to session.refreshToken)) }
@@ -244,7 +286,7 @@ class TidalClient(
         accessToken = response.getString("access_token"),
         refreshToken = response.optString("refresh_token").ifBlank { previous?.refreshToken.orEmpty() },
         expiresAt = System.currentTimeMillis() + response.optLong("expires_in", 3600) * 1000,
-        userId = previous?.userId.orEmpty(), country = previous?.country ?: "US")
+        userId = previous?.userId.orEmpty(), country = previous?.country ?: "US", authMethod = previous?.authMethod ?: "device")
 
     private class OAuthException(val code: String) : Exception("OAuth authorization failed")
     private fun errorMessage(status: Int) = when (status) {
@@ -256,4 +298,6 @@ class TidalClient(
         in 500..599 -> "TIDAL is temporarily unavailable. Try again shortly."
         else -> "The request could not be completed (HTTP $status)."
     }
+
+    companion object { const val PKCE_REDIRECT = "https://tidal.com/android/login/auth" }
 }

@@ -15,6 +15,8 @@ Development is in progress. Local playback and the main interface have been test
 
 TIDAL integration is unofficial. It connects directly to TIDAL and requires your own account. Service changes can affect authentication and playback. Protected streams are not supported.
 
+Use [browser sign-in](docs/sign-in.md) for lossless access. The final TIDAL page must be shared back to Undertow; device-code login can return AAC instead.
+
 ## Build
 
 Requirements: JDK 21, Android SDK 36, and Android Build Tools 35.0.0. Set `ANDROID_HOME` or add the SDK path to an untracked `local.properties` file.

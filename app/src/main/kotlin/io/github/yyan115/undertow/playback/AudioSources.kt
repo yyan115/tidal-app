@@ -65,7 +65,7 @@ class AudioSources(private val app: UndertowApp) {
     fun removeOffline(id: String) {
         val stream = readOffline(id)
         val item = MediaItem.Builder().setUri(manifestUri(stream)).setMimeType(MimeTypes.APPLICATION_MPD).build()
-        androidx.media3.exoplayer.dash.offline.DashDownloader(item, downloadSource(), java.util.concurrent.Executor { it.run() }).remove()
+        androidx.media3.exoplayer.dash.offline.DashDownloader.Factory(downloadSource()).setExecutor(java.util.concurrent.Executor { it.run() }).create(item).remove()
         check(offlineFile(id).delete()) { "The download record could not be removed." }
         qualities.remove(id)
     }

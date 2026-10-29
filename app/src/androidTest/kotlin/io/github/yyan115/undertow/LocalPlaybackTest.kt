@@ -42,6 +42,7 @@ class LocalPlaybackTest {
 
     @Test fun localFlacPlaysThroughTheInterfaceAndPauses() {
         compose.onNodeWithTag("nav-2").performClick()
+        compose.onNodeWithTag("library-filters").performScrollToNode(hasText("On device"))
         compose.onNodeWithText("On device").performClick()
         compose.onNodeWithText("Night Walk").performClick()
         compose.waitUntil(25_000) { model.state.value.playback.playing || model.state.value.playback.error != null }

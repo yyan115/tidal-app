@@ -7,6 +7,7 @@ import android.util.Base64
 import io.github.yyan115.undertow.core.ClientIdentity
 import io.github.yyan115.undertow.core.Session
 import io.github.yyan115.undertow.core.SessionStore
+import io.github.yyan115.undertow.core.PkceLogin
 import org.json.JSONObject
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -55,16 +56,38 @@ class SecureSessionStore(context: Context) : SessionStore {
         try {
             val value = JSONObject(text)
             Session(value.getString("accessToken"), value.getString("refreshToken"), value.getLong("expiresAt"),
-                value.optString("userId"), value.optString("country", "US"))
+                value.optString("userId"), value.optString("country", "US"), value.optString("authMethod", "device"))
         } catch (_: Exception) { null }
     }
 
     override fun write(session: Session) = writeEncrypted("session", JSONObject().apply {
         put("accessToken", session.accessToken); put("refreshToken", session.refreshToken)
         put("expiresAt", session.expiresAt); put("userId", session.userId); put("country", session.country)
+        put("authMethod", session.authMethod)
     }.toString())
 
     override fun clear() { preferences.edit().remove("session").apply() }
+
+    fun savePkce(login: PkceLogin) = writeEncrypted("pending_pkce", JSONObject().apply {
+        put("url", login.authorizationUrl); put("verifier", login.verifier); put("state", login.state)
+        put("unique", login.uniqueKey); put("expiresAt", login.expiresAt)
+    }.toString())
+
+    fun pendingPkce(): PkceLogin? = readEncrypted("pending_pkce")?.let { text -> runCatching {
+        val json = JSONObject(text)
+        PkceLogin(json.getString("url"), json.getString("verifier"), json.getString("state"), json.getString("unique"), json.getLong("expiresAt"))
+            .takeIf { it.expiresAt > System.currentTimeMillis() }
+    }.getOrNull() }
+
+    fun clearPkce() { preferences.edit().remove("pending_pkce").apply() }
+
+    fun pkceIdentity(): ClientIdentity {
+        fun decode(value: String) = String(Base64.decode(value, Base64.DEFAULT), Charsets.UTF_8)
+        return ClientIdentity(
+            decode(decode("TmtKRVUxSmtjRXM=") + decode("NWFIRkZRbFJuVlE9PQ==")),
+            decode(decode("ZUdWMVVHMVpOMjVpY0ZvNVNVbGlURUZqVVQ=") + decode("a3pjMmhyWVRGV1RtaGxWVUZ4VGpaSlkzTjZhbFJIT0QwPQ==")),
+        )
+    }
 
     fun identity(): ClientIdentity = readEncrypted("identity")?.let {
         val value = JSONObject(it)
