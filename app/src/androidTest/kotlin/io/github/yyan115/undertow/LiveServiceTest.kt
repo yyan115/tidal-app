@@ -1,6 +1,12 @@
 package io.github.yyan115.undertow
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.ParcelFileDescriptor
 import androidx.lifecycle.ViewModelProvider
 import androidx.media3.common.util.UnstableApi
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -88,6 +94,31 @@ class LiveServiceTest {
             app.tidal.setFavorite(track.id, wasSaved)
             app.library.setFavorite(track, wasSaved)
             app.library.favoriteSynced(accountId, track.id, !wasSaved)
+        }
+    }
+
+    @Test fun aFailedSearchCanBeRetriedAfterTheNetworkReturns() {
+        assumeTrue("This check changes the dedicated device's network", InstrumentationRegistry.getArguments().getString("networkToggle") == "true")
+        val manager = app.getSystemService(ConnectivityManager::class.java)
+        fun shell(command: String) {
+            ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)).use { it.readBytes() }
+        }
+        compose.runOnIdle { model.settings { it.copy(offline = false) }; model.search("") }
+        try {
+            shell("svc wifi disable"); shell("svc data disable")
+            compose.waitUntil(15_000) { manager.activeNetwork == null }
+            compose.runOnIdle { model.search("Nujabes Feather") }
+            compose.waitUntil(30_000) { model.state.value.searchError != null }
+            shell("svc wifi enable"); shell("svc data enable")
+            compose.waitUntil(20_000) { manager.getNetworkCapabilities(manager.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true }
+            // Reconnection also starts library sync. It must not hide the failed search or its retry action.
+            compose.onNodeWithTag("nav-1").performClick()
+            compose.onNodeWithText("Retry").performClick()
+            compose.waitUntil(30_000) { model.state.value.search.tracks.isNotEmpty() }
+            assertNull(model.state.value.searchError)
+        } finally {
+            shell("svc wifi enable"); shell("svc data enable")
+            compose.runOnIdle { model.search("") }
         }
     }
 

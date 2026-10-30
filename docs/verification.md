@@ -22,7 +22,7 @@ Browser PKCE sign-in completed through Fennec’s share menu and Undertow’s An
 
 A full clear DASH download completed, with roughly 17 MB in persistent offline storage. Playback from that download succeeded after signing out, enabling offline mode, and disabling both Wi-Fi and mobile data on the emulator.
 
-Three optional live-account tests also passed: an offline saved-track change synced when reconnected and was restored afterward; a temporary playlist was created, renamed, edited, and deleted; a full 24-bit/192 kHz FLAC stream was played, downloaded, and replayed after sign-out and streaming-cache removal. The downloaded manifest’s codec, bit depth, and sample rate were checked on the device.
+Four optional live-account tests also passed: a failed search was retried through the interface after disconnecting and reconnecting both radios; an offline saved-track change synced when reconnected and was restored afterward; a temporary playlist was created, renamed, edited, and deleted; a full 24-bit/192 kHz FLAC stream was played, downloaded, and replayed after sign-out and streaming-cache removal. The downloaded manifest’s codec, bit depth, and sample rate were checked on the device.
 
 A native FLAC export from the hi-res download passed playback and seek tests with no account or network. FFprobe identified 24-bit/192 kHz stereo FLAC, the full 186.673792-second duration, and title/artist/album tags. Decoding the entire file produced 215,048,208 PCM bytes; their MD5 matched the original STREAMINFO checksum. A separate local-file export preserved its SHA-256 exactly.
 

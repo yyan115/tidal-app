@@ -59,6 +59,7 @@ data class AppState(
     val localPlaylists: List<LocalPlaylist> = emptyList(),
     val albums: List<Release> = emptyList(), val playlists: List<Release> = emptyList(),
     val search: SearchResult = SearchResult(), val searchQuery: String = "", val searching: Boolean = false,
+    val searchError: String? = null,
     val syncing: Boolean = false, val error: String? = null, val message: String? = null,
     val login: DeviceLogin? = null, val signingIn: Boolean = false,
     val pkceLogin: PkceLogin? = null,
@@ -78,6 +79,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         pkceLogin = app.sessions.pendingPkce()))
     val state = ui.asStateFlow()
     private val query = MutableStateFlow("")
+    private val searchRetry = MutableStateFlow(0L)
     private val preferences = application.getSharedPreferences("playback", Application.MODE_PRIVATE)
     private var controller: MediaController? = null
     private val controllerFuture = MediaController.Builder(application,
@@ -143,15 +145,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             combine(query.debounce(350).distinctUntilChanged(), app.settings.state.map { it.offline }.distinctUntilChanged(),
-                ui.map { it.signedIn }.distinctUntilChanged()) { text, offline, signedIn -> Triple(text, offline, signedIn) }
+                ui.map { it.signedIn }.distinctUntilChanged(), searchRetry) { text, offline, signedIn, _ -> Triple(text, offline, signedIn) }
                 .collectLatest { (text, offline, signedIn) ->
-                ui.update { it.copy(searchQuery = text, error = null) }
+                ui.update { it.copy(searchQuery = text, searchError = null) }
                 if (text.isBlank() || !signedIn || offline) {
                     ui.update { it.copy(search = SearchResult(), searching = false) }
                 } else {
                     ui.update { it.copy(searching = true) }
                     try { val result = app.tidal.search(text); ui.update { it.copy(search = result, searching = false) } }
-                    catch (error: Exception) { if (error is CancellationException) throw error; ui.update { it.copy(searching = false, error = userMessage(error)) } }
+                    catch (error: Exception) { if (error is CancellationException) throw error; ui.update { it.copy(searching = false, searchError = userMessage(error)) } }
                 }
             }
         }
@@ -189,6 +191,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun search(text: String) { query.value = text; ui.update { it.copy(searchQuery = text) } }
+    fun retrySearch() { searchRetry.update { it + 1 } }
     fun messageShown() { ui.update { it.copy(message = null) } }
     fun notify(message: String) { ui.update { it.copy(message = message) } }
 
@@ -241,7 +244,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val account = app.tidal.accountId
         val saved = ui.value.local.filter { track -> cloudFavorites.any { it.id == track.id } }
         cancelLogin(); syncJob?.cancel(); detailJob?.cancel(); app.tidal.signOut(); cloudFavorites = emptyList()
-        ui.update { it.copy(signedIn = false, syncing = false, hasMoreFavorites = false, albums = emptyList(), playlists = emptyList(), search = SearchResult(), detail = null) }
+        ui.update { it.copy(signedIn = false, syncing = false, hasMoreFavorites = false, albums = emptyList(), playlists = emptyList(), search = SearchResult(), searchError = null, detail = null) }
         viewModelScope.launch {
             withContext(Dispatchers.IO) { saved.forEach { app.library.setFavorite(it, true) }; app.library.clearCache(account) }
             refreshLocal()

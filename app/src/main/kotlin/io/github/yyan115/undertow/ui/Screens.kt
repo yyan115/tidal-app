@@ -107,17 +107,17 @@ fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu
                 itemsIndexed(listOf("Tracks", "Albums", "Artists", "Playlists")) { index, label -> FilterChip(filter == index, { filter = index }, label = { Text(label) }) }
             } }
             if (state.searching) item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) }
-            state.error?.let { error -> item { ErrorCard(error) { vm.search(query + " "); vm.search(query) } } }
+            state.searchError?.let { error -> item { ErrorCard(error, vm::retrySearch) } }
             if (filter == 0) {
                 items(songs, key = Track::id) { track -> TrackRow(track, state.playback.track?.id == track.id,
                     onPlay = { keyboard?.hide(); vm.play(songs, songs.indexOf(track)) }, onMenu = { onMenu(track) }) }
-                if (songs.isEmpty() && !state.searching && state.error == null) item { EmptyState(Icons.Outlined.SearchOff,
+                if (songs.isEmpty() && !state.searching && state.searchError == null) item { EmptyState(Icons.Outlined.SearchOff,
                     "No tracks found", if (!state.signedIn) "Search is limited to files on your device until you connect TIDAL." else "Try another title or artist name.",
                     if (!state.signedIn) "Connect TIDAL" else null, onLogin) }
             } else {
                 val releases = if (state.settings.offline) emptyList() else when (filter) { 1 -> state.search.albums; 2 -> state.search.artists; else -> state.search.playlists }
                 items(releases, key = Release::id) { release -> ReleaseRow(release) { keyboard?.hide(); vm.open(release) } }
-                if (releases.isEmpty() && !state.searching && state.error == null) item { EmptyState(Icons.Outlined.SearchOff,
+                if (releases.isEmpty() && !state.searching && state.searchError == null) item { EmptyState(Icons.Outlined.SearchOff,
                     "No results", if (!state.signedIn) "Connect TIDAL to search its catalogue." else "Try another search.", if (!state.signedIn) "Connect TIDAL" else null, onLogin) }
             }
         }

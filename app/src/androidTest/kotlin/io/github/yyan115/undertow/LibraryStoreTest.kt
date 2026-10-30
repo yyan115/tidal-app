@@ -14,6 +14,11 @@ import org.junit.runner.RunWith
 class LibraryStoreTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
+    private inline fun withStore(name: String, block: (LibraryStore) -> Unit) {
+        val store = LibraryStore(context, name)
+        try { block(store) } finally { store.close() }
+    }
+
     @Test fun upgradesExistingLibraryWithoutLosingTracksOrPlaylists() {
         val name = "migration-test.db"
         context.deleteDatabase(name)
@@ -28,7 +33,7 @@ class LibraryStoreTest {
             old.execSQL("INSERT INTO playlist_tracks VALUES ('local:existing',?,0)", arrayOf(track.id))
             old.version = 1
         }
-        try { LibraryStore(context, name).use { store ->
+        try { withStore(name) { store ->
             assertEquals(track, store.get(track.id))
             assertEquals(track.id, store.favorites().single().id)
             assertEquals(track.id, store.recent().single().id)
@@ -42,7 +47,7 @@ class LibraryStoreTest {
         val name = "pending-favorites-test.db"
         context.deleteDatabase(name)
         try {
-            LibraryStore(context, name).use { store ->
+            withStore(name) { store ->
                 store.queueFavorite("account-a", "42", true)
                 store.queueFavorite("account-a", "42", false)
                 store.favoriteSynced("account-a", "42", true)
@@ -50,7 +55,7 @@ class LibraryStoreTest {
                 assertTrue(store.pendingFavorites("account-b").isEmpty())
                 store.cache("account-a", "favorites", "[]")
             }
-            LibraryStore(context, name).use { store ->
+            withStore(name) { store ->
                 assertEquals(mapOf("42" to false), store.pendingFavorites("account-a"))
                 assertEquals("[]", store.cache("account-a", "favorites"))
                 store.favoriteSynced("account-a", "42", false)
