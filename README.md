@@ -4,7 +4,7 @@ Android music player for TIDAL and local audio files. Built with Kotlin, Compose
 
 ## Install
 
-[Download Undertow 0.1.0](https://github.com/yyan115/tidal-app/releases/download/v0.1.0/undertow-0.1.0.apk) for Android 8 or later. The [release page](https://github.com/yyan115/tidal-app/releases/tag/v0.1.0) includes checksums. Allow installation from your browser or file manager when Android asks.
+[Download Undertow 0.1.1](https://github.com/yyan115/tidal-app/releases/download/v0.1.1/undertow-0.1.1.apk) for Android 8 or later. The [release page](https://github.com/yyan115/tidal-app/releases/tag/v0.1.1) includes checksums. Allow installation from your browser or file manager when Android asks.
 
 | Player | Library | Dark theme |
 | --- | --- | --- |
@@ -25,7 +25,7 @@ Screenshots show the running app with the project's original test recording.
 
 TIDAL integration is unofficial. It connects directly to TIDAL and requires your own account. Service changes can affect authentication and playback. Protected streams are not supported.
 
-Use [browser sign-in](docs/sign-in.md) for lossless access. The final TIDAL page must be shared back to Undertow; device-code login can return AAC instead.
+Choose **Sign in to TIDAL**. A secure browser panel opens and returns to Undertow automatically. See [sign-in](docs/sign-in.md) for details. Lossless modes reject lossy responses instead of silently accepting AAC. New installs default to lossless on both Wi-Fi and mobile data; existing quality preferences are preserved.
 
 ## Offline files
 

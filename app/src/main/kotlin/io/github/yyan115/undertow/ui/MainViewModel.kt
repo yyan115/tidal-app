@@ -223,7 +223,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun completeBrowserLogin(callback: String) {
         if (loginJob?.isActive == true) return
-        val pending = app.sessions.pendingPkce() ?: run { notify("Start a new TIDAL sign-in before sharing the final link."); return }
+        val pending = app.sessions.pendingPkce() ?: run {
+            val message = "This sign-in expired. Start a new TIDAL sign-in."
+            ui.update { it.copy(error = message) }
+            notify(message)
+            return
+        }
         loginJob = viewModelScope.launch {
             ui.update { it.copy(signingIn = true, error = null) }
             try {

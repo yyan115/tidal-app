@@ -62,18 +62,24 @@ class TidalClient(
 
     suspend fun completePkce(login: PkceLogin, redirect: String) {
         if (System.currentTimeMillis() >= login.expiresAt) throw ServiceException(401, "This sign-in link expired. Start again.")
-        val url = try { redirect.trim().toHttpUrl() } catch (_: Exception) { throw ServiceException(400, "Share the final TIDAL sign-in link, or paste it here.") }
-        if (url.scheme != "https" || url.host != "tidal.com" || url.encodedPath != "/android/login/auth" || url.username.isNotBlank() || url.password.isNotBlank() || url.fragment != null) {
+        val expectedRedirect = login.authorizationUrl.toHttpUrl().queryParameter("redirect_uri").orEmpty()
+        if (!SignInCallback.matches(redirect, expectedRedirect)) {
             throw ServiceException(400, "This is not a TIDAL sign-in callback.")
         }
-        val returnedState = url.queryParameter("state").orEmpty()
+        val parameters = SignInCallback.parameters(redirect)
+        val returnedState = parameters["state"]?.singleOrNull().orEmpty()
         if (!java.security.MessageDigest.isEqual(login.state.toByteArray(), returnedState.toByteArray())) throw ServiceException(400, "This link belongs to a different sign-in. Start again.")
-        val code = url.queryParameter("code")?.takeIf(String::isNotBlank) ?: throw ServiceException(400, "TIDAL did not return an authorization code.")
+        if (parameters.containsKey("error")) throw ServiceException(401, "Sign-in was cancelled or declined on TIDAL. Start a new sign-in.")
+        val code = parameters["code"]?.singleOrNull()?.takeIf(String::isNotBlank) ?: throw ServiceException(400, "TIDAL did not return an authorization code.")
         val expectedGeneration = generation.get()
-        val response = withContext(Dispatchers.IO) {
+        val response = try { withContext(Dispatchers.IO) {
             form("token", mapOf("code" to code, "client_id" to pkceIdentity().id, "grant_type" to "authorization_code",
-                "redirect_uri" to PKCE_REDIRECT, "scope" to "r_usr w_usr", "code_verifier" to login.verifier, "client_unique_key" to login.uniqueKey))
-        }
+                "redirect_uri" to expectedRedirect, "scope" to "r_usr w_usr", "code_verifier" to login.verifier, "client_unique_key" to login.uniqueKey))
+        } } catch (error: OAuthException) { throw ServiceException(401, when (error.code) {
+            "invalid_grant", "expired_token" -> "This sign-in expired or was already used. Start a new sign-in."
+            "invalid_client", "unauthorized_client" -> "TIDAL rejected this app's sign-in configuration. Update Undertow and try again."
+            else -> "TIDAL could not finish sign-in. Start a new sign-in and try again."
+        }) }
         authenticate(response, "pkce", expectedGeneration)
     }
 
@@ -163,9 +169,15 @@ class TidalClient(
         JsonCodec.items(request("artists/$id/albums", mapOf("limit" to "100", "offset" to "$offset"))).map { JsonCodec.release(it, ReleaseType.ALBUM) }
     }
 
-    suspend fun stream(id: String, quality: AudioQuality): StreamInfo = StreamManifest.parse(
-        request("tracks/$id/playbackinfopostpaywall", mapOf("audioquality" to quality.name,
+    suspend fun stream(id: String, quality: AudioQuality): StreamInfo {
+        val stream = StreamManifest.parse(request("tracks/$id/playbackinfopostpaywall", mapOf("audioquality" to quality.name,
             "playbackmode" to "STREAM", "assetpresentation" to "FULL")))
+        if (quality in setOf(AudioQuality.LOSSLESS, AudioQuality.HI_RES_LOSSLESS) &&
+            !stream.codec.equals("flac", ignoreCase = true) && !stream.codec.equals("alac", ignoreCase = true)) {
+            throw ServiceException(406, "TIDAL returned lossy audio instead of lossless. Sign in again using Sign in to TIDAL, or choose High quality to allow AAC.")
+        }
+        return stream
+    }
 
     suspend fun setFavorite(id: String, favorite: Boolean) {
         if (favorite) request("users/${userId()}/favorites/tracks", method = "POST", form = mapOf("trackIds" to id))
@@ -300,5 +312,5 @@ class TidalClient(
         else -> "The request could not be completed (HTTP $status)."
     }
 
-    companion object { const val PKCE_REDIRECT = "https://tidal.com/android/login/auth" }
+    companion object { const val PKCE_REDIRECT = SignInCallback.NATIVE }
 }

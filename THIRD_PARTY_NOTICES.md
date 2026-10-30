@@ -5,7 +5,7 @@ Undertow uses these open-source components:
 | Component | Project | Licence |
 | --- | --- | --- |
 | Kotlin and kotlinx.coroutines | [JetBrains](https://github.com/JetBrains/kotlin) | Apache-2.0 |
-| Compose, Material, Activity, Lifecycle, WorkManager, SQLite | [AndroidX](https://android.googlesource.com/platform/frameworks/support/) | Apache-2.0 |
+| Compose, Material, Activity, Browser, Lifecycle, WorkManager, SQLite | [AndroidX](https://android.googlesource.com/platform/frameworks/support/) | Apache-2.0 |
 | Media3 | [AndroidX Media](https://github.com/androidx/media) | Apache-2.0 |
 | OkHttp and Okio | [Square](https://github.com/square/okhttp) | Apache-2.0 |
 | Coil | [Coil](https://github.com/coil-kt/coil) | Apache-2.0 |

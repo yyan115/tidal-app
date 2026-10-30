@@ -20,6 +20,7 @@ import io.github.yyan115.undertow.ui.MainViewModel
 import io.github.yyan115.undertow.ui.UndertowRoot
 import io.github.yyan115.undertow.ui.UndertowTheme
 import io.github.yyan115.undertow.ui.LocalOfflineMode
+import io.github.yyan115.undertow.core.SignInCallback
 
 @UnstableApi
 class MainActivity : ComponentActivity() {
@@ -56,7 +57,9 @@ class MainActivity : ComponentActivity() {
             else -> null
         }
         value?.let { text ->
-            Regex("https://tidal\\.com/android/login/auth\\?[^\\s]+") .find(text)?.value?.let { incomingCallback = it }
+            val callback = if (SignInCallback.supported(text)) text else
+                Regex("(?:https://tidal\\.com/android/login/auth|tidal://login/auth)\\?[^\\s]+") .find(text)?.value
+            callback?.takeIf(SignInCallback::supported)?.let { incomingCallback = it }
         }
         // Keep the launch action intact; lifecycle observers use it to identify this activity.
         // Remove only callback data so one-time codes do not remain in its intent.

@@ -81,6 +81,29 @@ class TidalClientTest {
         assertFalse(DeviceLogin("sensitive-code", "USER", "https://link.tidal.com/USER", 123, 5).toString().contains("sensitive"))
     }
 
+    @Test fun losslessRequestRejectsAacInsteadOfSilentlyDowngrading() = runBlocking {
+        server.enqueue(MockResponse().setBody(streamResponse("mp4a.40.2")))
+        try { client.stream("42", AudioQuality.LOSSLESS); fail("Lossy audio was accepted for a lossless request") }
+        catch (error: ServiceException) { assertEquals(406, error.status); assertTrue(error.message.orEmpty().contains("lossless")) }
+    }
+
+    @Test fun explicitAacQualityRemainsAvailable() = runBlocking {
+        server.enqueue(MockResponse().setBody(streamResponse("mp4a.40.2")))
+        assertEquals("mp4a.40.2", client.stream("42", AudioQuality.HIGH).codec)
+    }
+
+    @Test fun flacIsLosslessEvenWhenItsContainerIsMp4() = runBlocking {
+        server.enqueue(MockResponse().setBody(streamResponse("flac")))
+        val stream = client.stream("42", AudioQuality.HI_RES_LOSSLESS)
+        assertEquals("audio/mp4", stream.mimeType)
+        assertEquals("flac", stream.codec)
+    }
+
+    private fun streamResponse(codec: String): String {
+        val manifest = java.util.Base64.getEncoder().encodeToString("""{"mimeType":"audio/mp4","codecs":"$codec","encryptionType":"NONE","urls":["https://audio.example/track.mp4"]}""".toByteArray())
+        return """{"assetPresentation":"FULL","manifestMimeType":"application/vnd.tidal.bts","manifest":"$manifest","audioQuality":"LOSSLESS"}"""
+    }
+
     @Test fun signingOutDuringRefreshCannotRestoreTheAccount() = runBlocking {
         store.value = store.value!!.copy(expiresAt = 0)
         val started = CountDownLatch(1)
@@ -168,8 +191,10 @@ class TidalClientTest {
         val callbacks = listOf(
             "http://tidal.com/android/login/auth?code=private-code&state=${login.state}",
             "https://tidal.com.attacker.example/android/login/auth?code=private-code&state=${login.state}",
-            "https://tidal.com/android/login/auth?code=private-code&state=wrong-state",
-            "https://tidal.com/android/login/auth?error=access_denied&state=${login.state}")
+            "tidal://login/auth?code=private-code&state=wrong-state",
+            "tidal://login/auth?error=access_denied&state=${login.state}",
+            "tidal://login/auth?code=private-code&state=${login.state}&state=duplicate",
+            "tidal://login/auth?code=first&code=second&state=${login.state}")
         callbacks.forEach { callback ->
             try { client.completePkce(login, callback); fail("Untrusted callback accepted") }
             catch (error: ServiceException) { assertFalse(error.message.orEmpty().contains("private-code")) }
@@ -183,12 +208,24 @@ class TidalClientTest {
         val login = client.beginPkce()
         server.enqueue(MockResponse().setBody("""{"access_token":"browser-access","refresh_token":"browser-refresh","expires_in":3600}"""))
         server.enqueue(MockResponse().setBody("""{"userId":456,"countryCode":"IN"}"""))
-        client.completePkce(login, "https://tidal.com/android/login/auth?code=one-time-code&state=${login.state}")
+        client.completePkce(login, "tidal://login/auth?code=one-time-code&state=${login.state}")
         val exchange = server.takeRequest().body.readUtf8()
         assertTrue(exchange.contains("code_verifier=${login.verifier}"))
+        assertTrue(exchange.contains("redirect_uri=tidal%3A%2F%2Flogin%2Fauth"))
         assertFalse(exchange.contains("w_sub"))
         assertEquals("pkce", store.read()!!.authMethod)
         assertEquals("456", store.read()!!.userId)
+    }
+
+    @Test fun completesAnOlderPendingSignInUsingItsOriginalRedirect() = runBlocking {
+        val current = client.beginPkce()
+        val legacyUrl = current.authorizationUrl.toHttpUrl().newBuilder().setQueryParameter("redirect_uri", SignInCallback.LEGACY).build().toString()
+        val login = current.copy(authorizationUrl = legacyUrl)
+        server.enqueue(MockResponse().setBody("""{"access_token":"legacy-access","refresh_token":"legacy-refresh","expires_in":3600}"""))
+        server.enqueue(MockResponse().setBody("""{"userId":456,"countryCode":"IN"}"""))
+        client.completePkce(login, "https://tidal.com/android/login/auth?code=legacy-code&state=${login.state}")
+        assertTrue(server.takeRequest().body.readUtf8().contains("redirect_uri=https%3A%2F%2Ftidal.com%2Fandroid%2Flogin%2Fauth"))
+        assertEquals("pkce", store.read()!!.authMethod)
     }
 
     private class MemoryStore(var value: Session?) : SessionStore {

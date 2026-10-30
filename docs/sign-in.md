@@ -1,15 +1,25 @@
 # TIDAL sign-in
 
-1. Choose **Connect TIDAL**, then **Sign in in browser**.
-2. Sign in on TIDAL's website. A blank or error page can appear after authorization.
-3. Share that final page from your browser and choose **Complete TIDAL sign-in**. If your browser cannot share the address, copy it and use **Paste final sign-in link** in Undertow.
+1. Choose **Connect TIDAL**, then **Sign in to TIDAL**.
+2. Sign in on TIDAL's page in the browser panel.
+3. If your browser asks to open Undertow, allow it. Undertow completes sign-in automatically.
 
-The final address starts with `https://tidal.com/android/login/auth`. Treat it as a temporary credential: share it only with Undertow and keep it out of issue reports.
+Version 0.1.1 uses the registered native callback, `tidal://login/auth`. You do not need to share or paste a page address for new sign-ins. If the official TIDAL app or another Undertow build is also installed, choose the Undertow instance where you started signing in. Debug builds are labelled **Undertow Debug**.
 
-The browser flow uses PKCE. Undertow checks the callback address and a random state value, and exchanges the one-time code with the verifier saved on your device. Pending sign-ins expire after 15 minutes. Passwords are entered in your browser; Undertow has no password field.
+Passwords stay in your browser. Undertow receives a one-time authorization code and verifies its state before exchanging it with the PKCE verifier stored on your device. Pending sign-ins expire after 15 minutes. Account tokens are encrypted using Android Keystore.
 
-This extra share step is required because the unofficial client identity's registered callback belongs to TIDAL. TIDAL rejected a dedicated Undertow callback during testing. Undertow does not claim ownership of TIDAL's website links.
+The browser panel is a Custom Tab supplied by your browser, rather than an embedded page that Undertow can inspect. A compatible browser such as Vanadium is needed. Browser settings can affect whether it asks for confirmation before returning to the app.
 
-Device-code sign-in is also available, including authorization from another device. In our live test, that client received full-length AAC even when requesting lossless. Browser sign-in received clear FLAC streams at 16-bit/44.1 kHz and 24-bit/192 kHz. The player shows the delivered format; quality settings are requests, not guarantees.
+## Older sign-ins and device codes
 
-Both methods use unofficial client identities and can be affected by service changes. Browser login follows the [native OAuth guidance](https://www.rfc-editor.org/rfc/rfc8252.html). The protocol was checked against [tidalapi](https://github.com/EbbLabs/python-tidal).
+Version 0.1.0 used an HTTPS callback that could display a 404 page, followed by a manual share step. Upgrade and start a new sign-in to use the automatic return. Previously pending HTTPS links can still be shared to Undertow or pasted through **Other sign-in options** until they expire.
+
+Device-code login is also available under **Other sign-in options**. TIDAL may reject that client or limit it to AAC. Use the main sign-in button for lossless access.
+
+## Audio quality
+
+Lossless settings accept FLAC or ALAC and reject a lossy response from TIDAL. High and Low explicitly allow AAC. A FLAC stream carried in MP4/DASH is still lossless; the player reports the audio codec and source resolution.
+
+New installs default to lossless on Wi-Fi and mobile data. Updates preserve stored preferences, so check **Mobile audio quality** if you previously used High. Max is a request for the best available lossless source; tracks available only at CD quality still play as FLAC.
+
+The integration uses unofficial client identities and can be affected by service changes. Browser authentication follows the [native OAuth guidance](https://www.rfc-editor.org/rfc/rfc8252.html). Protocol references include [tidalapi](https://github.com/EbbLabs/python-tidal) and [Minim](https://github.com/bbye98/minim).

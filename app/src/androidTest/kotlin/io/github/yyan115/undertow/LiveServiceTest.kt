@@ -39,12 +39,13 @@ class LiveServiceTest {
             assumeTrue("Live account tests require explicit opt-in", arguments.getString("liveAccount") == "true")
             if (suppliedSession == null) {
                 val file = File(app.filesDir, "live-test-session.json")
-                assumeTrue("Supply a session in the debug app's private files directory", file.isFile)
-                try {
+                if (file.isFile) try {
                     val json = JSONObject(file.readText())
                     suppliedSession = Session(json.getString("access_token"), json.getString("refresh_token"),
                         (json.getDouble("expires_at") * 1000).toLong(), json.getString("userId"), json.getString("countryCode"), "pkce")
                 } finally { file.delete() }
+                else suppliedSession = app.sessions.read()
+                assumeTrue("Sign in to the debug app before running live-account checks", suppliedSession != null)
             }
             val previous = app.sessions.read()
             app.tidal.signOut()

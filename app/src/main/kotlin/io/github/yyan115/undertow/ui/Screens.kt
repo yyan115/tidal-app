@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import androidx.work.WorkInfo
 import io.github.yyan115.undertow.BuildConfig
+import androidx.browser.customtabs.CustomTabsIntent
 import io.github.yyan115.undertow.core.*
 
 @Composable
@@ -253,26 +254,32 @@ fun LoginSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
     val context = LocalContext.current
     var paste by remember { mutableStateOf(false) }
     var callback by remember { mutableStateOf("") }
+    var alternatives by rememberSaveable { mutableStateOf(false) }
     val openBrowser = {
         try {
-            val pending = state.pkceLogin?.takeIf { it.expiresAt > System.currentTimeMillis() } ?: vm.beginBrowserLogin()
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(pending.authorizationUrl)))
+            val pending = vm.beginBrowserLogin()
+            CustomTabsIntent.Builder().setShowTitle(true).setShareState(CustomTabsIntent.SHARE_STATE_OFF).build()
+                .launchUrl(context, Uri.parse(pending.authorizationUrl))
         } catch (_: Exception) { vm.notify("A browser is needed to sign in. Install one and try again.") }
     }
     ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("Connect TIDAL", style = MaterialTheme.typography.headlineSmall)
-            Text("Sign in on TIDAL's website. Your password stays with TIDAL.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Your browser handles sign-in and returns to Undertow automatically.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (state.signingIn && state.login == null) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (state.login == null) {
-                if (state.pkceLogin != null) {
-                    Text("After signing in, share the final page from your browser to Undertow. You can also paste its address below.")
-                    FilledTonalButton(onClick = { paste = true }, enabled = !state.signingIn, modifier = Modifier.fillMaxWidth()) { Text("Paste final sign-in link") }
+                Button(onClick = openBrowser, enabled = !state.signingIn, modifier = Modifier.fillMaxWidth()) { Text("Sign in to TIDAL") }
+                Text("Your password stays in your browser. Undertow does not receive it.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = { alternatives = !alternatives }, modifier = Modifier.fillMaxWidth()) { Text(if (alternatives) "Hide other options" else "Other sign-in options") }
+                if (alternatives) {
+                    if (state.pkceLogin != null) {
+                        Text("This paste option supports older sign-in links. New sign-ins return automatically.")
+                        FilledTonalButton(onClick = { paste = true }, enabled = !state.signingIn, modifier = Modifier.fillMaxWidth()) { Text("Paste final sign-in link") }
+                    }
+                    TextButton(onClick = vm::beginLogin, enabled = !state.signingIn, modifier = Modifier.fillMaxWidth()) { Text("Use a device code instead") }
+                    Text("Device-code access may be rejected or limited to AAC by TIDAL. Use Sign in to TIDAL for lossless access.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Button(onClick = openBrowser, enabled = !state.signingIn, modifier = Modifier.fillMaxWidth()) { Text(if (state.pkceLogin == null) "Sign in in browser" else "Reopen browser") }
-                TextButton(onClick = vm::beginLogin, enabled = !state.signingIn, modifier = Modifier.fillMaxWidth()) { Text("Use a device code instead") }
-                Text("Browser sign-in supports lossless streaming. Device-code access can be limited to AAC by TIDAL.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             state.login?.let { link ->
                 Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
