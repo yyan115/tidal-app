@@ -15,7 +15,22 @@ updates:
       kotlin:
         patterns:
           - org.jetbrains.kotlin*
+      other:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Major Android Gradle Plugin upgrades need build changes and are done by hand.
+      - dependency-name: com.android.application
+        update-types:
+          - version-update:semver-major
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns:
+          - '*'

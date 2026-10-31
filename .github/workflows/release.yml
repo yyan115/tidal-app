@@ -1,34 +1,50 @@
 name: Release
 
 on:
-  push:
-    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, for example 1.0.0
+        required: true
+        type: string
 
 permissions:
   contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   check:
     uses: ./.github/workflows/check.yml
 
   release:
-    name: Sign and publish APK
+    name: Build, sign and publish
     needs: check
-    if: github.repository == 'yyan115/tidal-app'
+    if: github.ref == 'refs/heads/main' && !github.event.repository.fork
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 30
     permissions:
       contents: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false
           fetch-depth: 0
-      - name: Validate release version and branch
-        shell: bash
+          persist-credentials: false
+      - name: Prepare version and changelog
         run: |
-          test "$GITHUB_REF_NAME" = "v$(cat VERSION)"
-          git merge-base --is-ancestor HEAD origin/main
+          if git rev-parse --quiet --verify "refs/tags/v$VERSION" > /dev/null; then
+            echo "Tag v$VERSION already exists." >&2
+            exit 1
+          fi
+          python3 scripts/release.py prepare "$VERSION"
+          python3 scripts/release.py notes "$VERSION" > "$RUNNER_TEMP/notes.md"
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
@@ -51,22 +67,42 @@ jobs:
         env:
           OPENTUNE_KEYSTORE: ${{ runner.temp }}/opentune-release.p12
           OPENTUNE_STORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          OPENTUNE_KEY_ALIAS: undertow
+          OPENTUNE_KEY_ALIAS: opentune
           OPENTUNE_KEY_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
         run: ./gradlew --no-daemon :app:assembleRelease
       - name: Verify signature and prepare files
         run: |
           mkdir dist
-          version=$(cat VERSION)
-          cp app/build/outputs/apk/release/app-release.apk "dist/opentune-$version.apk"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "dist/opentune-$version.apk"
+          cp app/build/outputs/apk/release/app-release.apk "dist/opentune-$VERSION.apk"
+          apksigner="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$apksigner" verify --verbose --print-certs "dist/opentune-$VERSION.apk" | tee "$RUNNER_TEMP/certs.txt"
+          actual=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/certs.txt")
+          expected=$(tr -d '[:space:]' < .github/signing-certificate.sha256)
+          if [ "$actual" != "$expected" ]; then
+            echo "The APK is signed with a different certificate than .github/signing-certificate.sha256." >&2
+            exit 1
+          fi
           cd dist
-          sha256sum *.apk > SHA256SUMS
-      - name: Publish release
-        env:
-          GH_TOKEN: ${{ github.token }}
+          sha256sum ./*.apk > SHA256SUMS
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*.apk
+      - name: Commit version and tag
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "OpenTune $(cat VERSION)" --notes-file docs/release-notes.md --prerelease
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add VERSION CHANGELOG.md fastlane
+          git commit -m "Release $VERSION"
+          git tag -a "v$VERSION" -m "OpenTune $VERSION"
+          header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 --wrap=0)"
+          git -c "http.https://github.com/.extraheader=$header" push origin HEAD:refs/heads/main "refs/tags/v$VERSION"
+      - name: Publish release
+        run: |
+          flags=()
+          case "$VERSION" in 0.*) flags+=(--prerelease) ;; esac
+          gh release create "v$VERSION" dist/* --verify-tag --title "OpenTune $VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
       - name: Remove restored signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/opentune-release.p12"
