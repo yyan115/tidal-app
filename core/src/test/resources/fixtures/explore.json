@@ -1,0 +1,97 @@
+{
+ "id": "p",
+ "title": "Page",
+ "rows": [
+  {
+   "modules": [
+    {
+     "type": "FEATURED_PROMOTIONS",
+     "id": "f",
+     "title": "Featured",
+     "pagedList": {
+      "items": [],
+      "totalNumberOfItems": 0,
+      "dataApiPath": "pages/data/example",
+      "limit": 0,
+      "offset": 0
+     }
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "type": "PAGE_LINKS_CLOUD",
+     "id": "PAGE_LINKS_CLOUDGenres",
+     "title": "Genres",
+     "pagedList": {
+      "items": [
+       {
+        "title": "Rock",
+        "icon": "rock",
+        "apiPath": "pages/genre_rock",
+        "imageId": "rock"
+       },
+       {
+        "title": "Jazz",
+        "icon": "jazz",
+        "apiPath": "pages/genre_jazz",
+        "imageId": "jazz"
+       }
+      ],
+      "totalNumberOfItems": 2,
+      "dataApiPath": "pages/data/example",
+      "limit": 2,
+      "offset": 0
+     }
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "type": "PAGE_LINKS_CLOUD",
+     "id": "PAGE_LINKS_CLOUDDecades",
+     "title": "Decades",
+     "pagedList": {
+      "items": [
+       {
+        "title": "1950s",
+        "icon": "1950s",
+        "apiPath": "pages/m_1950s",
+        "imageId": "1950s"
+       }
+      ],
+      "totalNumberOfItems": 1,
+      "dataApiPath": "pages/data/example",
+      "limit": 1,
+      "offset": 0
+     }
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "type": "PAGE_LINKS",
+     "id": "PAGE_LINKS",
+     "title": "",
+     "pagedList": {
+      "items": [
+       {
+        "title": "New",
+        "icon": "new",
+        "apiPath": "pages/explore_new_music",
+        "imageId": null
+       }
+      ],
+      "totalNumberOfItems": 1,
+      "dataApiPath": "pages/data/example",
+      "limit": 1,
+      "offset": 0
+     }
+    }
+   ]
+  }
+ ]
+}

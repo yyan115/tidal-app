@@ -37,7 +37,9 @@ gh attestation verify opentune-<version>.apk --repo yyan115/tidal-app
 ## Features
 
 - Stream TIDAL in lossless FLAC, up to 24-bit/192 kHz where TIDAL provides it. Lossless settings never fall back to AAC.
-- Search the catalogue and browse your saved tracks, albums and playlists. Create and edit TIDAL playlists.
+- Follow the lyrics as the song plays. The current line is highlighted and a tap on a line seeks to it.
+- Find music from your TIDAL mixes, radio stations, new releases, genres and moods, and open artist and album pages with biographies, reviews and credits.
+- Search the catalogue and browse your saved tracks, albums, artists and playlists. Create and edit TIDAL playlists.
 - See the codec, bit depth and sample rate of the playing track.
 - Download tracks and play them without a connection or an account.
 - Play local audio files and combine them with TIDAL tracks in playlists.

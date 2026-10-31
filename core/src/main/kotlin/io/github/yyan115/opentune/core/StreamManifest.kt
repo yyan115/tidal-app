@@ -22,6 +22,9 @@ object StreamManifest {
         val quality = response.optString("audioQuality")
         val bitDepth = response.optInt("bitDepth")
         val sampleRate = response.optInt("sampleRate")
+        fun gain(name: String) = response.optDouble(name, Double.NaN).takeIf { !it.isNaN() }
+        val trackGain = gain("trackReplayGain"); val trackPeak = gain("trackPeakAmplitude")
+        val albumGain = gain("albumReplayGain"); val albumPeak = gain("albumPeakAmplitude")
         return when (response.getString("manifestMimeType")) {
             "application/vnd.tidal.bts" -> {
                 val data = JSONObject(manifest)
@@ -34,7 +37,8 @@ object StreamManifest {
                 requireHttps(url)
                 StreamInfo(uri = url, mimeType = data.optString("mimeType", "audio/mp4"),
                     codec = data.optString("codecs", "unknown"), quality = quality,
-                    bitDepth = bitDepth, sampleRate = sampleRate)
+                    bitDepth = bitDepth, sampleRate = sampleRate,
+                    trackGain = trackGain, trackPeak = trackPeak, albumGain = albumGain, albumPeak = albumPeak)
             }
             "application/dash+xml" -> {
                 val factory = DocumentBuilderFactory.newInstance().apply {
@@ -55,10 +59,26 @@ object StreamManifest {
                 val codec = representation?.getAttribute("codecs").orEmpty().ifBlank { adaptation?.getAttribute("codecs").orEmpty() }
                 StreamInfo(dashManifest = manifest, mimeType = "application/dash+xml", codec = codec.ifBlank { "unknown" },
                     quality = quality, bitDepth = bitDepth,
-                    sampleRate = sampleRate.takeIf { it > 0 } ?: representation?.getAttribute("audioSamplingRate")?.toIntOrNull() ?: 0)
+                    sampleRate = sampleRate.takeIf { it > 0 } ?: representation?.getAttribute("audioSamplingRate")?.toIntOrNull() ?: 0,
+                    trackGain = trackGain, trackPeak = trackPeak, albumGain = albumGain, albumPeak = albumPeak)
             }
             else -> throw ServiceException(502, "This stream format is not supported.")
         }
+    }
+
+    /** Reads the HLS address from a music video manifest. */
+    fun parseVideo(response: JSONObject): String {
+        if (response.optString("assetPresentation", "FULL") != "FULL") {
+            throw ServiceException(403, "TIDAL returned a preview instead of the full video.")
+        }
+        val bytes = try { Base64.getDecoder().decode(response.getString("manifest")) }
+        catch (_: Exception) { throw ServiceException(502, "The video manifest is invalid.") }
+        val data = try { JSONObject(bytes.toString(Charsets.UTF_8)) } catch (_: Exception) { throw ServiceException(502, "The video manifest is invalid.") }
+        if (data.optString("encryptionType", "NONE") != "NONE") throw ProtectedStreamException()
+        val url = data.optJSONArray("urls")?.optString(0)?.takeIf(String::isNotBlank)
+            ?: throw ServiceException(502, "No video URL was returned.")
+        requireHttps(url)
+        return url
     }
 
     fun requireHttps(value: String) {

@@ -6,6 +6,17 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 OpenTune now has its own application ID, `io.github.yyan115.opentune`. It installs next to the earlier prerelease builds and does not update them. Downloads and the TIDAL session from those builds do not carry over, so export any downloads you want to keep before you uninstall.
 
+### Added
+
+- Synced lyrics in the player. The current line is highlighted and centred, and a tap on a line seeks to it. Lyrics are kept on the device after the first load.
+- Personal sections on Listen from TIDAL: your mixes, radio stations, albums based on what you played, new releases and editors' playlists. Pull down to refresh.
+- Explore in Search: genres, moods, decades and the Hi-Res page. Recent searches stay on the device.
+- Search shows a top result and has tabs for tracks, albums, artists, playlists and videos.
+- Artist pages with biography, popular tracks, albums, singles, playlists, videos and related artists. Follow artists and play artist radio.
+- Album pages with TIDAL's review, quality badges and full credits. Mix pages for your daily mixes.
+- Track radio and track credits in the track menu.
+- Library lists followed artists and can filter and sort saved tracks and albums. Shuffle plays all filtered tracks.
+
 ### Changed
 
 - Sign in through the browser only. The device-code option, the pasted-link option and the client override setting were removed.

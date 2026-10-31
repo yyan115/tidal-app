@@ -12,6 +12,11 @@ data class Track(
     val localUri: String? = null,
     val quality: String? = null,
     val addedAt: Long = System.currentTimeMillis(),
+    val artistId: String = "",
+    val trackNumber: Int = 0,
+    val replayGain: Double? = null,
+    val peak: Double? = null,
+    val tags: List<String> = emptyList(),
 ) {
     val isLocal get() = localUri != null
 }
@@ -24,14 +29,20 @@ data class Release(
     val subtitle: String = "",
     val type: ReleaseType = ReleaseType.ALBUM,
     val ownerId: String = "",
+    val tags: List<String> = emptyList(),
+    val description: String = "",
+    val artistId: String = "",
 )
 
-enum class ReleaseType { ALBUM, PLAYLIST, ARTIST }
+enum class ReleaseType { ALBUM, PLAYLIST, ARTIST, MIX, VIDEO }
 data class SearchResult(
     val tracks: List<Track> = emptyList(),
     val albums: List<Release> = emptyList(),
     val artists: List<Release> = emptyList(),
     val playlists: List<Release> = emptyList(),
+    val videos: List<Release> = emptyList(),
+    val topRelease: Release? = null,
+    val topTrack: Track? = null,
 )
 
 enum class AudioQuality(val label: String) {
@@ -65,6 +76,10 @@ data class StreamInfo(
     val quality: String,
     val bitDepth: Int = 0,
     val sampleRate: Int = 0,
+    val trackGain: Double? = null,
+    val trackPeak: Double? = null,
+    val albumGain: Double? = null,
+    val albumPeak: Double? = null,
 ) {
     val qualityLabel: String
         get() = buildString {

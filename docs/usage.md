@@ -10,6 +10,18 @@ If the official TIDAL app is also installed, Android may ask which app should op
 
 OpenTune receives a one-time authorization code and checks the state value before it exchanges the code with TIDAL. The exchange includes a PKCE verifier that OpenTune generates on your device for each sign-in. A pending sign-in expires after 15 minutes. Browser authentication follows [RFC 8252](https://www.rfc-editor.org/rfc/rfc8252.html).
 
+## Finding music
+
+**Listen** shows your TIDAL mixes, radio stations and new releases below your recent plays. Pull down to refresh.
+
+**Search** opens on genres, moods and decades. Typing shows a top result and tabs for each kind of result. Recent searches stay on the device and can be cleared.
+
+Artist, album and mix pages list the music with the biography, review and credits that TIDAL provides. Use **Follow** on an artist page to add the artist to **Library**, **Artists**. The track menu has **Start track radio** and **Credits**.
+
+## Lyrics
+
+Choose **Lyrics** in the player. Lines with timing are highlighted as they are sung. Drag to read ahead, and the view follows the song again after a few seconds. Tap a line to jump to it. Tracks without timing show the plain text, and some tracks have no lyrics. Lyrics are provided by Musixmatch through TIDAL and stay on the device after the first load.
+
 ## Audio quality
 
 Choose the quality for Wi-Fi and mobile data under **Settings**.

@@ -32,6 +32,7 @@ import io.github.yyan115.opentune.core.*
 @Composable
 fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initialPlayer: Boolean = false, initialSettings: Boolean = false) {
     val context = LocalContext.current
+    val pagesVm: PagesViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
     var tab by rememberSaveable { mutableIntStateOf(initialTab) }
     var libraryFilter by rememberSaveable { mutableIntStateOf(0) }
     var settings by rememberSaveable { mutableStateOf(initialSettings) }
@@ -57,6 +58,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initia
     val navigationTitles = listOf("Listen", "Search", "Library", "Downloads")
     val navigationIcons = listOf(OpenTuneIcons.Headphones, OpenTuneIcons.Search, OpenTuneIcons.LibraryMusic, OpenTuneIcons.Download)
     val snackbar = remember { SnackbarHostState() }
+    val inDetail = state.detail != null || state.routes.isNotEmpty()
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> vm.import(uris) }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     val exporter = rememberLauncherForActivityResult(ExportContract()) { uri ->
@@ -69,29 +71,29 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initia
     val openTrackMenu: (Track) -> Unit = { trackMenu = it; playlistPosition = null }
     LaunchedEffect(state.message) { state.message?.let { snackbar.showSnackbar(it); vm.messageShown() } }
     LaunchedEffect(state.signedIn) { if (state.signedIn) login = false }
-    BackHandler(enabled = state.detail != null || settings) { if (settings) settings = false else vm.closeDetail() }
+    BackHandler(enabled = state.detail != null || settings || state.routes.isNotEmpty()) { if (settings) settings = false else vm.closeDetail() }
 
     Row(Modifier.fillMaxSize().then(if (landscape) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Start)) else Modifier)) {
-    if (rail) OpenTuneRail(navigationTitles, navigationIcons, tab) { index -> tab = index; settings = false; vm.closeDetail() }
+    if (rail) OpenTuneRail(navigationTitles, navigationIcons, tab) { index -> tab = index; settings = false; vm.closeAll() }
     Scaffold(modifier = Modifier.weight(1f),
         topBar = {
             val title = if (settings) "Settings" else state.detail?.let {
-                when (it.type) { ReleaseType.ALBUM -> "Album"; ReleaseType.ARTIST -> "Artist"; ReleaseType.PLAYLIST -> "Playlist" }
+                when (it.type) { ReleaseType.ALBUM -> "Album"; ReleaseType.ARTIST -> "Artist"; ReleaseType.PLAYLIST -> "Playlist"; ReleaseType.MIX -> "Mix"; ReleaseType.VIDEO -> "Video" }
             } ?: navigationTitles[tab]
             Column(Modifier.statusBarsPadding()) {
-                Row(Modifier.fillMaxWidth().padding(start = if (settings || state.detail != null || largeText) 8.dp else 24.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (settings || state.detail != null) IconButton(onClick = { if (settings) settings = false else vm.closeDetail() }) { Icon(OpenTuneIcons.ArrowBack, "Back") }
+                Row(Modifier.fillMaxWidth().padding(start = if (settings || inDetail || largeText) 8.dp else 24.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (settings || inDetail) IconButton(onClick = { if (settings) settings = false else vm.closeDetail() }) { Icon(OpenTuneIcons.ArrowBack, "Back") }
                     else if (largeText) IconButton(onClick = { navigationMenu = true }) { Icon(OpenTuneIcons.Menu, "Open navigation") }
-                    if (!settings && state.detail == null && !largeText) {
+                    if (!settings && !inDetail && !largeText) {
                         Icon(OpenTuneIcons.Brand, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(9.dp))
                     }
                     Text("OpenTune", Modifier.weight(1f), fontFamily = InterfaceFont, fontSize = 11.sp, lineHeight = 16.sp,
                         letterSpacing = 2.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                     if (!settings) {
-                        if (tab == 0 && state.detail == null) IconButton(onClick = importAudio) { Icon(OpenTuneIcons.Add, "Import audio", Modifier.size(21.dp)) }
-                        if (tab == 2 && state.detail == null && state.signedIn && !state.settings.offline) IconButton(onClick = vm::sync, enabled = !state.syncing) { Icon(OpenTuneIcons.Refresh, "Refresh library") }
-                        state.detail?.let { release ->
+                        if (tab == 0 && !inDetail) IconButton(onClick = importAudio) { Icon(OpenTuneIcons.Add, "Import audio", Modifier.size(21.dp)) }
+                        if (tab == 2 && !inDetail && state.signedIn && !state.settings.offline) IconButton(onClick = vm::sync, enabled = !state.syncing) { Icon(OpenTuneIcons.Refresh, "Refresh library") }
+                        state.detail?.takeIf { state.routes.isEmpty() }?.let { release ->
                             if (vm.canEdit(release)) IconButton(onClick = { playlistTitle = release.title; editPlaylist = true }) { Icon(OpenTuneIcons.Edit, "Edit playlist") }
                             if (release.type == ReleaseType.ALBUM && state.signedIn) IconButton(onClick = { vm.favoriteAlbum(release) }) {
                                 val saved = state.albums.any { it.id == release.id }
@@ -102,7 +104,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initia
                         IconButton(onClick = { settings = true }) { Icon(OpenTuneIcons.Settings, "Settings", Modifier.size(22.dp)) }
                     }
                 }
-                if (state.detail == null || settings) Text(title,
+                if (!inDetail || settings) Text(title,
                     Modifier.padding(start = 24.dp, end = 24.dp, top = if (largeText) 2.dp else 6.dp, bottom = 14.dp),
                     fontFamily = EditorialFont, fontSize = if (largeText) 30.sp else if (tab == 0 && !settings) 52.sp else 44.sp,
                     lineHeight = if (largeText) 38.sp else if (tab == 0 && !settings) 58.sp else 50.sp)
@@ -111,7 +113,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initia
         bottomBar = {
             Column {
                 if (state.playback.track != null) MiniPlayer(state.playback, onOpen = { nowPlaying = true }, onPlay = vm::togglePlay, onNext = vm::next)
-                if (!settings && !landscape && !largeText) OpenTuneNavigation(navigationTitles, navigationIcons, tab) { index -> tab = index; settings = false; vm.closeDetail() }
+                if (!settings && !landscape && !largeText) OpenTuneNavigation(navigationTitles, navigationIcons, tab) { index -> tab = index; settings = false; vm.closeAll() }
                 else if (state.playback.track != null) Spacer(Modifier.navigationBarsPadding())
             }
         },
@@ -120,6 +122,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initia
         Box(Modifier.fillMaxSize().padding(padding)) {
             when {
                 settings -> SettingsScreen(state, vm, openLogin)
+                state.routes.isNotEmpty() -> PageScreen(state.routes.last(), state, vm, pagesVm, openTrackMenu)
                 state.detail != null -> DetailScreen(state, vm, { track, index -> trackMenu = track; playlistPosition = index })
                 tab == 0 -> ListenScreen(state, vm, importAudio, openLogin, { filter -> libraryFilter = filter; tab = 2 }, openTrackMenu, { nowPlaying = true })
                 tab == 1 -> SearchScreen(state, vm, openLogin, openTrackMenu)
@@ -141,7 +144,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initia
         Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
             navigationTitles.forEachIndexed { index, title -> NavigationDrawerItem(selected = tab == index, label = { Text(title) },
                 icon = { Icon(navigationIcons[index], null) }, modifier = Modifier.padding(horizontal = 12.dp),
-                onClick = { tab = index; settings = false; vm.closeDetail(); navigationMenu = false }) }
+                onClick = { tab = index; settings = false; vm.closeAll(); navigationMenu = false }) }
         }
     }
 
@@ -180,6 +183,13 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initia
                 if (track.albumId.isNotBlank()) SettingRow(OpenTuneIcons.Album, "Go to album", onClick = {
                     vm.open(Release(track.albumId, track.album, track.artist, track.artwork)); nowPlaying = false; trackMenu = null
                 })
+                if (track.artistId.isNotBlank() && !track.id.startsWith("local:")) SettingRow(OpenTuneIcons.Person, "Go to artist", onClick = {
+                    vm.open(Release(track.artistId, track.artist.substringBefore(","), "", type = ReleaseType.ARTIST)); nowPlaying = false; trackMenu = null
+                })
+                if (!track.id.startsWith("local:") && state.signedIn && !state.settings.offline) {
+                    SettingRow(OpenTuneIcons.Radio, "Start track radio", onClick = { vm.playTrackRadio(track); trackMenu = null })
+                    SettingRow(OpenTuneIcons.Info, "Credits", onClick = { vm.showCredits("track", track.id, "${track.title} · ${track.artist}"); trackMenu = null })
+                }
                 if (!track.id.startsWith("local:")) SettingRow(OpenTuneIcons.Share, "Share TIDAL link", onClick = {
                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
                         .putExtra(Intent.EXTRA_TEXT, "https://tidal.com/browse/track/${track.id}"), "Share track")); trackMenu = null
@@ -195,6 +205,10 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initia
             }
         }
     }
+    state.credits?.let { credits -> CreditsSheet(credits, onClose = vm::dismissCredits, onPerson = { person ->
+        vm.dismissCredits(); nowPlaying = false
+        vm.open(Release(person.id, person.name, "", type = ReleaseType.ARTIST))
+    }) }
     addToPlaylist?.let { track ->
         AlertDialog(onDismissRequest = { addToPlaylist = null }, title = { Text("Add to playlist") }, text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {

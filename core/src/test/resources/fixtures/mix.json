@@ -1,0 +1,75 @@
+{
+ "id": "p",
+ "title": "Page",
+ "rows": [
+  {
+   "modules": [
+    {
+     "type": "MIX_HEADER",
+     "id": "h",
+     "title": "",
+     "mix": {
+      "id": "abc123",
+      "title": "My Daily Discovery",
+      "subTitle": "Songs inspired by your listening",
+      "images": {
+       "MEDIUM": {
+        "url": "https://images.tidal.com/example/640.jpg"
+       }
+      },
+      "mixType": "DISCOVERY_MIX"
+     }
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "type": "TRACK_LIST",
+     "id": "TRACK_LIST",
+     "title": "",
+     "pagedList": {
+      "items": [
+       {
+        "id": 1,
+        "title": "Track One",
+        "duration": 181,
+        "version": "Live",
+        "artists": [
+         {
+          "id": 7,
+          "name": "Artist One"
+         }
+        ],
+        "album": {
+         "id": 900,
+         "title": "Example Album",
+         "cover": "11111111-2222-3333-4444-555555555555"
+        },
+        "explicit": true,
+        "trackNumber": 1,
+        "volumeNumber": 1,
+        "replayGain": -7.5,
+        "peak": 0.98,
+        "mediaMetadata": {
+         "tags": [
+          "LOSSLESS",
+          "HIRES_LOSSLESS"
+         ]
+        },
+        "audioModes": [
+         "STEREO",
+         "DOLBY_ATMOS"
+        ]
+       }
+      ],
+      "totalNumberOfItems": 1,
+      "dataApiPath": "pages/data/example",
+      "limit": 1,
+      "offset": 0
+     }
+    }
+   ]
+  }
+ ]
+}

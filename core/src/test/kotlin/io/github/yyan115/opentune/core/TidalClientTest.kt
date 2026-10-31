@@ -175,11 +175,6 @@ class TidalClientTest {
         assertEquals("50", server.takeRequest().requestUrl!!.queryParameter("offset"))
     }
 
-    @Test fun missingLyricsAreAnEmptyResultRatherThanAnUnavailableTrack() = runBlocking {
-        server.enqueue(MockResponse().setResponseCode(404))
-        assertEquals("", client.lyrics("42"))
-    }
-
     @Test fun pkceRejectsWrongOriginStateAndExpiredRequestsWithoutSendingCodes() = runBlocking {
         val login = client.beginPkce()
         val callbacks = listOf(
@@ -208,6 +203,53 @@ class TidalClientTest {
         assertTrue(exchange.contains("redirect_uri=tidal%3A%2F%2Flogin%2Fauth"))
         assertFalse(exchange.contains("w_sub"))
         assertEquals("456", store.read()!!.userId)
+    }
+
+    @Test fun lyricsReturnTimedLinesAndMissingLyricsAreNull() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"lyrics":"One","subtitles":"[00:01.00] One","lyricsProvider":"MUSIXMATCH","isRightToLeft":false}"""))
+        val lyrics = client.lyrics("42")!!
+        assertTrue(lyrics.synced)
+        val request = server.takeRequest()
+        assertEquals("/v1/tracks/42/lyrics", request.requestUrl!!.encodedPath)
+        assertEquals("PHONE", request.requestUrl!!.queryParameter("deviceType"))
+        server.enqueue(MockResponse().setResponseCode(404).setBody("""{"status":404}"""))
+        assertNull(client.lyrics("43"))
+    }
+
+    @Test fun pagesAreRequestedWithLocaleAndDeviceType() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"id":"x","title":"T","rows":[]}"""))
+        val page = client.page("pages/artist", mapOf("artistId" to "7"))
+        assertEquals("T", page.title)
+        val request = server.takeRequest()
+        assertEquals("7", request.requestUrl!!.queryParameter("artistId"))
+        assertEquals("en_US", request.requestUrl!!.queryParameter("locale"))
+        assertEquals("IN", request.requestUrl!!.queryParameter("countryCode"))
+    }
+
+    @Test fun creditsAcceptAResponseThatIsAnArray() = runBlocking {
+        server.enqueue(MockResponse().setBody("""[{"type":"Producer","contributors":[{"name":"A","id":1}]}]"""))
+        val credits = client.credits("album", "9")
+        assertEquals("Producer", credits.single().role)
+        assertEquals("/v1/albums/9/credits", server.takeRequest().requestUrl!!.encodedPath)
+    }
+
+    @Test fun searchKeepsTheTopHitAndVideos() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"tracks":{"items":[]},"albums":{"items":[]},"artists":{"items":[]},"playlists":{"items":[]},
+            "videos":{"items":[{"id":5,"title":"Clip","imageId":"11111111-2222-3333-4444-555555555555","duration":60,"artists":[{"name":"X"}]}]},
+            "topHit":{"type":"ARTISTS","value":{"id":9,"name":"Top Artist","picture":"11111111-2222-3333-4444-555555555555"}}}"""))
+        val result = client.search("top")
+        assertEquals("Top Artist", result.topRelease!!.title)
+        assertEquals(ReleaseType.ARTIST, result.topRelease!!.type)
+        assertEquals(ReleaseType.VIDEO, result.videos.single().type)
+        assertTrue(server.takeRequest().requestUrl!!.queryParameter("types")!!.contains("VIDEOS"))
+    }
+
+    @Test fun videoManifestsYieldAnHttpsAddressAndRejectProtectedOnes() {
+        fun response(manifest: String) = org.json.JSONObject().put("assetPresentation", "FULL")
+            .put("manifest", java.util.Base64.getEncoder().encodeToString(manifest.toByteArray()))
+        assertEquals("https://video.example/master.m3u8", StreamManifest.parseVideo(response("""{"urls":["https://video.example/master.m3u8"]}""")))
+        try { StreamManifest.parseVideo(response("""{"urls":["http://video.example/a.m3u8"]}""")); fail("Plain HTTP accepted") } catch (_: ServiceException) { }
+        try { StreamManifest.parseVideo(response("""{"urls":["https://v.example/a"],"encryptionType":"AES"}""")); fail("Protected video accepted") } catch (_: ProtectedStreamException) { }
     }
 
     private class MemoryStore(var value: Session?) : SessionStore {

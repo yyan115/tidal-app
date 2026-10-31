@@ -84,12 +84,24 @@ class TidalClient(
 
     suspend fun search(query: String): SearchResult {
         if (query.isBlank()) return SearchResult()
-        val data = request("search", mapOf("query" to query, "types" to "TRACKS,ALBUMS,ARTISTS,PLAYLISTS", "limit" to "50"))
+        val data = request("search", mapOf("query" to query, "types" to "TRACKS,ALBUMS,ARTISTS,PLAYLISTS,VIDEOS", "limit" to "50"))
         fun collection(key: String) = data.optJSONObject(key)?.let(JsonCodec::items).orEmpty()
+        val top = data.optJSONObject("topHit")
+        val topValue = top?.optJSONObject("value")
+        val topType = top?.optString("type").orEmpty()
         return SearchResult(collection("tracks").map(JsonCodec::track),
             collection("albums").map { JsonCodec.release(it, ReleaseType.ALBUM) },
             collection("artists").map { JsonCodec.release(it, ReleaseType.ARTIST) },
-            collection("playlists").map { JsonCodec.release(it, ReleaseType.PLAYLIST) })
+            collection("playlists").map { JsonCodec.release(it, ReleaseType.PLAYLIST) },
+            collection("videos").map { JsonCodec.release(it, ReleaseType.VIDEO) },
+            topRelease = when (topType) {
+                "ARTISTS" -> topValue?.let { JsonCodec.release(it, ReleaseType.ARTIST) }
+                "ALBUMS" -> topValue?.let { JsonCodec.release(it, ReleaseType.ALBUM) }
+                "PLAYLISTS" -> topValue?.let { JsonCodec.release(it, ReleaseType.PLAYLIST) }
+                "VIDEOS" -> topValue?.let { JsonCodec.release(it, ReleaseType.VIDEO) }
+                else -> null
+            }?.takeIf { it.id.isNotBlank() },
+            topTrack = if (topType == "TRACKS") topValue?.let(JsonCodec::track) else null)
     }
 
     suspend fun favorites(offset: Int = 0): List<Track> =
@@ -107,6 +119,8 @@ class TidalClient(
             ReleaseType.ALBUM -> "albums/${release.id}/tracks"
             ReleaseType.PLAYLIST -> "playlists/${release.id}/items"
             ReleaseType.ARTIST -> "artists/${release.id}/toptracks"
+            ReleaseType.MIX -> "mixes/${release.id}/items"
+            ReleaseType.VIDEO -> throw IllegalArgumentException("Videos have no track list.")
         }
         return JsonCodec.items(request(path, mapOf("limit" to "100", "offset" to "$offset"))).map(JsonCodec::track)
     }
@@ -174,9 +188,46 @@ class TidalClient(
         else request("users/${userId()}/favorites/albums/$id", method = "DELETE")
     }
 
-    suspend fun lyrics(id: String): String = try {
-        request("tracks/$id/lyrics").let { it.optString("lyrics").ifBlank { it.optString("text") } }
-    } catch (error: ServiceException) { if (error.status == 404) "" else throw error }
+    /** Lyrics with line timing when the provider has it, or null when the track has no lyrics. */
+    suspend fun lyrics(id: String): Lyrics? = try {
+        LyricsParser.parse(request("tracks/$id/lyrics", pageParameters)).takeIf { !it.isEmpty }
+    } catch (error: ServiceException) { if (error.status == 404) null else throw error }
+
+    suspend fun credits(kind: String, id: String): List<Credit> =
+        CreditsParser.parse(request("${if (kind == "album") "albums" else "tracks"}/$id/credits"))
+
+    suspend fun pageJson(path: String, query: Map<String, String> = emptyMap()): JSONObject = request(path, pageParameters + query)
+
+    suspend fun page(path: String, query: Map<String, String> = emptyMap()): PageData = PageCodec.parse(pageJson(path, query))
+
+    /** Fetches more items of a paged module through the `dataApiPath` of the module. */
+    suspend fun moduleItems(dataPath: String, offset: Int, limit: Int = 50): JSONObject =
+        request(dataPath, pageParameters + mapOf("offset" to "$offset", "limit" to "$limit"))
+
+    suspend fun trackRadio(id: String): List<Track> =
+        JsonCodec.items(request("tracks/$id/radio", mapOf("limit" to "100"))).map(JsonCodec::track)
+
+    suspend fun artistRadio(id: String): List<Track> =
+        JsonCodec.items(request("artists/$id/radio", mapOf("limit" to "100"))).map(JsonCodec::track)
+
+    suspend fun mixTracks(mixId: String): List<Track> =
+        JsonCodec.items(request("mixes/$mixId/items", mapOf("limit" to "100"))).map(JsonCodec::track)
+
+    suspend fun artistTopTracks(id: String): List<Track> =
+        JsonCodec.items(request("artists/$id/toptracks", mapOf("limit" to "100"))).map(JsonCodec::track)
+
+    suspend fun followedArtists(): List<Release> = allPages { offset ->
+        JsonCodec.items(request("users/${userId()}/favorites/artists", mapOf("limit" to "100", "offset" to "$offset")))
+            .map { JsonCodec.release(it, ReleaseType.ARTIST) }
+    }
+
+    suspend fun setArtistFollowed(id: String, follow: Boolean) {
+        if (follow) request("users/${userId()}/favorites/artists", method = "POST", form = mapOf("artistIds" to id))
+        else request("users/${userId()}/favorites/artists/$id", method = "DELETE")
+    }
+
+    suspend fun videoUrl(id: String): String = StreamManifest.parseVideo(request("videos/$id/playbackinfopostpaywall",
+        mapOf("videoquality" to "HIGH", "playbackmode" to "STREAM", "assetpresentation" to "FULL")))
 
     fun signOut() = synchronized(accountLock) { generation.incrementAndGet(); sessions.clear(); etags.clear() }
 
@@ -241,8 +292,9 @@ class TidalClient(
             if (result.first == 401 && attempt == 0) continue
             if (result.first !in 200..299) throw ServiceException(result.first, errorMessage(result.first))
             result.third?.let { etags[path] = it }
-            return if (result.second.isBlank()) JSONObject() else try { JSONObject(result.second) }
-                catch (_: Exception) { throw ServiceException(502, "TIDAL returned an unreadable response.") }
+            return if (result.second.isBlank()) JSONObject() else try {
+                if (result.second.trimStart().startsWith("[")) JSONObject().put("items", org.json.JSONArray(result.second)) else JSONObject(result.second)
+            } catch (_: Exception) { throw ServiceException(502, "TIDAL returned an unreadable response.") }
         }
         throw ServiceException(401, "Your session could not be renewed.")
     }
@@ -275,5 +327,8 @@ class TidalClient(
         else -> "The request could not be completed (HTTP $status)."
     }
 
-    companion object { const val PKCE_REDIRECT = SignInCallback.NATIVE }
+    companion object {
+        const val PKCE_REDIRECT = SignInCallback.NATIVE
+        private val pageParameters = mapOf("locale" to "en_US", "deviceType" to "PHONE")
+    }
 }

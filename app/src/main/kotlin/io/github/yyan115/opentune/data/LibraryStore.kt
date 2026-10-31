@@ -13,7 +13,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-class LibraryStore(context: Context, databaseName: String = "library.db") : SQLiteOpenHelper(context, databaseName, null, 2) {
+class LibraryStore(context: Context, databaseName: String = "library.db") : SQLiteOpenHelper(context, databaseName, null, 3) {
     private val revision = MutableStateFlow(0L)
     val changes = revision.asStateFlow()
     override fun onCreate(db: SQLiteDatabase) {
@@ -22,14 +22,26 @@ class LibraryStore(context: Context, databaseName: String = "library.db") : SQLi
         db.execSQL("CREATE TABLE playlist_tracks (playlist_id TEXT NOT NULL, track_id TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY(playlist_id,track_id), FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE)")
         db.execSQL("CREATE INDEX recent_tracks ON tracks(played DESC)")
         createCollectionTables(db)
+        createHistoryTables(db)
     }
     override fun onConfigure(db: SQLiteDatabase) { db.setForeignKeyConstraintsEnabled(true); db.enableWriteAheadLogging() }
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) createCollectionTables(db)
+        if (oldVersion < 3) {
+            // Version 1 databases just received the new cache table above, which already has the column.
+            if (oldVersion == 2) db.execSQL("ALTER TABLE cloud_cache ADD COLUMN updated INTEGER NOT NULL DEFAULT 0")
+            createHistoryTables(db)
+        }
+    }
+
+    private fun createHistoryTables(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE plays (id INTEGER PRIMARY KEY AUTOINCREMENT, track_id TEXT NOT NULL, played_at INTEGER NOT NULL, listened_ms INTEGER NOT NULL)")
+        db.execSQL("CREATE INDEX plays_time ON plays(played_at DESC)")
+        db.execSQL("CREATE TABLE pending_scrobbles (id INTEGER PRIMARY KEY AUTOINCREMENT, listened_at INTEGER NOT NULL, payload TEXT NOT NULL)")
     }
 
     private fun createCollectionTables(db: SQLiteDatabase) {
-        db.execSQL("CREATE TABLE cloud_cache (account TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(account,kind))")
+        db.execSQL("CREATE TABLE cloud_cache (account TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, updated INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(account,kind))")
         db.execSQL("CREATE TABLE pending_favorites (account TEXT NOT NULL, track_id TEXT NOT NULL, favorite INTEGER NOT NULL, PRIMARY KEY(account,track_id))")
     }
 
@@ -39,9 +51,18 @@ class LibraryStore(context: Context, databaseName: String = "library.db") : SQLi
     @Synchronized fun cache(account: String, kind: String, payload: String) {
         if (account.isBlank()) return
         writableDatabase.insertWithOnConflict("cloud_cache", null, ContentValues().apply {
-            put("account", account); put("kind", kind); put("payload", payload)
+            put("account", account); put("kind", kind); put("payload", payload); put("updated", System.currentTimeMillis())
         }, SQLiteDatabase.CONFLICT_REPLACE)
     }
+
+    /** Keeps only the [keep] most recently written cache entries whose kind starts with [prefix]. */
+    @Synchronized fun pruneCache(prefix: String, keep: Int) {
+        writableDatabase.execSQL("DELETE FROM cloud_cache WHERE kind LIKE ? AND rowid NOT IN (SELECT rowid FROM cloud_cache WHERE kind LIKE ? ORDER BY updated DESC LIMIT ?)",
+            arrayOf<Any>("$prefix%", "$prefix%", keep))
+    }
+
+    @Synchronized fun cacheAge(account: String, kind: String): Long = readableDatabase.rawQuery(
+        "SELECT updated FROM cloud_cache WHERE account=? AND kind=?", arrayOf(account, kind)).use { if (it.moveToFirst()) System.currentTimeMillis() - it.getLong(0) else Long.MAX_VALUE }
 
     @Synchronized fun clearCache(account: String) { writableDatabase.delete("cloud_cache", "account=?", arrayOf(account)) }
 
@@ -90,6 +111,32 @@ class LibraryStore(context: Context, databaseName: String = "library.db") : SQLi
         writableDatabase.update("tracks", ContentValues().apply { put("played", System.currentTimeMillis()) }, "id=?", arrayOf(track.id))
         revision.value++
     }
+
+    /** Records that a track was listened to for [listenedMs]. These rows feed the local listening statistics. */
+    @Synchronized fun recordPlay(track: Track, listenedMs: Long, at: Long = System.currentTimeMillis()) {
+        save(track)
+        writableDatabase.insert("plays", null, ContentValues().apply { put("track_id", track.id); put("played_at", at); put("listened_ms", listenedMs) })
+    }
+
+    data class PlayCount(val track: Track, val plays: Int, val listenedMs: Long)
+
+    @Synchronized fun topTracks(since: Long, limit: Int = 25): List<PlayCount> = readableDatabase.rawQuery(
+        "SELECT t.payload, COUNT(*) c, SUM(p.listened_ms) FROM plays p JOIN tracks t ON t.id=p.track_id WHERE p.played_at>=? GROUP BY p.track_id ORDER BY c DESC, SUM(p.listened_ms) DESC LIMIT ?",
+        arrayOf(since.toString(), limit.toString())).use {
+        buildList { while (it.moveToNext()) add(PlayCount(JsonCodec.decodeTrack(JSONObject(it.getString(0))), it.getInt(1), it.getLong(2))) }
+    }
+
+    @Synchronized fun listeningTotals(since: Long): Pair<Int, Long> = readableDatabase.rawQuery(
+        "SELECT COUNT(*), COALESCE(SUM(listened_ms),0) FROM plays WHERE played_at>=?", arrayOf(since.toString())).use { it.moveToFirst(); it.getInt(0) to it.getLong(1) }
+
+    @Synchronized fun clearHistory() { writableDatabase.delete("plays", null, null); writableDatabase.update("tracks", ContentValues().apply { put("played", 0) }, null, null); revision.value++ }
+
+    @Synchronized fun queueScrobble(listenedAt: Long, payload: String) {
+        writableDatabase.insert("pending_scrobbles", null, ContentValues().apply { put("listened_at", listenedAt); put("payload", payload) })
+    }
+    @Synchronized fun pendingScrobbles(limit: Int = 50): List<Pair<Long, String>> = readableDatabase.rawQuery(
+        "SELECT id,payload FROM pending_scrobbles ORDER BY id LIMIT ?", arrayOf(limit.toString())).use { buildList { while (it.moveToNext()) add(it.getLong(0) to it.getString(1)) } }
+    @Synchronized fun scrobblesSent(ids: List<Long>) { ids.forEach { writableDatabase.delete("pending_scrobbles", "id=?", arrayOf(it.toString())) } }
 
     @Synchronized fun removeLocal(id: String) {
         if (id.startsWith("local:")) {

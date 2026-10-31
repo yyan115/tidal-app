@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -26,6 +27,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.work.WorkInfo
 import io.github.yyan115.opentune.BuildConfig
@@ -47,6 +49,7 @@ fun ConnectCard(onLogin: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @UnstableApi
 @Composable
 fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu: (Track) -> Unit) {
@@ -55,37 +58,83 @@ fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu
     LaunchedEffect(filter) { filters.animateScrollToItem(filter) }
     val keyboard = LocalSoftwareKeyboardController.current
     val query = state.searchQuery
+    val pages: PagesViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val entries by pages.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val context = PageContext(state, vm, pages, scope, onMenu)
+    val online = state.signedIn && !state.settings.offline
+    LaunchedEffect(online) { if (online) pages.load(PageRoute.Explore) }
     val local = remember(state.local, query) { if (query.isBlank()) emptyList() else state.local.filter {
         it.title.contains(query, true) || it.artist.contains(query, true) || it.album.contains(query, true)
     } }
     val songs = (local + if (state.settings.offline) emptyList() else state.search.tracks).distinctBy(Track::id)
+    val result = state.search
+    val open: (Release) -> Unit = { release -> vm.rememberSearch(query); keyboard?.hide(); vm.open(release) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Spacer(Modifier.height(12.dp)) }
         item { OutlinedTextField(query, vm::search, Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             placeholder = { Text("Tracks, albums, artists") }, leadingIcon = { Icon(OpenTuneIcons.Search, null) },
             trailingIcon = { if (query.isNotBlank()) IconButton(onClick = { vm.search("") }) { Icon(OpenTuneIcons.Close, "Clear search") } },
             singleLine = true, shape = MaterialTheme.shapes.large, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() })) }
+            keyboardActions = KeyboardActions(onSearch = { keyboard?.hide(); vm.rememberSearch(query) })) }
         if (query.isBlank()) {
-            item { EmptyState(OpenTuneIcons.Search, "Find something to play", "Search your audio files${if (state.signedIn && !state.settings.offline) " and TIDAL" else ""} by track, album, or artist.") }
+            if (state.recentSearches.isNotEmpty()) {
+                item { SectionTitle("Recent searches", "Clear", vm::clearSearches) }
+                item { FlowRow(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    state.recentSearches.forEach { LinkPill(it) { vm.search(it) } }
+                } }
+            }
+            val explore = entries[PageRoute.Explore.key]?.page
+            if (online && explore != null) pageContent(explore, entries.getValue(PageRoute.Explore.key), PageRoute.Explore.key, context, viewAll = false)
+            else if (state.recentSearches.isEmpty()) item { EmptyState(OpenTuneIcons.Search, "Find something to play", "Search your audio files${if (state.signedIn && !state.settings.offline) " and TIDAL" else ""} by track, album, or artist.") }
             if (!state.signedIn && !state.settings.offline) item { ConnectCard(onLogin) }
         } else {
             item { LazyRow(state = filters, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                itemsIndexed(listOf("Tracks", "Albums", "Artists", "Playlists")) { index, label -> FilterTab(filter == index, { filter = index }, label) }
+                itemsIndexed(listOf("Top", "Tracks", "Albums", "Artists", "Playlists", "Videos")) { index, label -> FilterTab(filter == index, { filter = index }, label) }
             } }
             if (state.searching) item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) }
             state.searchError?.let { error -> item { ErrorCard(error, vm::retrySearch) } }
-            if (filter == 0) {
-                items(songs, key = Track::id) { track -> TrackRow(track, state.playback.track?.id == track.id,
-                    onPlay = { keyboard?.hide(); vm.play(songs, songs.indexOf(track)) }, onMenu = { onMenu(track) }) }
-                if (songs.isEmpty() && !state.searching && state.searchError == null) item { EmptyState(OpenTuneIcons.SearchOff,
-                    "No tracks found", if (!state.signedIn) "Search is limited to files on your device until you connect TIDAL." else "Try another title or artist name.",
-                    if (!state.signedIn) "Connect TIDAL" else null, onLogin) }
-            } else {
-                val releases = if (state.settings.offline) emptyList() else when (filter) { 1 -> state.search.albums; 2 -> state.search.artists; else -> state.search.playlists }
-                items(releases, key = Release::id) { release -> ReleaseRow(release) { keyboard?.hide(); vm.open(release) } }
-                if (releases.isEmpty() && !state.searching && state.searchError == null) item { EmptyState(OpenTuneIcons.SearchOff,
-                    "No results", if (!state.signedIn) "Connect TIDAL to search its catalogue." else "Try another search.", if (!state.signedIn) "Connect TIDAL" else null, onLogin) }
+            val play: (Track) -> Unit = { track -> keyboard?.hide(); vm.rememberSearch(query); vm.play(songs, songs.indexOf(track)) }
+            when (filter) {
+                0 -> {
+                    result.topRelease?.let { top -> item(key = "top-hit") {
+                        UpperLabel("Top result", Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
+                        ReleaseRow(top) { open(top) }
+                    } }
+                    result.topTrack?.let { top -> item(key = "top-track") {
+                        UpperLabel("Top result", Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
+                        TrackRow(top, state.playback.track?.id == top.id, onPlay = { play(top) }, onMenu = { onMenu(top) })
+                    } }
+                    if (songs.isNotEmpty()) {
+                        item { SectionTitle("Tracks", if (songs.size > 5) "View all" else null) { filter = 1 } }
+                        items(songs.take(5), key = { "top:${it.id}" }) { track -> TrackRow(track, state.playback.track?.id == track.id, onPlay = { play(track) }, onMenu = { onMenu(track) }) }
+                    }
+                    listOf("Albums" to result.albums, "Artists" to result.artists, "Playlists" to result.playlists, "Videos" to result.videos).forEachIndexed { position, (title, list) ->
+                        if (list.isNotEmpty()) item(key = "top-$title") {
+                            Column {
+                                SectionTitle(title, "View all") { filter = position + 2 }
+                                LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    itemsIndexed(list.take(12), key = { index, release -> "${release.type}:${release.id}:$index" }) { _, release -> PageCard(release) { open(release) } }
+                                }
+                            }
+                        }
+                    }
+                    if (songs.isEmpty() && result.albums.isEmpty() && result.artists.isEmpty() && result.playlists.isEmpty() && result.videos.isEmpty() && !state.searching && state.searchError == null) item { EmptyState(OpenTuneIcons.SearchOff,
+                        "Nothing found", if (!state.signedIn) "Search is limited to files on your device until you connect TIDAL." else "Try another title or artist name.",
+                        if (!state.signedIn) "Connect TIDAL" else null, onLogin) }
+                }
+                1 -> {
+                    items(songs, key = Track::id) { track -> TrackRow(track, state.playback.track?.id == track.id, onPlay = { play(track) }, onMenu = { onMenu(track) }) }
+                    if (songs.isEmpty() && !state.searching && state.searchError == null) item { EmptyState(OpenTuneIcons.SearchOff,
+                        "No tracks found", if (!state.signedIn) "Search is limited to files on your device until you connect TIDAL." else "Try another title or artist name.",
+                        if (!state.signedIn) "Connect TIDAL" else null, onLogin) }
+                }
+                else -> {
+                    val releases = if (state.settings.offline) emptyList() else when (filter) { 2 -> result.albums; 3 -> result.artists; 4 -> result.playlists; else -> result.videos }
+                    items(releases, key = { "${it.type}:${it.id}" }) { release -> ReleaseRow(release) { open(release) } }
+                    if (releases.isEmpty() && !state.searching && state.searchError == null) item { EmptyState(OpenTuneIcons.SearchOff,
+                        "No results", if (!state.signedIn) "Connect TIDAL to search its catalogue." else "Try another search.", if (!state.signedIn) "Connect TIDAL" else null, onLogin) }
+                }
             }
         }
     }
@@ -94,7 +143,7 @@ fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu
 @Composable
 fun ReleaseRow(release: Release, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Artwork(release.artwork, null, Modifier.size(60.dp))
+        Artwork(release.artwork, null, Modifier.size(60.dp).then(if (release.type == ReleaseType.ARTIST) Modifier.clip(androidx.compose.foundation.shape.CircleShape) else Modifier))
         Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
             Text(release.title, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             Text(release.artist.ifBlank { release.subtitle }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -120,6 +169,8 @@ private fun LazyListScope.releaseGrid(releases: List<Release>, columns: Int, onO
     }
 }
 
+private enum class LibrarySort(val label: String) { Recent("Recently added"), Title("Title"), Artist("Artist") }
+
 @UnstableApi
 @Composable
 fun LibraryScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLogin: () -> Unit, onNewPlaylist: () -> Unit,
@@ -127,26 +178,59 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLo
     val columns = if (LocalDensity.current.fontScale > 1.3f) 1 else 2
     val filters = rememberLazyListState()
     LaunchedEffect(filter) { filters.animateScrollToItem(filter) }
+    var sort by rememberSaveable { mutableStateOf(LibrarySort.Recent) }
+    var text by rememberSaveable { mutableStateOf("") }
+    var sortMenu by remember { mutableStateOf(false) }
+    fun matches(vararg fields: String) = text.isBlank() || fields.any { it.contains(text.trim(), ignoreCase = true) }
+    fun <T> List<T>.ordered(title: (T) -> String, artist: (T) -> String): List<T> = when (sort) {
+        LibrarySort.Recent -> this
+        LibrarySort.Title -> sortedBy { title(it).lowercase() }
+        LibrarySort.Artist -> sortedWith(compareBy({ artist(it).lowercase() }, { title(it).lowercase() }))
+    }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Spacer(Modifier.height(8.dp)) }
         item { LazyRow(modifier = Modifier.testTag("library-filters"), state = filters, contentPadding = PaddingValues(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            itemsIndexed(listOf("Saved tracks", "Albums", "Playlists", "On device")) { index, label -> FilterTab(filter == index, { onFilter(index) }, label) }
+            itemsIndexed(listOf("Saved tracks", "Albums", "Artists", "Playlists", "On device")) { index, label -> FilterTab(filter == index, { onFilter(index) }, label) }
         } }
         if (state.syncing) item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) }
         state.error?.let { item { ErrorCard(it, vm::sync) } }
+        if (filter in 0..2) item(key = "tools") {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(text, { text = it }, Modifier.weight(1f), singleLine = true, placeholder = { Text("Filter") },
+                    leadingIcon = { Icon(OpenTuneIcons.Search, null, Modifier.size(18.dp)) }, shape = MaterialTheme.shapes.large,
+                    trailingIcon = { if (text.isNotEmpty()) IconButton(onClick = { text = "" }) { Icon(OpenTuneIcons.Close, "Clear filter", Modifier.size(18.dp)) } })
+                if (filter != 2) Box {
+                    IconButton(onClick = { sortMenu = true }) { Icon(OpenTuneIcons.Sort, "Sort by ${sort.label}") }
+                    DropdownMenu(sortMenu, { sortMenu = false }) {
+                        LibrarySort.entries.forEach { option -> DropdownMenuItem(text = { Text(option.label) }, onClick = { sort = option; sortMenu = false },
+                            trailingIcon = { if (sort == option) Icon(OpenTuneIcons.Check, null, Modifier.size(18.dp)) }) }
+                    }
+                }
+            }
+        }
         when (filter) {
             0 -> {
-                val tracks = if (state.settings.offline) state.favorites.filter(Track::isLocal) else state.favorites
-                item { SectionTitle("${tracks.size} ${if (tracks.size == 1) "track" else "tracks"}") }
+                val all = if (state.settings.offline) state.favorites.filter(Track::isLocal) else state.favorites
+                val tracks = all.filter { matches(it.title, it.artist, it.album) }.ordered({ it.title }, { it.artist })
+                item { SectionTitle("${tracks.size} ${if (tracks.size == 1) "track" else "tracks"}", if (tracks.size > 1) "Shuffle" else null) { vm.playTracks(tracks, shuffle = true) } }
                 items(tracks, key = Track::id) { track -> TrackRow(track, state.playback.track?.id == track.id, { vm.play(tracks, tracks.indexOf(track)) }, { onMenu(track) }) }
-                if (tracks.isEmpty() && !state.syncing) item { EmptyState(OpenTuneIcons.FavoriteBorder, "No saved tracks", "Save tracks from the player or connect your TIDAL collection.", if (state.signedIn) null else "Connect TIDAL", onLogin) }
-                if (state.hasMoreFavorites) item { TextButton(onClick = { vm.moreFavorites() }, modifier = Modifier.fillMaxWidth()) { Text("Load more tracks") } }
+                if (tracks.isEmpty() && !state.syncing) item { EmptyState(OpenTuneIcons.FavoriteBorder, if (text.isBlank()) "No saved tracks" else "No matches",
+                    if (text.isBlank()) "Save tracks from the player or connect your TIDAL collection." else "Try a different filter.", if (state.signedIn || text.isNotBlank()) null else "Connect TIDAL", onLogin) }
+                if (state.hasMoreFavorites && text.isBlank()) item { TextButton(onClick = { vm.moreFavorites() }, modifier = Modifier.fillMaxWidth()) { Text("Load more tracks") } }
             }
             1 -> {
-                releaseGrid(state.albums, columns, vm::open)
-                if (state.albums.isEmpty() && !state.syncing) item { EmptyState(OpenTuneIcons.Album, "No saved albums", "Albums saved in TIDAL will appear here.", if (!state.signedIn) "Connect TIDAL" else null, onLogin) }
+                val albums = state.albums.filter { matches(it.title, it.artist) }.ordered({ it.title }, { it.artist })
+                releaseGrid(albums, columns, vm::open)
+                if (albums.isEmpty() && !state.syncing) item { EmptyState(OpenTuneIcons.Album, if (text.isBlank()) "No saved albums" else "No matches",
+                    if (text.isBlank()) "Albums saved in TIDAL will appear here." else "Try a different filter.", if (!state.signedIn && text.isBlank()) "Connect TIDAL" else null, onLogin) }
             }
             2 -> {
+                val artists = state.artists.filter { matches(it.title) }.sortedBy { it.title.lowercase() }
+                items(artists, key = { "artist:${it.id}" }) { ReleaseRow(it) { vm.open(it) } }
+                if (artists.isEmpty() && !state.syncing) item { EmptyState(OpenTuneIcons.Person, if (text.isBlank()) "No followed artists" else "No matches",
+                    if (text.isBlank()) "Artists you follow in TIDAL will appear here." else "Try a different filter.", if (!state.signedIn && text.isBlank()) "Connect TIDAL" else null, onLogin) }
+            }
+            3 -> {
                 item { SectionTitle("On this device", "New playlist", onNewPlaylist) }
                 items(state.localPlaylists, key = LocalPlaylist::id) { playlist ->
                     ReleaseRow(Release(playlist.id, playlist.title, "${playlist.trackIds.size} tracks", type = ReleaseType.PLAYLIST)) {
@@ -158,7 +242,7 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLo
                 if (state.playlists.isNotEmpty()) item { SectionTitle("TIDAL playlists") }
                 items(state.playlists, key = Release::id) { ReleaseRow(it) { vm.open(it) } }
             }
-            3 -> {
+            else -> {
                 item { SectionTitle("${state.local.size} ${if (state.local.size == 1) "track" else "tracks"}", "Import", onImport) }
                 items(state.local, key = Track::id) { track -> TrackRow(track, state.playback.track?.id == track.id, { vm.play(state.local, state.local.indexOf(track)) }, { onMenu(track) }) }
                 if (state.local.isEmpty()) item { EmptyState(OpenTuneIcons.AudioFile, "No audio files yet", "Import FLAC, MP3, AAC, or other supported audio files. Your original files stay where they are.", "Import audio", onImport) }

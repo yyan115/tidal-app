@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -77,7 +78,8 @@ fun MiniPlayer(state: PlaybackState, onOpen: () -> Unit, onPlay: () -> Unit, onN
 @Composable
 fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, onQueue: () -> Unit, onMenu: (Track) -> Unit, onDownload: (Track) -> Unit) {
     val track = state.playback.track ?: return
-    var lyrics by remember(track.id) { mutableStateOf(false) }
+    var lyrics by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(track.id, lyrics) { if (lyrics) vm.loadLyrics() }
     var source by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val window = (LocalView.current.parent as DialogWindowProvider).window
@@ -104,25 +106,28 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
                     }
                     if (landscape) {
                         Row(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                            Artwork(track.artwork, "Artwork for ${track.album}", Modifier.size(landscapeArtworkSize))
+                            if (lyrics) LyricsPanel(state, vm, Modifier.width(landscapeArtworkSize * 1.3f).height(landscapeArtworkSize))
+                            else Artwork(track.artwork, "Artwork for ${track.album}", Modifier.size(landscapeArtworkSize))
                             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                                 PlayerHeading(track, true)
-                                GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = true; vm.loadLyrics() }, true)
+                                GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, true)
                             }
                         }
                     } else if (compact) {
                         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
                             PlayerHeading(track, true)
-                            Artwork(track.artwork, "Artwork for ${track.album}", Modifier.size(if (large) 104.dp else 180.dp).align(Alignment.CenterHorizontally).padding(vertical = 8.dp))
-                            GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = true; vm.loadLyrics() }, true)
+                            if (lyrics) LyricsPanel(state, vm, Modifier.fillMaxWidth().height(if (large) 220.dp else 260.dp))
+                            else Artwork(track.artwork, "Artwork for ${track.album}", Modifier.size(if (large) 104.dp else 180.dp).align(Alignment.CenterHorizontally).padding(vertical = 8.dp))
+                            GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, true)
                         }
                     } else {
                         Column(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp)) {
                             PlayerHeading(track, false)
                             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                Artwork(track.artwork, "Artwork for ${track.album}", Modifier.size(minOf(maxWidth - 20.dp, maxHeight - 8.dp)))
+                                if (lyrics) LyricsPanel(state, vm, Modifier.fillMaxSize())
+                                else Artwork(track.artwork, "Artwork for ${track.album}", Modifier.size(minOf(maxWidth - 20.dp, maxHeight - 8.dp)))
                             }
-                            GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = true; vm.loadLyrics() }, false)
+                            GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, false)
                         }
                         state.playback.queue.getOrNull(state.playback.nextIndex)?.let { next ->
                             HorizontalDivider(Modifier.padding(horizontal = 24.dp), color = MaterialTheme.colorScheme.outlineVariant)
@@ -141,10 +146,6 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
         }
     }
     if (source) SourceDetailsSheet(state.playback.quality) { source = false }
-    if (lyrics) AlertDialog(onDismissRequest = { lyrics = false }, title = { Text("Lyrics") }, text = {
-        if (state.lyricsLoading) CircularProgressIndicator()
-        else Text(state.lyrics.orEmpty(), Modifier.verticalScroll(rememberScrollState()), style = MaterialTheme.typography.bodyLarge)
-    }, confirmButton = { TextButton(onClick = { lyrics = false }) { Text("Close") } })
 }
 
 @Composable
@@ -158,7 +159,7 @@ private fun PlayerHeading(track: Track, compact: Boolean) {
 @OptIn(ExperimentalMaterial3Api::class)
 @UnstableApi
 @Composable
-private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> Unit, onDownload: (Track) -> Unit, onSource: () -> Unit, onLyrics: () -> Unit, compact: Boolean) {
+private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> Unit, onDownload: (Track) -> Unit, onSource: () -> Unit, onLyrics: () -> Unit, lyricsActive: Boolean, compact: Boolean) {
     val player = state.playback; val track = player.track ?: return
     val largeText = LocalDensity.current.fontScale > 1.3f
     val saved = state.favorites.any { it.id == track.id }
@@ -205,7 +206,10 @@ private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> U
         }
     }
     Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        TextButton(onClick = onLyrics) { Icon(OpenTuneIcons.Lyrics, null, Modifier.size(17.dp)); Spacer(Modifier.width(6.dp)); Text("Lyrics", fontSize = 11.sp) }
+        TextButton(onClick = onLyrics, colors = ButtonDefaults.textButtonColors(contentColor = if (lyricsActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant),
+            modifier = Modifier.semantics { contentDescription = if (lyricsActive) "Hide lyrics" else "Show lyrics" }) {
+            Icon(OpenTuneIcons.Lyrics, null, Modifier.size(17.dp)); Spacer(Modifier.width(6.dp)); Text("Lyrics", fontSize = 11.sp)
+        }
         DownloadButton(state, onDownload)
         TextButton(onClick = onQueue) { Icon(OpenTuneIcons.PlaylistPlay, null, Modifier.size(20.dp)); Spacer(Modifier.width(6.dp)); Text("Queue · ${player.queue.size}", fontSize = 11.sp) }
     }

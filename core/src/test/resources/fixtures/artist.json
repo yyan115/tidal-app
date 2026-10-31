@@ -1,0 +1,251 @@
+{
+ "id": "p",
+ "title": "Page",
+ "rows": [
+  {
+   "modules": [
+    {
+     "type": "ARTIST_HEADER",
+     "id": "h",
+     "title": "",
+     "artist": {
+      "id": 100,
+      "name": "Example Artist",
+      "picture": "11111111-2222-3333-4444-555555555555",
+      "mixes": {
+       "ARTIST_MIX": "mix100"
+      }
+     },
+     "artistMix": {
+      "id": "mix100"
+     },
+     "bio": {
+      "source": "Example",
+      "text": "[wimpLink artistId=\"100\"]Example Artist[/wimpLink] is a singer.<br/>She plays piano. [wimpLink albumId=\"900\"]Example Album[/wimpLink] came first."
+     }
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "type": "TRACK_LIST",
+     "id": "TRACK_LISTTop Tracks",
+     "title": "Top Tracks",
+     "pagedList": {
+      "items": [
+       {
+        "id": 1,
+        "title": "Hit One",
+        "duration": 181,
+        "version": null,
+        "artists": [
+         {
+          "id": 100,
+          "name": "Example Artist"
+         }
+        ],
+        "album": {
+         "id": 900,
+         "title": "Example Album",
+         "cover": "11111111-2222-3333-4444-555555555555"
+        },
+        "explicit": false,
+        "trackNumber": 1,
+        "volumeNumber": 1
+       },
+       {
+        "id": 2,
+        "title": "Hit Two",
+        "duration": 182,
+        "version": null,
+        "artists": [
+         {
+          "id": 100,
+          "name": "Example Artist"
+         }
+        ],
+        "album": {
+         "id": 900,
+         "title": "Example Album",
+         "cover": "11111111-2222-3333-4444-555555555555"
+        },
+        "explicit": false,
+        "trackNumber": 2,
+        "volumeNumber": 1
+       }
+      ],
+      "totalNumberOfItems": 134,
+      "dataApiPath": "pages/data/example",
+      "limit": 2,
+      "offset": 0
+     },
+     "showMore": {
+      "title": "View all",
+      "apiPath": "pages/single-module-page/top"
+     }
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "type": "ALBUM_LIST",
+     "id": "ALBUM_LISTAlbums",
+     "title": "Albums",
+     "pagedList": {
+      "items": [
+       {
+        "id": 900,
+        "title": "Example Album",
+        "cover": "11111111-2222-3333-4444-555555555555",
+        "releaseDate": "2020-05-01",
+        "artists": [
+         {
+          "id": 100,
+          "name": "Example Artist"
+         }
+        ],
+        "mediaMetadata": {
+         "tags": [
+          "LOSSLESS"
+         ]
+        }
+       }
+      ],
+      "totalNumberOfItems": 1,
+      "dataApiPath": "pages/data/example",
+      "limit": 1,
+      "offset": 0
+     }
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "type": "MIXED_TYPES_LIST",
+     "id": "MIXED_TYPES_LISTPlaylists",
+     "title": "Playlists",
+     "pagedList": {
+      "items": [
+       {
+        "type": "PLAYLIST",
+        "item": {
+         "uuid": "cccc",
+         "title": "Essentials",
+         "type": "EDITORIAL",
+         "squareImage": "11111111-2222-3333-4444-555555555555",
+         "numberOfTracks": 25,
+         "creator": {
+          "id": 0
+         },
+         "description": "Example"
+        }
+       },
+       {
+        "type": "ALBUM",
+        "item": {
+         "id": 901,
+         "title": "Compilation",
+         "cover": "11111111-2222-3333-4444-555555555555",
+         "releaseDate": "2020-05-02",
+         "artists": [
+          {
+           "id": 100,
+           "name": "Example Artist"
+          }
+         ],
+         "mediaMetadata": {
+          "tags": [
+           "LOSSLESS"
+          ]
+         }
+        }
+       },
+       {
+        "type": "TRACK",
+        "item": {
+         "id": 5,
+         "title": "Ignored",
+         "duration": 185,
+         "version": null,
+         "artists": [
+          {
+           "id": 100,
+           "name": "Example Artist"
+          }
+         ],
+         "album": {
+          "id": 900,
+          "title": "Example Album",
+          "cover": "11111111-2222-3333-4444-555555555555"
+         },
+         "explicit": false,
+         "trackNumber": 5,
+         "volumeNumber": 1
+        }
+       }
+      ],
+      "totalNumberOfItems": 3,
+      "dataApiPath": "pages/data/example",
+      "limit": 3,
+      "offset": 0
+     }
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "type": "VIDEO_LIST",
+     "id": "VIDEO_LISTVideos",
+     "title": "Videos",
+     "pagedList": {
+      "items": [
+       {
+        "id": 700,
+        "title": "Clip",
+        "imageId": "11111111-2222-3333-4444-555555555555",
+        "duration": 206,
+        "artists": [
+         {
+          "id": 100,
+          "name": "Example Artist"
+         }
+        ]
+       }
+      ],
+      "totalNumberOfItems": 1,
+      "dataApiPath": "pages/data/example",
+      "limit": 1,
+      "offset": 0
+     }
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "type": "ARTIST_LIST",
+     "id": "ARTIST_LISTRelated Artists",
+     "title": "Related Artists",
+     "pagedList": {
+      "items": [
+       {
+        "id": 101,
+        "name": "Another Artist",
+        "picture": null,
+        "selectedAlbumCoverFallback": "11111111-2222-3333-4444-555555555555"
+       }
+      ],
+      "totalNumberOfItems": 1,
+      "dataApiPath": "pages/data/example",
+      "limit": 1,
+      "offset": 0
+     }
+    }
+   ]
+  }
+ ]
+}

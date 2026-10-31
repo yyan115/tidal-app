@@ -53,6 +53,9 @@ data class PlaybackState(
     val nextIndex: Int = -1,
 ) { val track: Track? get() = queue.getOrNull(index) }
 
+enum class LyricsStatus { Idle, Loading, Ready, None, Offline, Error }
+data class CreditsUi(val title: String, val loading: Boolean = true, val credits: List<Credit> = emptyList(), val error: String? = null)
+
 data class AppState(
     val signedIn: Boolean = false,
     val settings: Settings = Settings(),
@@ -67,7 +70,9 @@ data class AppState(
     val detail: Release? = null, val detailTracks: List<Track> = emptyList(), val detailAlbums: List<Release> = emptyList(), val detailLoading: Boolean = false,
     val downloads: List<WorkInfo> = emptyList(), val playback: PlaybackState = PlaybackState(),
     val downloadTracks: Map<String, Track> = emptyMap(),
-    val lyrics: String? = null, val lyricsLoading: Boolean = false,
+    val lyrics: Lyrics? = null, val lyricsStatus: LyricsStatus = LyricsStatus.Idle, val lyricsTrackId: String = "",
+    val routes: List<PageRoute> = emptyList(), val artists: List<Release> = emptyList(),
+    val credits: CreditsUi? = null, val recentSearches: List<String> = emptyList(), val video: Release? = null,
     val hasMoreFavorites: Boolean = false,
     val exportProgress: Int? = null,
 )
@@ -77,7 +82,9 @@ data class AppState(
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     val app = application as OpenTuneApp
     private val ui = MutableStateFlow(AppState(signedIn = app.tidal.signedIn, settings = app.settings.state.value,
-        pkceLogin = app.sessions.pendingPkce()))
+        pkceLogin = app.sessions.pendingPkce(),
+        recentSearches = application.getSharedPreferences("search", Application.MODE_PRIVATE).getString("recent", null)
+            ?.let { runCatching { org.json.JSONArray(it).let { array -> (0 until array.length()).map(array::getString) } }.getOrNull() }.orEmpty()))
     val state = ui.asStateFlow()
     private val query = MutableStateFlow("")
     private val searchRetry = MutableStateFlow(0L)
@@ -89,6 +96,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var detailJob: Job? = null
     private var syncJob: Job? = null
     private var lyricsJob: Job? = null
+    private val searchPreferences = application.getSharedPreferences("search", Application.MODE_PRIVATE)
+    private val missingLyrics = mutableSetOf<String>()
     private var cloudFavorites = emptyList<Track>()
     private var favoritesOffset = 0
     private val favoriteSyncLock = Mutex()
@@ -173,6 +182,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val cached = withContext(Dispatchers.IO) {
             Triple(app.library.cache(account, "favorites"), app.library.cache(account, "albums"), app.library.cache(account, "playlists"))
         }
+        val cachedArtists = withContext(Dispatchers.IO) { app.library.cache(account, "artists") }
+        cachedArtists?.let { value -> runCatching { JsonCodec.decodeReleases(value) }.getOrNull() }?.let { list -> ui.update { it.copy(artists = list) } }
         if (account != app.tidal.accountId) return
         cloudFavorites = cached.first?.let { runCatching { JsonCodec.decodeTracks(it) }.getOrNull() }.orEmpty()
         ui.update { it.copy(albums = cached.second?.let { value -> runCatching { JsonCodec.decodeReleases(value) }.getOrNull() }.orEmpty(),
@@ -232,7 +243,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val account = app.tidal.accountId
         val saved = ui.value.local.filter { track -> cloudFavorites.any { it.id == track.id } }
         cancelLogin(); syncJob?.cancel(); detailJob?.cancel(); app.tidal.signOut(); cloudFavorites = emptyList()
-        ui.update { it.copy(signedIn = false, syncing = false, hasMoreFavorites = false, albums = emptyList(), playlists = emptyList(), search = SearchResult(), searchError = null, detail = null) }
+        ui.update { it.copy(signedIn = false, syncing = false, hasMoreFavorites = false, albums = emptyList(), playlists = emptyList(), artists = emptyList(),
+            search = SearchResult(), searchError = null, detail = null, routes = emptyList()) }
         viewModelScope.launch {
             withContext(Dispatchers.IO) { saved.forEach { app.library.setFavorite(it, true) }; app.library.clearCache(account) }
             refreshLocal()
@@ -258,6 +270,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val playlists = app.tidal.allPlaylists()
                 withContext(Dispatchers.IO) { app.library.cache(account, "playlists", JsonCodec.encodeReleases(playlists)) }
                 ui.update { it.copy(playlists = playlists) }
+                val artists = app.tidal.followedArtists()
+                withContext(Dispatchers.IO) { app.library.cache(account, "artists", JsonCodec.encodeReleases(artists)) }
+                ui.update { it.copy(artists = artists) }
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 ui.update { it.copy(error = userMessage(error)) }
@@ -273,7 +288,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } catch (error: Exception) { if (error is CancellationException) throw error; notify(userMessage(error)) }
     }
 
+    /** Opens an album, artist, mix or playlist, or starts a music video. */
     fun open(release: Release) {
+        when (release.type) {
+            ReleaseType.ARTIST -> pushRoute(PageRoute.artist(release.id, release.title))
+            ReleaseType.MIX -> pushRoute(PageRoute.mix(release.id, release.title))
+            ReleaseType.VIDEO -> ui.update { it.copy(video = release) }
+            ReleaseType.ALBUM -> if (app.tidal.signedIn && !ui.value.settings.offline) pushRoute(PageRoute.album(release.id, release.title)) else openDetail(release)
+            ReleaseType.PLAYLIST -> openDetail(release)
+        }
+    }
+    fun openPage(route: PageRoute) = pushRoute(route)
+    fun closeVideo() { ui.update { it.copy(video = null) } }
+    private fun pushRoute(route: PageRoute) = ui.update { state ->
+        if (state.routes.lastOrNull()?.key == route.key) state else state.copy(routes = state.routes + route, error = null)
+    }
+
+    private fun openDetail(release: Release) {
         detailJob?.cancel()
         ui.update { it.copy(detail = release, detailLoading = true, detailTracks = emptyList(), detailAlbums = emptyList(), error = null) }
         detailJob = viewModelScope.launch {
@@ -298,7 +329,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (error: Exception) { if (error is CancellationException) throw error; ui.update { it.copy(detailLoading = false, error = userMessage(error)) } }
         }
     }
-    fun closeDetail() { detailJob?.cancel(); ui.update { it.copy(detail = null, detailTracks = emptyList(), error = null) } }
+    fun closeDetail() {
+        if (ui.value.routes.isNotEmpty()) { ui.update { it.copy(routes = it.routes.dropLast(1)) }; return }
+        detailJob?.cancel(); ui.update { it.copy(detail = null, detailTracks = emptyList(), error = null) }
+    }
+    fun closeAll() { detailJob?.cancel(); ui.update { it.copy(routes = emptyList(), detail = null, detailTracks = emptyList(), error = null) } }
 
     fun play(tracks: List<Track>, index: Int = 0) {
         if (tracks.isEmpty()) return
@@ -446,17 +481,104 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun settings(transform: (Settings) -> Settings) { app.settings.update(transform) }
 
+    /** Loads lyrics for the current track. Results, including "no lyrics", are cached on the device. */
     fun loadLyrics() {
+        val track = ui.value.playback.track ?: return
+        val current = ui.value
+        if (current.lyricsTrackId == track.id && current.lyricsStatus in setOf(LyricsStatus.Ready, LyricsStatus.None, LyricsStatus.Loading)) return
         lyricsJob?.cancel()
         lyricsJob = viewModelScope.launch {
-        val track = ui.value.playback.track ?: return@launch
-        if (ui.value.settings.offline) { ui.update { it.copy(lyrics = "Lyrics are not available offline.", lyricsLoading = false) }; return@launch }
-        ui.update { it.copy(lyrics = null, lyricsLoading = true) }
-        try {
-            val lyrics = if (track.id.startsWith("local:")) "Lyrics are not available for this local file." else app.tidal.lyrics(track.id).ifBlank { "No lyrics are available for this track." }
-            ui.update { it.copy(lyrics = lyrics, lyricsLoading = false) }
-        } catch (error: Exception) { if (error is CancellationException) throw error; ui.update { it.copy(lyrics = "Lyrics could not be loaded. ${userMessage(error)}", lyricsLoading = false) } }
+            ui.update { it.copy(lyrics = null, lyricsStatus = LyricsStatus.Loading, lyricsTrackId = track.id) }
+            if (track.id.startsWith("local:") || track.isLocal && !track.id.all(Char::isDigit)) {
+                ui.update { it.copy(lyricsStatus = LyricsStatus.None) }; return@launch
+            }
+            val cached = withContext(Dispatchers.IO) { app.library.cache("shared", "lyrics:${track.id}") }
+            if (cached != null && cached.isNotEmpty()) {
+                runCatching { LyricsCodec.decode(cached) }.getOrNull()?.let { lyrics ->
+                    ui.update { it.copy(lyrics = lyrics, lyricsStatus = LyricsStatus.Ready) }; return@launch
+                }
+            }
+            val knownMissing = track.id in missingLyrics ||
+                (cached == "" && withContext(Dispatchers.IO) { app.library.cacheAge("shared", "lyrics:${track.id}") } < MISSING_LYRICS_MS)
+            if (knownMissing) { ui.update { it.copy(lyricsStatus = LyricsStatus.None) }; return@launch }
+            if (ui.value.settings.offline || !app.tidal.signedIn) {
+                ui.update { it.copy(lyricsStatus = LyricsStatus.Offline) }; return@launch
+            }
+            try {
+                val lyrics = app.tidal.lyrics(track.id)
+                withContext(Dispatchers.IO) { app.library.cache("shared", "lyrics:${track.id}", lyrics?.let(LyricsCodec::encode).orEmpty()); app.library.pruneCache("lyrics:", 500) }
+                if (lyrics == null) missingLyrics += track.id
+                ui.update { it.copy(lyrics = lyrics, lyricsStatus = if (lyrics == null) LyricsStatus.None else LyricsStatus.Ready) }
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                ui.update { it.copy(lyricsStatus = LyricsStatus.Error) }
+            }
         }
+    }
+
+    fun retryLyrics() { ui.update { it.copy(lyricsStatus = LyricsStatus.Idle, lyricsTrackId = "") }; loadLyrics() }
+
+    fun showCredits(kind: String, id: String, title: String) {
+        ui.update { it.copy(credits = CreditsUi(title)) }
+        viewModelScope.launch {
+            try {
+                val credits = app.tidal.credits(kind, id)
+                ui.update { state -> state.credits?.let { state.copy(credits = it.copy(loading = false, credits = credits)) } ?: state }
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                ui.update { state -> state.credits?.let { state.copy(credits = it.copy(loading = false, error = userMessage(error))) } ?: state }
+            }
+        }
+    }
+    fun dismissCredits() { ui.update { it.copy(credits = null) } }
+
+    fun playTrackRadio(track: Track) = accountAction {
+        val radio = app.tidal.trackRadio(track.id).filterNot { it.id == track.id }
+        if (radio.isEmpty()) notify("TIDAL has no radio for this track") else play(listOf(track) + radio)
+    }
+    fun playArtistRadio(artistId: String) = accountAction {
+        val radio = app.tidal.artistRadio(artistId)
+        if (radio.isEmpty()) notify("TIDAL has no radio for this artist") else play(radio)
+    }
+    fun playArtistTopTracks(artistId: String, shuffle: Boolean = false) = accountAction {
+        val tracks = app.tidal.artistTopTracks(artistId)
+        if (tracks.isEmpty()) notify("This artist has no tracks to play") else { play(tracks); if (shuffle && !ui.value.playback.shuffle) toggleShuffle() }
+    }
+    fun playMix(mixId: String, shuffle: Boolean = false) = accountAction {
+        val tracks = app.tidal.mixTracks(mixId)
+        if (tracks.isEmpty()) notify("This mix has no tracks") else { play(tracks); if (shuffle && !ui.value.playback.shuffle) toggleShuffle() }
+    }
+    fun playTracks(tracks: List<Track>, shuffle: Boolean) {
+        if (tracks.isEmpty()) return
+        play(tracks, if (shuffle) tracks.indices.random() else 0)
+        controller?.let { if (it.shuffleModeEnabled != shuffle) it.shuffleModeEnabled = shuffle }
+    }
+
+    fun toggleFollow(artist: Release) = accountAction {
+        val following = ui.value.artists.any { it.id == artist.id }
+        app.tidal.setArtistFollowed(artist.id, !following)
+        val next = if (following) ui.value.artists.filterNot { it.id == artist.id } else listOf(artist) + ui.value.artists
+        ui.update { it.copy(artists = next) }
+        withContext(Dispatchers.IO) { app.library.cache(app.tidal.accountId, "artists", JsonCodec.encodeReleases(next)) }
+    }
+
+    fun rememberSearch(text: String) {
+        val value = text.trim()
+        if (value.length < 2) return
+        val next = (listOf(value) + ui.value.recentSearches.filterNot { it.equals(value, ignoreCase = true) }).take(10)
+        ui.update { it.copy(recentSearches = next) }
+        searchPreferences.edit().putString("recent", org.json.JSONArray(next).toString()).apply()
+    }
+    fun clearSearches() { ui.update { it.copy(recentSearches = emptyList()) }; searchPreferences.edit().remove("recent").apply() }
+
+    fun saveQueueAsPlaylist(title: String) = viewModelScope.launch(Dispatchers.IO) {
+        val queue = ui.value.playback.queue
+        if (title.isBlank() || queue.isEmpty()) return@launch
+        try {
+            val playlist = app.library.createPlaylist(title)
+            queue.forEach { app.library.addToPlaylist(playlist.id, it) }
+            notify("Saved ${queue.size} tracks as ${playlist.title}")
+        } catch (_: Exception) { notify("The playlist could not be saved. Check available storage and try again.") }
     }
 
     private fun updatePlayback() {
@@ -555,6 +677,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         is java.io.IOException -> "The connection failed. Check your network and try again."
         else -> "The request could not be completed. Please retry."
     }
+    private companion object { const val MISSING_LYRICS_MS = 7 * 24 * 3600_000L }
+
     override fun onCleared() {
         if (networkCallbackRegistered) runCatching { connectivity.unregisterNetworkCallback(networkCallback) }
         persistQueue(); MediaController.releaseFuture(controllerFuture); super.onCleared()

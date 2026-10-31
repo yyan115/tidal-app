@@ -33,30 +33,7 @@ import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class LiveServiceTest {
     private val app get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as OpenTuneApp
-    @get:Rule(order = 0) val account = TestRule { base: Statement, _: Description -> object : Statement() {
-        override fun evaluate() {
-            val arguments = InstrumentationRegistry.getArguments()
-            assumeTrue("Live account tests require explicit opt-in", arguments.getString("liveAccount") == "true")
-            if (suppliedSession == null) {
-                val file = File(app.filesDir, "live-test-session.json")
-                if (file.isFile) try {
-                    val json = JSONObject(file.readText())
-                    suppliedSession = Session(json.getString("access_token"), json.getString("refresh_token"),
-                        (json.getDouble("expires_at") * 1000).toLong(), json.getString("userId"), json.getString("countryCode"))
-                } finally { file.delete() }
-                else suppliedSession = app.sessions.read()
-                assumeTrue("Sign in to the debug app before running live-account checks", suppliedSession != null)
-            }
-            val previous = app.sessions.read()
-            app.tidal.signOut()
-            app.sessions.write(requireNotNull(suppliedSession))
-            try { base.evaluate() }
-            finally {
-                app.tidal.signOut()
-                previous?.let(app.sessions::write)
-            }
-        }
-    } }
+    @get:Rule(order = 0) val account = LiveAccount.rule()
     @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
     private val model get() = ViewModelProvider(compose.activity)[MainViewModel::class.java]
 
@@ -156,5 +133,4 @@ class LiveServiceTest {
         compose.runOnIdle { model.togglePlay(); model.settings { it.copy(offline = false) } }
     }
 
-    companion object { private var suppliedSession: Session? = null }
 }

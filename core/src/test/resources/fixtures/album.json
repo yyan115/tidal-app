@@ -1,0 +1,141 @@
+{
+ "id": "p",
+ "title": "Page",
+ "rows": [
+  {
+   "modules": [
+    {
+     "type": "ALBUM_HEADER",
+     "id": "h",
+     "title": "",
+     "album": {
+      "id": 900,
+      "title": "Example Album",
+      "cover": "11111111-2222-3333-4444-555555555555",
+      "releaseDate": "2002-02-26",
+      "artists": [
+       {
+        "id": 100,
+        "name": "Example Artist"
+       }
+      ],
+      "mediaMetadata": {
+       "tags": [
+        "LOSSLESS",
+        "HIRES_LOSSLESS"
+       ]
+      },
+      "numberOfTracks": 14,
+      "duration": 2715,
+      "copyright": "(c) Example Records",
+      "explicit": false
+     },
+     "review": {
+      "source": "Example",
+      "text": "A [wimpLink artistId=\"100\"]debut[/wimpLink] review."
+     },
+     "credits": {
+      "items": []
+     }
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "type": "ALBUM_ITEMS",
+     "id": "ALBUM_ITEMS",
+     "title": "",
+     "pagedList": {
+      "items": [
+       {
+        "item": {
+         "id": 1,
+         "title": "Opening",
+         "duration": 181,
+         "version": null,
+         "artists": [
+          {
+           "id": 100,
+           "name": "Example Artist"
+          }
+         ],
+         "album": {
+          "id": 900,
+          "title": "Example Album",
+          "cover": "11111111-2222-3333-4444-555555555555"
+         },
+         "explicit": false,
+         "trackNumber": 1,
+         "volumeNumber": 1
+        },
+        "type": "track"
+       },
+       {
+        "item": {
+         "id": 2,
+         "title": "Closing",
+         "duration": 182,
+         "version": null,
+         "artists": [
+          {
+           "id": 100,
+           "name": "Example Artist"
+          }
+         ],
+         "album": {
+          "id": 900,
+          "title": "Example Album",
+          "cover": "11111111-2222-3333-4444-555555555555"
+         },
+         "explicit": false,
+         "trackNumber": 2,
+         "volumeNumber": 1
+        },
+        "type": "track"
+       }
+      ],
+      "totalNumberOfItems": 14,
+      "dataApiPath": "pages/data/example",
+      "limit": 2,
+      "offset": 0
+     }
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "type": "ALBUM_LIST",
+     "id": "ALBUM_LISTMore Albums by Example Artist",
+     "title": "More Albums by Example Artist",
+     "pagedList": {
+      "items": [
+       {
+        "id": 902,
+        "title": "Later Album",
+        "cover": "11111111-2222-3333-4444-555555555555",
+        "releaseDate": "2020-05-03",
+        "artists": [
+         {
+          "id": 100,
+          "name": "Example Artist"
+         }
+        ],
+        "mediaMetadata": {
+         "tags": [
+          "LOSSLESS"
+         ]
+        }
+       }
+      ],
+      "totalNumberOfItems": 1,
+      "dataApiPath": "pages/data/example",
+      "limit": 1,
+      "offset": 0
+     }
+    }
+   ]
+  }
+ ]
+}

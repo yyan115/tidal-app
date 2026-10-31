@@ -1,0 +1,165 @@
+{
+ "id": "p",
+ "title": "Page",
+ "rows": [
+  {
+   "modules": [
+    {
+     "type": "PLAYLIST_LIST",
+     "id": "PLAYLIST_LISTThe Hits",
+     "title": "The Hits",
+     "pagedList": {
+      "items": [
+       {
+        "uuid": "aaaa",
+        "title": "Hits One",
+        "type": "EDITORIAL",
+        "squareImage": "11111111-2222-3333-4444-555555555555",
+        "numberOfTracks": 25,
+        "creator": {
+         "id": 0
+        },
+        "description": "Example"
+       },
+       {
+        "uuid": "bbbb",
+        "title": "Hits Two",
+        "type": "EDITORIAL",
+        "squareImage": "11111111-2222-3333-4444-555555555555",
+        "numberOfTracks": 25,
+        "creator": {
+         "id": 0
+        },
+        "description": "Example"
+       }
+      ],
+      "totalNumberOfItems": 2,
+      "dataApiPath": "pages/data/example",
+      "limit": 2,
+      "offset": 0
+     },
+     "showMore": {
+      "title": "View all",
+      "apiPath": "pages/single-module-page/hits"
+     }
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "type": "TRACK_LIST",
+     "id": "TRACK_LISTNew Tracks",
+     "title": "New Tracks",
+     "pagedList": {
+      "items": [
+       {
+        "id": 1,
+        "title": "First",
+        "duration": 181,
+        "version": null,
+        "artists": [
+         {
+          "id": 100,
+          "name": "Example Artist"
+         }
+        ],
+        "album": {
+         "id": 900,
+         "title": "Example Album",
+         "cover": "11111111-2222-3333-4444-555555555555"
+        },
+        "explicit": false,
+        "trackNumber": 1,
+        "volumeNumber": 1
+       },
+       {
+        "id": 2,
+        "title": "Second",
+        "duration": 182,
+        "version": null,
+        "artists": [
+         {
+          "id": 100,
+          "name": "Example Artist"
+         }
+        ],
+        "album": {
+         "id": 900,
+         "title": "Example Album",
+         "cover": "11111111-2222-3333-4444-555555555555"
+        },
+        "explicit": false,
+        "trackNumber": 2,
+        "volumeNumber": 1
+       }
+      ],
+      "totalNumberOfItems": 238,
+      "dataApiPath": "pages/data/example",
+      "limit": 2,
+      "offset": 0
+     },
+     "showMore": {
+      "title": "View all",
+      "apiPath": "pages/single-module-page/tracks"
+     }
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "type": "ALBUM_LIST",
+     "id": "ALBUM_LISTNew Albums",
+     "title": "New Albums",
+     "pagedList": {
+      "items": [
+       {
+        "id": 11,
+        "title": "Album A",
+        "cover": "11111111-2222-3333-4444-555555555555",
+        "releaseDate": "2020-05-03",
+        "artists": [
+         {
+          "id": 100,
+          "name": "Example Artist"
+         }
+        ],
+        "mediaMetadata": {
+         "tags": [
+          "LOSSLESS"
+         ]
+        }
+       },
+       {
+        "id": 12,
+        "title": "Album B",
+        "cover": "11111111-2222-3333-4444-555555555555",
+        "releaseDate": "2020-05-04",
+        "artists": [
+         {
+          "id": 100,
+          "name": "Example Artist"
+         }
+        ],
+        "mediaMetadata": {
+         "tags": [
+          "LOSSLESS"
+         ]
+        }
+       }
+      ],
+      "totalNumberOfItems": 202,
+      "dataApiPath": "pages/data/example",
+      "limit": 2,
+      "offset": 0
+     },
+     "showMore": {
+      "title": "View all",
+      "apiPath": "pages/single-module-page/albums"
+     }
+    }
+   ]
+  }
+ ]
+}

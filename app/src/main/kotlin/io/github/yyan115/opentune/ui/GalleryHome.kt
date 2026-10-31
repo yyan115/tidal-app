@@ -14,7 +14,15 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.util.UnstableApi
+import io.github.yyan115.opentune.core.CarouselModule
+import io.github.yyan115.opentune.core.PageData
 import io.github.yyan115.opentune.core.Release
 import io.github.yyan115.opentune.core.Track
 
@@ -32,6 +40,16 @@ fun ListenScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLog
         if (hero != null && current?.id != hero.id) vm.play(heroTracks, heroIndex)
         onPlayer()
     }
+    val pages: PagesViewModel = viewModel()
+    val entries by pages.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val context = PageContext(state, vm, pages, scope, onMenu)
+    val online = state.signedIn && !state.settings.offline
+    LaunchedEffect(online) { if (online) { pages.load(PageRoute.ForYou); pages.load(PageRoute.Home) } }
+    val forYou = entries[PageRoute.ForYou.key]?.takeIf { online }
+    val home = entries[PageRoute.Home.key]?.takeIf { online }
+    PullToRefreshBox(isRefreshing = (forYou?.loading == true || home?.loading == true) && forYou?.page != null,
+        onRefresh = { if (online) { pages.load(PageRoute.ForYou, true); pages.load(PageRoute.Home, true); vm.sync() } }, modifier = Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
         if (hero != null) {
             item {
@@ -62,8 +80,9 @@ fun ListenScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLog
                     Icon(OpenTuneIcons.Add, null, Modifier.size(17.dp)); Spacer(Modifier.width(8.dp)); Text("Import audio files")
                 }
             }
-            else item { EmptyState(OpenTuneIcons.Album, "Nothing played yet", "Search your collection or import an audio file.", "Import audio", onImport) }
+            else if (!(state.signedIn && !state.settings.offline)) item { EmptyState(OpenTuneIcons.Album, "Nothing played yet", "Search your collection or import an audio file.", "Import audio", onImport) }
         }
+        forYou?.page?.let { pageContent(it.tidied(), forYou, PageRoute.ForYou.key, context, viewAll = false) }
         if (state.albums.isNotEmpty()) {
             item { SectionTitle("Saved albums", "View all", { onLibrary(1) }) }
             item { LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -76,14 +95,35 @@ fun ListenScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLog
             items(others, key = { "recent:${it.id}" }) { track -> TrackRow(track, false,
                 { vm.play(recent, recent.indexOf(track)) }, { onMenu(track) }) }
         }
+        home?.page?.let { pageContent(it.tidied(), home, PageRoute.Home.key, context, viewAll = false) }
         val local = state.local.filterNot { it.id == hero?.id }.take(3)
         if (local.isNotEmpty()) {
-            item { SectionTitle("On your device", "View all", { onLibrary(3) }) }
+            item { SectionTitle("On your device", "View all", { onLibrary(4) }) }
             items(local, key = { "device:${it.id}" }) { track -> TrackRow(track, false,
                 { vm.play(state.local, state.local.indexOf(track)) }, { onMenu(track) }) }
         }
         if (hero != null && !state.signedIn && !state.settings.offline) item { Spacer(Modifier.height(16.dp)); ConnectCard(onLogin) }
+        if (online && forYou?.page == null && home?.page == null) item(key = "pages-state") {
+            val error = forYou?.error ?: home?.error
+            if (error != null) ErrorCard(error) { pages.load(PageRoute.ForYou, true); pages.load(PageRoute.Home, true) }
+            else Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 1.5.dp) }
+        }
     }
+    }
+}
+
+/** Merges adjacent carousels that share a title and renames TIDAL's generic section names. */
+private fun PageData.tidied(): PageData {
+    val result = mutableListOf<io.github.yyan115.opentune.core.PageModule>()
+    for (module in modules) {
+        val previous = result.lastOrNull()
+        if (module is CarouselModule && previous is CarouselModule && previous.title == module.title && previous.layout == module.layout) {
+            result[result.lastIndex] = previous.copy(items = previous.items + module.items, total = previous.total + module.total)
+        } else result += module
+    }
+    return copy(modules = result.map { module ->
+        if (module is CarouselModule && module.title == "Custom mixes") module.copy(title = "Your mixes") else module
+    })
 }
 
 
