@@ -10,12 +10,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.PlaylistPlay
-import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.QueueMusic
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -27,18 +21,22 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.media3.common.util.UnstableApi
 import io.github.yyan115.undertow.core.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @UnstableApi
 @Composable
-fun UndertowRoot(vm: MainViewModel, state: AppState) {
+fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initialPlayer: Boolean = false, initialSettings: Boolean = false) {
     val context = LocalContext.current
-    var tab by rememberSaveable { mutableIntStateOf(0) }
-    var settings by rememberSaveable { mutableStateOf(false) }
+    var tab by rememberSaveable { mutableIntStateOf(initialTab) }
+    var libraryFilter by rememberSaveable { mutableIntStateOf(0) }
+    var settings by rememberSaveable { mutableStateOf(initialSettings) }
     var login by rememberSaveable { mutableStateOf(false) }
-    var nowPlaying by rememberSaveable { mutableStateOf(false) }
+    var nowPlaying by rememberSaveable { mutableStateOf(initialPlayer) }
     var queue by rememberSaveable { mutableStateOf(false) }
     var trackMenu by remember { mutableStateOf<Track?>(null) }
     var addToPlaylist by remember { mutableStateOf<Track?>(null) }
@@ -57,7 +55,7 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
     val largeText = LocalDensity.current.fontScale > 1.3f
     val rail = landscape && !largeText
     val navigationTitles = listOf("Listen", "Search", "Library", "Downloads")
-    val navigationIcons = listOf(Icons.Outlined.Headphones, Icons.Outlined.Search, Icons.Outlined.LibraryMusic, Icons.Outlined.Download)
+    val navigationIcons = listOf(OpenTuneIcons.Headphones, OpenTuneIcons.Search, OpenTuneIcons.LibraryMusic, OpenTuneIcons.Download)
     val snackbar = remember { SnackbarHostState() }
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> vm.import(uris) }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -74,43 +72,47 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
     BackHandler(enabled = state.detail != null || settings) { if (settings) settings = false else vm.closeDetail() }
 
     Row(Modifier.fillMaxSize().then(if (landscape) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Start)) else Modifier)) {
-    if (rail) NavigationRail(windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical)) {
-        navigationTitles.forEachIndexed { index, title -> NavigationRailItem(selected = tab == index,
-            modifier = Modifier.testTag("nav-$index"), onClick = { tab = index; settings = false; vm.closeDetail() },
-            icon = { Icon(navigationIcons[index], null) }, label = { Text(title) }) }
-    }
+    if (rail) OpenTuneRail(navigationTitles, navigationIcons, tab) { index -> tab = index; settings = false; vm.closeDetail() }
     Scaffold(modifier = Modifier.weight(1f),
         topBar = {
-            TopAppBar(title = { Text(if (settings) "Settings" else state.detail?.let {
+            val title = if (settings) "Settings" else state.detail?.let {
                 when (it.type) { ReleaseType.ALBUM -> "Album"; ReleaseType.ARTIST -> "Artist"; ReleaseType.PLAYLIST -> "Playlist" }
-            } ?: navigationTitles[tab], style = if (LocalDensity.current.fontScale > 1.3f) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
-                navigationIcon = {
-                    if (settings || state.detail != null) IconButton(onClick = { if (settings) settings = false else vm.closeDetail() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") }
-                    else if (largeText) IconButton(onClick = { navigationMenu = true }) { Icon(Icons.Outlined.Menu, "Open navigation") }
-                },
-                actions = {
+            } ?: navigationTitles[tab]
+            Column(Modifier.statusBarsPadding()) {
+                Row(Modifier.fillMaxWidth().padding(start = if (settings || state.detail != null || largeText) 8.dp else 24.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (settings || state.detail != null) IconButton(onClick = { if (settings) settings = false else vm.closeDetail() }) { Icon(OpenTuneIcons.ArrowBack, "Back") }
+                    else if (largeText) IconButton(onClick = { navigationMenu = true }) { Icon(OpenTuneIcons.Menu, "Open navigation") }
+                    if (!settings && state.detail == null && !largeText) {
+                        Icon(OpenTuneIcons.Brand, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(9.dp))
+                    }
+                    Text("OpenTune", Modifier.weight(1f), fontFamily = InterfaceFont, fontSize = 11.sp, lineHeight = 16.sp,
+                        letterSpacing = 2.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                     if (!settings) {
-                        if (tab == 2 && state.detail == null && state.signedIn && !state.settings.offline) IconButton(onClick = vm::sync, enabled = !state.syncing) { Icon(Icons.Outlined.Refresh, "Refresh library") }
+                        if (tab == 0 && state.detail == null) IconButton(onClick = importAudio) { Icon(OpenTuneIcons.Add, "Import audio", Modifier.size(21.dp)) }
+                        if (tab == 2 && state.detail == null && state.signedIn && !state.settings.offline) IconButton(onClick = vm::sync, enabled = !state.syncing) { Icon(OpenTuneIcons.Refresh, "Refresh library") }
                         state.detail?.let { release ->
-                            if (vm.canEdit(release)) IconButton(onClick = { playlistTitle = release.title; editPlaylist = true }) { Icon(Icons.Outlined.Edit, "Edit playlist") }
+                            if (vm.canEdit(release)) IconButton(onClick = { playlistTitle = release.title; editPlaylist = true }) { Icon(OpenTuneIcons.Edit, "Edit playlist") }
                             if (release.type == ReleaseType.ALBUM && state.signedIn) IconButton(onClick = { vm.favoriteAlbum(release) }) {
                                 val saved = state.albums.any { it.id == release.id }
-                                Icon(if (saved) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder, if (saved) "Remove saved album" else "Save album")
+                                Icon(if (saved) OpenTuneIcons.Favorite else OpenTuneIcons.FavoriteBorder, if (saved) "Remove saved album" else "Save album")
                             }
                         }
-                        if (state.settings.offline) Icon(Icons.Outlined.CloudOff, "Offline mode", Modifier.padding(end = 8.dp), tint = MaterialTheme.colorScheme.primary)
-                        IconButton(onClick = { settings = true }) { Icon(Icons.Outlined.Settings, "Settings") }
+                        if (state.settings.offline) Icon(OpenTuneIcons.CloudOff, "Offline mode", Modifier.padding(end = 8.dp), tint = MaterialTheme.colorScheme.primary)
+                        IconButton(onClick = { settings = true }) { Icon(OpenTuneIcons.Settings, "Settings", Modifier.size(22.dp)) }
                     }
-                })
+                }
+                if (state.detail == null || settings) Text(title,
+                    Modifier.padding(start = 24.dp, end = 24.dp, top = if (largeText) 2.dp else 6.dp, bottom = 14.dp),
+                    fontFamily = EditorialFont, fontSize = if (largeText) 30.sp else if (tab == 0 && !settings) 52.sp else 44.sp,
+                    lineHeight = if (largeText) 38.sp else if (tab == 0 && !settings) 58.sp else 50.sp)
+            }
         },
         bottomBar = {
             Column {
                 if (state.playback.track != null) MiniPlayer(state.playback, onOpen = { nowPlaying = true }, onPlay = vm::togglePlay, onNext = vm::next)
-                if (!settings && !landscape && !largeText) NavigationBar {
-                    navigationTitles.forEachIndexed { index, title -> NavigationBarItem(selected = tab == index, modifier = Modifier.testTag("nav-$index"),
-                        onClick = { tab = index; settings = false; vm.closeDetail() }, icon = { Icon(navigationIcons[index], null) }, label = { Text(title) }) }
-                }
+                if (!settings && !landscape && !largeText) OpenTuneNavigation(navigationTitles, navigationIcons, tab) { index -> tab = index; settings = false; vm.closeDetail() }
+                else if (state.playback.track != null) Spacer(Modifier.navigationBarsPadding())
             }
         },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -119,9 +121,10 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
             when {
                 settings -> SettingsScreen(state, vm, openLogin)
                 state.detail != null -> DetailScreen(state, vm, { track, index -> trackMenu = track; playlistPosition = index })
-                tab == 0 -> ListenScreen(state, vm, importAudio, openLogin, { tab = 2 }, openTrackMenu)
+                tab == 0 -> ListenScreen(state, vm, importAudio, openLogin, { filter -> libraryFilter = filter; tab = 2 }, openTrackMenu, { nowPlaying = true })
                 tab == 1 -> SearchScreen(state, vm, openLogin, openTrackMenu)
-                tab == 2 -> LibraryScreen(state, vm, importAudio, openLogin, { newPlaylistTrack = null; playlistTitle = ""; newPlaylist = true }, openTrackMenu)
+                tab == 2 -> LibraryScreen(state, vm, importAudio, openLogin, { newPlaylistTrack = null; playlistTitle = ""; newPlaylist = true }, openTrackMenu,
+                    libraryFilter, { libraryFilter = it })
                 else -> DownloadsScreen(state, vm, openTrackMenu)
             }
             state.exportProgress?.let { percent -> Surface(Modifier.fillMaxWidth().align(androidx.compose.ui.Alignment.BottomCenter), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
@@ -157,33 +160,33 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
                         Text(track.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         Text(track.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
                     }
-                    IconButton(onClick = { trackMenu = null }) { Icon(Icons.Outlined.Close, "Close track options") }
+                    IconButton(onClick = { trackMenu = null }) { Icon(OpenTuneIcons.Close, "Close track options") }
                 }
                 HorizontalDivider(Modifier.padding(vertical = 12.dp))
                 val saved = state.favorites.any { it.id == track.id }
-                SettingRow(if (saved) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder, if (saved) "Remove from saved tracks" else "Save track", onClick = { vm.favorite(track); trackMenu = null })
-                SettingRow(Icons.AutoMirrored.Outlined.PlaylistPlay, "Play next", onClick = { vm.queue(track, true); trackMenu = null })
-                SettingRow(Icons.AutoMirrored.Outlined.QueueMusic, "Add to queue", onClick = { vm.queue(track); trackMenu = null })
-                SettingRow(Icons.AutoMirrored.Outlined.PlaylistAdd, "Add to playlist", onClick = { addToPlaylist = track; trackMenu = null })
+                SettingRow(if (saved) OpenTuneIcons.Favorite else OpenTuneIcons.FavoriteBorder, if (saved) "Remove from saved tracks" else "Save track", onClick = { vm.favorite(track); trackMenu = null })
+                SettingRow(OpenTuneIcons.PlaylistPlay, "Play next", onClick = { vm.queue(track, true); trackMenu = null })
+                SettingRow(OpenTuneIcons.QueueMusic, "Add to queue", onClick = { vm.queue(track); trackMenu = null })
+                SettingRow(OpenTuneIcons.PlaylistAdd, "Add to playlist", onClick = { addToPlaylist = track; trackMenu = null })
                 state.detail?.takeIf { vm.canEdit(it) }?.let { release ->
-                    playlistPosition?.let { position -> SettingRow(Icons.Outlined.PlaylistRemove, "Remove from this playlist", onClick = {
+                    playlistPosition?.let { position -> SettingRow(OpenTuneIcons.PlaylistRemove, "Remove from this playlist", onClick = {
                         vm.removeFromPlaylist(release, track, position); trackMenu = null; playlistPosition = null
                     }) }
                 }
-                if (!track.isLocal) SettingRow(Icons.Outlined.Download, "Download", onClick = {
+                if (!track.isLocal) SettingRow(OpenTuneIcons.Download, "Download", onClick = {
                     if (Build.VERSION.SDK_INT >= 33) notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
                     vm.download(track); trackMenu = null
                 })
-                if (track.albumId.isNotBlank()) SettingRow(Icons.Outlined.Album, "Go to album", onClick = {
+                if (track.albumId.isNotBlank()) SettingRow(OpenTuneIcons.Album, "Go to album", onClick = {
                     vm.open(Release(track.albumId, track.album, track.artist, track.artwork)); nowPlaying = false; trackMenu = null
                 })
-                if (!track.id.startsWith("local:")) SettingRow(Icons.Outlined.Share, "Share TIDAL link", onClick = {
+                if (!track.id.startsWith("local:")) SettingRow(OpenTuneIcons.Share, "Share TIDAL link", onClick = {
                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
                         .putExtra(Intent.EXTRA_TEXT, "https://tidal.com/browse/track/${track.id}"), "Share track")); trackMenu = null
                 })
-                if (track.isLocal) SettingRow(Icons.Outlined.RemoveCircleOutline, "Remove from device library", onClick = { removeTrack = track; trackMenu = null })
+                if (track.isLocal) SettingRow(OpenTuneIcons.RemoveCircleOutline, "Remove from device library", onClick = { removeTrack = track; trackMenu = null })
                 val localCopy = state.local.firstOrNull { it.id == track.id } ?: track.takeIf(Track::isLocal)
-                if (localCopy != null) SettingRow(Icons.Outlined.SaveAlt, "Export audio file", onClick = {
+                if (localCopy != null) SettingRow(OpenTuneIcons.SaveAlt, "Export audio file", onClick = {
                     try {
                         exportTarget = JsonCodec.encodeTrack(localCopy).toString()
                         exporter.launch(vm.app.exporter.describe(localCopy)); trackMenu = null; nowPlaying = false

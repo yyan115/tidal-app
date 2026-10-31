@@ -20,16 +20,16 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class LocalPlaybackTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
-    private lateinit var app: UndertowApp
+    private lateinit var app: OpenTuneApp
     private lateinit var model: MainViewModel
     private lateinit var track: Track
 
     @Before fun seedOriginalTestAudio() {
-        app = compose.activity.application as UndertowApp
+        app = compose.activity.application as OpenTuneApp
         model = ViewModelProvider(compose.activity)[MainViewModel::class.java]
         compose.runOnIdle {
             model.clearQueue()
-            model.settings { it.copy(theme = "light", offline = false) }
+            model.settings { it.copy(theme = "light", colorTheme = "studio", offline = false) }
         }
         app.library.playlists().filter { it.title == "Evening" }.forEach { app.library.deletePlaylist(it.id) }
         val file = File(app.filesDir, "playback-test.flac")
@@ -76,6 +76,21 @@ class LocalPlaybackTest {
         compose.runOnIdle { model.seek(15_000) }
         compose.waitUntil(5_000) { model.state.value.playback.position in 15_000..25_000 }
         compose.runOnIdle { model.togglePlay() }
+    }
+
+    @Test fun sourceDetailsReportThePlayingFlacFormat() {
+        compose.runOnIdle { model.play(listOf(track)) }
+        compose.waitUntil(15_000) { model.state.value.playback.playing || model.state.value.playback.error != null }
+        assertNull(model.state.value.playback.error)
+        compose.waitUntil(5_000) { model.state.value.playback.position > 500 }
+        compose.onNodeWithTag("mini-player").performClick()
+        compose.onNodeWithContentDescription("Audio source details").performClick()
+        compose.onNodeWithTag("source-codec").assertTextEquals("FLAC")
+        compose.onNodeWithTag("source-bits").assertTextEquals("24 bit")
+        compose.onNodeWithTag("source-rate").assertTextEquals("96 kHz")
+        compose.onNodeWithText("Done").performClick()
+        compose.onNodeWithContentDescription("Close player").performClick()
+        compose.runOnIdle { if (model.state.value.playback.playing) model.togglePlay() }
     }
 
     @Test fun localPlaylistCreationAndSavingArePersistent() {
@@ -137,6 +152,14 @@ class LocalPlaybackTest {
         compose.onNodeWithText("Theme").performClick()
         compose.onNodeWithText("Dark", useUnmergedTree = true).performClick()
         compose.waitUntil(5_000) { model.state.value.settings.theme == "dark" }
+        compose.onNodeWithText("Cobalt").performClick()
+        compose.waitUntil(5_000) { model.state.value.settings.colorTheme == "cobalt" }
+        compose.onNodeWithText("Done").performClick()
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(5_000) {
+            val restored = ViewModelProvider(compose.activity)[MainViewModel::class.java].state.value.settings
+            restored.theme == "dark" && restored.colorTheme == "cobalt"
+        }
         screenshot("settings-dark")
     }
 

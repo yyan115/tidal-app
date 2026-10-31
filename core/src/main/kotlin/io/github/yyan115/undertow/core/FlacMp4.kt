@@ -52,7 +52,7 @@ object FlacMp4 {
             require(bytes.size <= 256 * 1024)
             integer(bytes.size); payload.write(bytes)
         }
-        text("Undertow"); integer(tags.size)
+        text("OpenTune"); integer(tags.size)
         tags.forEach { (key, value) -> text("$key=$value") }
         val bytes = payload.toByteArray()
         require(bytes.size <= 2 * 1024 * 1024)

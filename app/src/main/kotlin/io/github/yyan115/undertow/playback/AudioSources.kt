@@ -16,7 +16,7 @@ import androidx.media3.datasource.cache.NoOpCacheEvictor
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
-import io.github.yyan115.undertow.UndertowApp
+import io.github.yyan115.undertow.OpenTuneApp
 import io.github.yyan115.undertow.core.StreamInfo
 import io.github.yyan115.undertow.core.Track
 import org.json.JSONObject
@@ -26,7 +26,7 @@ import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 
 @UnstableApi
-class AudioSources(private val app: UndertowApp) {
+class AudioSources(private val app: OpenTuneApp) {
     private val qualities = ConcurrentHashMap<String, String>()
     fun quality(id: String): String? = qualities[id]
     val cache by lazy { SimpleCache(File(app.filesDir, "offline_audio"), NoOpCacheEvictor(), StandaloneDatabaseProvider(app)) }

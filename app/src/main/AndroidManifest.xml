@@ -7,13 +7,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
-        android:name=".UndertowApp"
+        android:name=".OpenTuneApp"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Undertow"
+        android:theme="@style/Theme.OpenTune"
         android:usesCleartextTraffic="false">
         <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize" android:launchMode="singleTask">
             <intent-filter>

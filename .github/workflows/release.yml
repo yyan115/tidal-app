@@ -46,27 +46,27 @@ jobs:
         run: |
           test -n "$RELEASE_KEYSTORE_BASE64"
           umask 077
-          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/undertow-release.p12"
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/opentune-release.p12"
       - name: Build signed release
         env:
-          UNDERTOW_KEYSTORE: ${{ runner.temp }}/undertow-release.p12
-          UNDERTOW_STORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          UNDERTOW_KEY_ALIAS: undertow
-          UNDERTOW_KEY_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          OPENTUNE_KEYSTORE: ${{ runner.temp }}/opentune-release.p12
+          OPENTUNE_STORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          OPENTUNE_KEY_ALIAS: undertow
+          OPENTUNE_KEY_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
         run: ./gradlew --no-daemon :app:assembleRelease
       - name: Verify signature and prepare files
         run: |
           mkdir dist
           version=$(cat VERSION)
-          cp app/build/outputs/apk/release/app-release.apk "dist/undertow-$version.apk"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "dist/undertow-$version.apk"
+          cp app/build/outputs/apk/release/app-release.apk "dist/opentune-$version.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "dist/opentune-$version.apk"
           cd dist
           sha256sum *.apk > SHA256SUMS
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "Undertow $(cat VERSION)" --notes-file docs/release-notes.md --prerelease
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "OpenTune $(cat VERSION)" --notes-file docs/release-notes.md --prerelease
       - name: Remove restored signing key
         if: always()
-        run: rm -f "$RUNNER_TEMP/undertow-release.p12"
+        run: rm -f "$RUNNER_TEMP/opentune-release.p12"

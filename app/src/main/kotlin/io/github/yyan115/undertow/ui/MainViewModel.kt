@@ -20,7 +20,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
-import io.github.yyan115.undertow.UndertowApp
+import io.github.yyan115.undertow.OpenTuneApp
 import io.github.yyan115.undertow.core.*
 import io.github.yyan115.undertow.data.DownloadWorker
 import io.github.yyan115.undertow.data.Settings
@@ -50,6 +50,7 @@ data class PlaybackState(
     val position: Long = 0, val duration: Long = 0,
     val shuffle: Boolean = false, val repeat: Int = Player.REPEAT_MODE_OFF,
     val quality: String = "", val error: String? = null,
+    val nextIndex: Int = -1,
 ) { val track: Track? get() = queue.getOrNull(index) }
 
 data class AppState(
@@ -74,7 +75,7 @@ data class AppState(
 @OptIn(FlowPreview::class)
 @UnstableApi
 class MainViewModel(application: Application) : AndroidViewModel(application) {
-    val app = application as UndertowApp
+    val app = application as OpenTuneApp
     private val ui = MutableStateFlow(AppState(signedIn = app.tidal.signedIn, settings = app.settings.state.value,
         pkceLogin = app.sessions.pendingPkce()))
     val state = ui.asStateFlow()
@@ -490,7 +491,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val quality = player.currentMediaItem?.localConfiguration?.tag as? String ?: queue.getOrNull(player.currentMediaItemIndex)?.quality.orEmpty()
         ui.update { it.copy(playback = it.playback.copy(queue = queue, index = player.currentMediaItemIndex.coerceAtLeast(0),
             playing = player.isPlaying, buffering = player.playbackState == Player.STATE_BUFFERING,
-            shuffle = player.shuffleModeEnabled, repeat = player.repeatMode, quality = quality,
+            shuffle = player.shuffleModeEnabled, repeat = player.repeatMode, quality = quality, nextIndex = player.nextMediaItemIndex,
             error = if (player.playerError == null) null else it.playback.error)) }
     }
 

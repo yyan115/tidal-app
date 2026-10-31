@@ -12,7 +12,7 @@ Before opening a pull request:
 
 Run the device tests for changes to playback, persistence, permissions, or navigation. Explain the change and its validation in the pull request. Documentation should say what the app does, how to use it, and what remains limited.
 
-Live TIDAL checks are opt-in and do not run in CI. Install the debug app and instrumentation APK, sign in normally in **Undertow Debug**, then run:
+Live TIDAL checks are opt-in and do not run in CI. Install the debug app and instrumentation APK, sign in normally in **OpenTune Debug**, then run:
 
 ```sh
 adb shell am instrument -w -r -e liveAccount true \

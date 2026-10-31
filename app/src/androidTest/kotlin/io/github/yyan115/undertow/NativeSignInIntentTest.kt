@@ -18,10 +18,17 @@ class NativeSignInIntentTest {
             .any { it.activityInfo.packageName == context.packageName && it.activityInfo.name == MainActivity::class.java.name }
     }
 
-    @Test fun theBrowserCanReturnToUndertowThroughTheRegisteredCallback() {
+    @Test fun theBrowserCanReturnToOpenTuneThroughTheRegisteredCallback() {
         assertTrue(handled("tidal://login/auth?code=test&state=test"))
         assertFalse(handled("tidal://track/42"))
         assertFalse(handled("tidal://login/auth/other?code=test"))
         assertFalse(handled("https://tidal.com/android/login/auth?code=test"))
+    }
+
+    @Test fun theNewBrandKeepsTheApplicationIdentityForUpdates() {
+        assertEquals("io.github.yyan115.undertow.debug", context.packageName)
+        assertEquals("OpenTune Debug", context.applicationInfo.loadLabel(context.packageManager).toString())
+        assertEquals(OpenTuneApp::class.java.name, context.applicationInfo.className)
+        assertNotNull(context.packageManager.getLaunchIntentForPackage(context.packageName))
     }
 }

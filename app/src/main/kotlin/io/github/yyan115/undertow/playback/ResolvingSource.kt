@@ -11,7 +11,7 @@ import androidx.media3.exoplayer.source.MediaPeriod
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.datasource.TransferListener
 import androidx.media3.exoplayer.upstream.Allocator
-import io.github.yyan115.undertow.UndertowApp
+import io.github.yyan115.undertow.OpenTuneApp
 import io.github.yyan115.undertow.core.JsonCodec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,7 +23,7 @@ import java.io.IOException
 
 /** Resolve signed stream URLs when a queue item is prepared, rather than for the whole queue. */
 @UnstableApi
-class ResolvingSource(private val app: UndertowApp, private val original: MediaItem,
+class ResolvingSource(private val app: OpenTuneApp, private val original: MediaItem,
     private val drmProvider: androidx.media3.exoplayer.drm.DrmSessionManagerProvider? = null,
     private val loadPolicy: androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy? = null) : CompositeMediaSource<Unit>() {
     private var child: MediaSource? = null
@@ -75,7 +75,7 @@ class ResolvingSource(private val app: UndertowApp, private val original: MediaI
 }
 
 @UnstableApi
-class UndertowSourceFactory(private val app: UndertowApp) : MediaSource.Factory {
+class OpenTuneSourceFactory(private val app: OpenTuneApp) : MediaSource.Factory {
     private var drmProvider: androidx.media3.exoplayer.drm.DrmSessionManagerProvider? = null
     private var loadPolicy: androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy? = null
     override fun setDrmSessionManagerProvider(provider: androidx.media3.exoplayer.drm.DrmSessionManagerProvider): MediaSource.Factory = apply { drmProvider = provider }

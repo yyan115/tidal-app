@@ -1,6 +1,6 @@
 # Third-party notices
 
-Undertow uses these open-source components:
+OpenTune uses these open-source components:
 
 | Component | Project | Licence |
 | --- | --- | --- |
@@ -9,6 +9,8 @@ Undertow uses these open-source components:
 | Media3 | [AndroidX Media](https://github.com/androidx/media) | Apache-2.0 |
 | OkHttp and Okio | [Square](https://github.com/square/okhttp) | Apache-2.0 |
 | Coil | [Coil](https://github.com/coil-kt/coil) | Apache-2.0 |
+| Inter | [Rasmus Andersson](https://github.com/rsms/inter) | OFL-1.1 |
+| Instrument Serif | [Instrument](https://github.com/Instrument/instrument-serif) | OFL-1.1 |
 | Guava | [Google](https://github.com/google/guava) | Apache-2.0 |
 | Gradle wrapper | [Gradle](https://github.com/gradle/gradle) | Apache-2.0 |
 
@@ -16,4 +18,4 @@ The [Apache 2.0 licence](docs/licenses/Apache-2.0.txt) applies to those componen
 
 JUnit, AndroidX Test, MockWebServer, and JSON-java are used for testing and are not account services. The original test recording is a generated sine tone and contains no third-party recording.
 
-Protocol references include TIDAL's developer documentation and the public [tidalapi](https://github.com/EbbLabs/python-tidal) and [SoundCrowd TIDAL](https://github.com/soundcrowd/soundcrowd-plugin-tidal) projects. TIDAL's names, catalogue metadata, and artwork belong to their respective owners. Undertow is not affiliated with TIDAL.
+Protocol references include TIDAL's developer documentation and the public [tidalapi](https://github.com/EbbLabs/python-tidal) and [SoundCrowd TIDAL](https://github.com/soundcrowd/soundcrowd-plugin-tidal) projects. TIDAL's names, catalogue metadata, and artwork belong to their respective owners. OpenTune is not affiliated with TIDAL.
