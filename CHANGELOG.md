@@ -4,6 +4,8 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-31
+
 First stable release. OpenTune now has its own application ID, `io.github.yyan115.opentune`. It installs next to the earlier prerelease builds and does not update them. Downloads and the TIDAL session from those builds do not carry over, so export any downloads you want to keep before you uninstall.
 
 ### Changed
