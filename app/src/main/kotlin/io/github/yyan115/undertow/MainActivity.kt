@@ -17,8 +17,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.util.UnstableApi
 import io.github.yyan115.undertow.ui.MainViewModel
-import io.github.yyan115.undertow.ui.UndertowRoot
-import io.github.yyan115.undertow.ui.UndertowTheme
+import io.github.yyan115.undertow.ui.OpenTuneRoot
+import io.github.yyan115.undertow.ui.OpenTuneTheme
 import io.github.yyan115.undertow.ui.LocalOfflineMode
 import io.github.yyan115.undertow.core.SignInCallback
 
@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
                     isAppearanceLightNavigationBars = !dark
                 }
             }
-            UndertowTheme(state.settings.theme, state.settings.colorTheme) { CompositionLocalProvider(LocalOfflineMode provides state.settings.offline) { UndertowRoot(model, state) } }
+            OpenTuneTheme(state.settings.theme, state.settings.colorTheme) { CompositionLocalProvider(LocalOfflineMode provides state.settings.offline) { OpenTuneRoot(model, state) } }
         }
     }
 

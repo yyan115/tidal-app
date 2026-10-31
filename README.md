@@ -1,16 +1,18 @@
-# Undertow
+# OpenTune
+
+<img src="docs/branding/opentune-mark.svg" width="72" alt="OpenTune icon">
 
 Android music player for TIDAL and local audio files. Built with Kotlin, Compose, and Media3. Google Play Services are not required.
 
 ## Install
 
-[Download Undertow 0.1.1](https://github.com/yyan115/tidal-app/releases/download/v0.1.1/undertow-0.1.1.apk) for Android 8 or later. The [release page](https://github.com/yyan115/tidal-app/releases/tag/v0.1.1) includes checksums. Allow installation from your browser or file manager when Android asks.
+[Download OpenTune 0.2.0](https://github.com/yyan115/tidal-app/releases/download/v0.2.0/opentune-0.2.0.apk) for Android 8 or later. The [release page](https://github.com/yyan115/tidal-app/releases/tag/v0.2.0) includes checksums. Allow installation from your browser or file manager when Android asks.
 
-| Player | Library | Dark theme |
+| Listen | Player | Appearance |
 | --- | --- | --- |
-| ![Player](docs/screenshots/player.png) | ![Device library](docs/screenshots/library.png) | ![Settings in dark theme](docs/screenshots/settings.png) |
+| ![Listen](docs/screenshots/home.png) | ![Player](docs/screenshots/player.png) | ![Appearance](docs/screenshots/appearance.png) |
 
-Screenshots show the running app with the project's original test recording.
+Screenshots are from the signed 0.2.0 app. The player shows a full-length TIDAL FLAC stream at 24-bit/192 kHz.
 
 ## Features
 
@@ -25,13 +27,17 @@ Screenshots show the running app with the project's original test recording.
 
 TIDAL integration is unofficial. It connects directly to TIDAL and requires your own account. Service changes can affect authentication and playback. Protected streams are not supported.
 
-Choose **Sign in to TIDAL**. A secure browser panel opens and returns to Undertow automatically. See [sign-in](docs/sign-in.md) for details. Lossless modes reject lossy responses instead of silently accepting AAC. New installs default to lossless on both Wi-Fi and mobile data; existing quality preferences are preserved.
+Choose **Sign in to TIDAL**. A secure browser panel opens and returns to OpenTune automatically. See [sign-in](docs/sign-in.md) for details. Lossless modes reject lossy responses instead of silently accepting AAC. New installs default to lossless on both Wi-Fi and mobile data; existing quality preferences are preserved.
+
+## Appearance
+
+Gallery uses deep black, warm accents and Instrument Serif headings. **Settings → Theme** offers seven colour palettes, each with light, dark and system appearance. Choices are saved on the device. Tap the source format in the player to inspect the codec and source resolution.
 
 ## Offline files
 
 Choose **Download** in a track's menu or player. Completed downloads appear in **Downloads** and remain playable without an account. Enable **Settings → Offline mode** to use only saved audio.
 
-To keep a standalone file, open a downloaded track's menu and choose **Export audio file**. Pick a destination with Android's file picker. Clear FLAC downloads become tagged `.flac` files without re-encoding; original local files are copied unchanged. Exports stay in the location you choose. Downloads held in app data are removed if you uninstall Undertow or clear its storage.
+To keep a standalone file, open a downloaded track's menu and choose **Export audio file**. Pick a destination with Android's file picker. Clear FLAC downloads become tagged `.flac` files without re-encoding; original local files are copied unchanged. Exports stay in the location you choose. Downloads held in app data are removed if you uninstall OpenTune or clear its storage.
 
 ## Build
 

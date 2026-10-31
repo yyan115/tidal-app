@@ -32,7 +32,7 @@ import java.util.UUID
 @UnstableApi
 @RunWith(AndroidJUnit4::class)
 class LiveServiceTest {
-    private val app get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as UndertowApp
+    private val app get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as OpenTuneApp
     @get:Rule(order = 0) val account = TestRule { base: Statement, _: Description -> object : Statement() {
         override fun evaluate() {
             val arguments = InstrumentationRegistry.getArguments()
@@ -62,12 +62,12 @@ class LiveServiceTest {
 
     @Test fun temporaryPlaylistCanBeCreatedEditedAndDeleted() = runBlocking {
         val track = app.tidal.search("Nujabes Feather").tracks.first()
-        val playlist = app.tidal.createPlaylist("Undertow check ${UUID.randomUUID().toString().take(8)}")
+        val playlist = app.tidal.createPlaylist("OpenTune check ${UUID.randomUUID().toString().take(8)}")
         try {
             app.tidal.addToPlaylist(playlist.id, track.id)
             assertEquals(track.id, app.tidal.allTracks(playlist).single().id)
-            app.tidal.renamePlaylist(playlist.id, "Undertow renamed check")
-            assertTrue(app.tidal.allPlaylists().any { it.id == playlist.id && it.title == "Undertow renamed check" })
+            app.tidal.renamePlaylist(playlist.id, "OpenTune renamed check")
+            assertTrue(app.tidal.allPlaylists().any { it.id == playlist.id && it.title == "OpenTune renamed check" })
             app.tidal.removeFromPlaylist(playlist.id, 0, track.id)
             assertTrue(app.tidal.allTracks(playlist).isEmpty())
         } finally { app.tidal.deletePlaylist(playlist.id) }
@@ -86,7 +86,7 @@ class LiveServiceTest {
             compose.waitUntil(5_000) { model.state.value.favorites.any { it.id == track.id } == wasSaved }
             compose.runOnIdle { model.favorite(track) }
             compose.waitUntil(5_000) { app.library.pendingFavorites(accountId)[track.id] == !wasSaved }
-            assertEquals(!wasSaved, model.state.value.favorites.any { it.id == track.id })
+            compose.waitUntil(5_000) { model.state.value.favorites.any { it.id == track.id } == !wasSaved }
             compose.runOnIdle { model.settings { it.copy(offline = false) } }
             compose.waitUntil(30_000) { app.library.pendingFavorites(accountId).isEmpty() && !model.state.value.syncing }
             assertEquals(!wasSaved, app.tidal.allFavorites().any { it.id == track.id })

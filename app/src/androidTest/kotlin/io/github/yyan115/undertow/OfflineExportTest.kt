@@ -21,7 +21,7 @@ import java.security.MessageDigest
 @RunWith(AndroidJUnit4::class)
 class OfflineExportTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
-    private val app get() = compose.activity.application as UndertowApp
+    private val app get() = compose.activity.application as OpenTuneApp
     private val model get() = ViewModelProvider(compose.activity)[MainViewModel::class.java]
 
     @Test fun localFileExportPreservesEveryByte(): Unit = runBlocking {

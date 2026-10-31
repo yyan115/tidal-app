@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "Undertow"
+rootProject.name = "OpenTune"
 include(":core", ":app")

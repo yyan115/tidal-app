@@ -7,18 +7,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.font.FontWeight
 
 @Composable
-fun UndertowTheme(theme: String, paletteId: String = "studio", content: @Composable () -> Unit) {
+fun OpenTuneTheme(theme: String, paletteId: String = "gallery", content: @Composable () -> Unit) {
     val isDark = theme == "dark" || (theme == "system" && isSystemInDarkTheme())
     val palette = colorTheme(paletteId)
     MaterialTheme(colorScheme = if (isDark) palette.dark else palette.light,
-        typography = interfaceTypography(palette.serif), shapes = palette.shapes,
+        typography = interfaceTypography(), shapes = palette.shapes,
         content = content)
 }
 
-fun interfaceTypography(serif: Boolean = false): Typography {
+fun interfaceTypography(): Typography {
     val base = Typography()
-    val display = if (serif) EditorialFont else InterfaceFont
-    val weight = if (serif) FontWeight.Normal else FontWeight.SemiBold
+    val display = EditorialFont
+    val weight = FontWeight.Normal
     return Typography(
         displayLarge = base.displayLarge.copy(fontFamily = display, fontWeight = weight),
         displayMedium = base.displayMedium.copy(fontFamily = display, fontWeight = weight),

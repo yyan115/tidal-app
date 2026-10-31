@@ -10,8 +10,8 @@ data class Settings(
     val mobileQuality: AudioQuality = AudioQuality.LOSSLESS,
     val downloadOnWifi: Boolean = true,
     val offline: Boolean = false,
-    val theme: String = "system",
-    val colorTheme: String = "studio",
+    val theme: String = "dark",
+    val colorTheme: String = "gallery",
 )
 
 class AppSettings(context: Context) {
@@ -22,8 +22,8 @@ class AppSettings(context: Context) {
     private val mutable = MutableStateFlow(Settings(
         quality("quality", AudioQuality.LOSSLESS), quality("mobileQuality", AudioQuality.LOSSLESS),
         preferences.getBoolean("downloadOnWifi", true), preferences.getBoolean("offline", false),
-        preferences.getString("theme", "system") ?: "system",
-        preferences.getString("colorTheme", "studio") ?: "studio"))
+        preferences.getString("theme", "dark") ?: "dark",
+        preferences.getString("colorTheme", "gallery") ?: "gallery"))
     val state = mutable.asStateFlow()
     fun update(transform: (Settings) -> Settings) {
         val next = transform(mutable.value)

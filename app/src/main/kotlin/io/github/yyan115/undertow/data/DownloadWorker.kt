@@ -14,7 +14,7 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import io.github.yyan115.undertow.R
-import io.github.yyan115.undertow.UndertowApp
+import io.github.yyan115.undertow.OpenTuneApp
 import io.github.yyan115.undertow.core.JsonCodec
 import io.github.yyan115.undertow.core.StreamManifest
 import io.github.yyan115.undertow.playback.AudioSources
@@ -27,7 +27,7 @@ import java.io.InterruptedIOException
 
 @UnstableApi
 class DownloadWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
-    private val app get() = applicationContext as UndertowApp
+    private val app get() = applicationContext as OpenTuneApp
     private var lastProgress = -1
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {

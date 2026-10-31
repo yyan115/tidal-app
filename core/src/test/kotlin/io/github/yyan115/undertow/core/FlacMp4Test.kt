@@ -25,7 +25,7 @@ class FlacMp4Test {
         assertEquals(132, header[42].toInt() and 255)
         val comments = ByteBuffer.wrap(header.copyOfRange(46, header.size)).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         val vendor = ByteArray(comments.int).also(comments::get)
-        assertEquals("Undertow", vendor.toString(Charsets.UTF_8))
+        assertEquals("OpenTune", vendor.toString(Charsets.UTF_8))
         assertEquals(2, comments.int)
         assertEquals("TITLE=夜の散歩", ByteArray(comments.int).also(comments::get).toString(Charsets.UTF_8))
         assertEquals("ARTIST=Original recording", ByteArray(comments.int).also(comments::get).toString(Charsets.UTF_8))

@@ -15,7 +15,7 @@ import androidx.media3.session.MediaSessionService
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
 import io.github.yyan115.undertow.MainActivity
-import io.github.yyan115.undertow.UndertowApp
+import io.github.yyan115.undertow.OpenTuneApp
 import io.github.yyan115.undertow.core.JsonCodec
 import io.github.yyan115.undertow.core.Track
 import kotlinx.coroutines.CoroutineScope
@@ -32,10 +32,10 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-        val app = application as UndertowApp
+        val app = application as OpenTuneApp
         val sources = app.sources
         val player = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(UndertowSourceFactory(app))
+            .setMediaSourceFactory(OpenTuneSourceFactory(app))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
             .setHandleAudioBecomingNoisy(true).setWakeMode(C.WAKE_MODE_NETWORK).build()
         player.addListener(object : Player.Listener {

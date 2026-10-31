@@ -12,7 +12,7 @@ import io.github.yyan115.undertow.playback.AudioSources
 import java.util.concurrent.TimeUnit
 
 @androidx.media3.common.util.UnstableApi
-class UndertowApp : Application() {
+class OpenTuneApp : Application() {
     val sessions by lazy { SecureSessionStore(this) }
     val settings by lazy { AppSettings(this) }
     val library by lazy { LibraryStore(this) }

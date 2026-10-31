@@ -77,7 +77,7 @@ class TidalClient(
                 "redirect_uri" to expectedRedirect, "scope" to "r_usr w_usr", "code_verifier" to login.verifier, "client_unique_key" to login.uniqueKey))
         } } catch (error: OAuthException) { throw ServiceException(401, when (error.code) {
             "invalid_grant", "expired_token" -> "This sign-in expired or was already used. Start a new sign-in."
-            "invalid_client", "unauthorized_client" -> "TIDAL rejected this app's sign-in configuration. Update Undertow and try again."
+            "invalid_client", "unauthorized_client" -> "TIDAL rejected this app's sign-in configuration. Update OpenTune and try again."
             else -> "TIDAL could not finish sign-in. Start a new sign-in and try again."
         }) }
         authenticate(response, "pkce", expectedGeneration)

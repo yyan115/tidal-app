@@ -6,7 +6,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceInputStream
 import androidx.media3.exoplayer.dash.DashUtil
 import androidx.media3.exoplayer.dash.manifest.DashManifestParser
-import io.github.yyan115.undertow.UndertowApp
+import io.github.yyan115.undertow.OpenTuneApp
 import io.github.yyan115.undertow.core.ProtectedStreamException
 import io.github.yyan115.undertow.core.Track
 import io.github.yyan115.undertow.core.FlacMp4
@@ -24,7 +24,7 @@ data class ExportSpec(val fileName: String, val mimeType: String)
 
 /** Copies clear audio without transcoding, unpacking FLAC samples into a native FLAC file. */
 @UnstableApi
-class OfflineExporter(private val app: UndertowApp) {
+class OfflineExporter(private val app: OpenTuneApp) {
     fun describe(track: Track): ExportSpec {
         val local = track.localUri ?: throw IOException("Download this track before exporting it.")
         val mime = if (local.startsWith("undertow-offline:")) {

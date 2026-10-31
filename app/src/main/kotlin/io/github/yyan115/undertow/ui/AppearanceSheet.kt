@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -67,8 +65,8 @@ private fun ColorThemeCard(palette: AppColorTheme, dark: Boolean, selected: Bool
         .border(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, shape)
         .clip(shape).background(scheme.background).padding(12.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Listen", Modifier.weight(1f), color = scheme.onSurface, fontFamily = if (palette.serif) EditorialFont else InterfaceFont,
-                fontSize = 22.sp, fontWeight = if (palette.serif) FontWeight.Normal else FontWeight.SemiBold)
+            Text("Listen", Modifier.weight(1f), color = scheme.onSurface, fontFamily = EditorialFont,
+                fontSize = 22.sp, fontWeight = FontWeight.Normal)
             Spacer(Modifier.width(8.dp))
             Box(Modifier.size(18.dp).background(scheme.primary, RoundedCornerShape(50)))
         }
@@ -83,7 +81,7 @@ private fun ColorThemeCard(palette: AppColorTheme, dark: Boolean, selected: Bool
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(palette.name, Modifier.weight(1f), color = scheme.onSurface, fontFamily = InterfaceFont, fontSize = 12.sp)
-            if (selected) Icon(Icons.Outlined.Check, "Selected", Modifier.size(16.dp), tint = scheme.primary)
+            if (selected) Icon(OpenTuneIcons.Check, "Selected", Modifier.size(16.dp), tint = scheme.primary)
         }
     }
 }

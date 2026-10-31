@@ -22,12 +22,14 @@ android {
         versionName = releaseVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-    val releaseKeyPath = providers.environmentVariable("UNDERTOW_KEYSTORE").orNull
+    fun signingValue(name: String) = providers.environmentVariable("OPENTUNE_$name")
+        .orElse(providers.environmentVariable("UNDERTOW_$name"))
+    val releaseKeyPath = signingValue("KEYSTORE").orNull
     if (releaseKeyPath != null) signingConfigs.create("release") {
         storeFile = file(releaseKeyPath)
-        storePassword = providers.environmentVariable("UNDERTOW_STORE_PASSWORD").get()
-        keyAlias = providers.environmentVariable("UNDERTOW_KEY_ALIAS").getOrElse("undertow")
-        keyPassword = providers.environmentVariable("UNDERTOW_KEY_PASSWORD").get()
+        storePassword = signingValue("STORE_PASSWORD").get()
+        keyAlias = signingValue("KEY_ALIAS").getOrElse("undertow")
+        keyPassword = signingValue("KEY_PASSWORD").get()
     }
     buildTypes {
         release {
@@ -56,7 +58,6 @@ dependencies {
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
-    implementation(libs.compose.icons)
     implementation(libs.activity.compose)
     implementation(libs.browser)
     implementation(libs.lifecycle.compose)
