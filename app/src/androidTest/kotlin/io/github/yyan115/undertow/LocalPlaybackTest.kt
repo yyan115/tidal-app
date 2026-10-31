@@ -29,7 +29,7 @@ class LocalPlaybackTest {
         model = ViewModelProvider(compose.activity)[MainViewModel::class.java]
         compose.runOnIdle {
             model.clearQueue()
-            model.settings { it.copy(theme = "light", offline = false) }
+            model.settings { it.copy(theme = "light", colorTheme = "studio", offline = false) }
         }
         app.library.playlists().filter { it.title == "Evening" }.forEach { app.library.deletePlaylist(it.id) }
         val file = File(app.filesDir, "playback-test.flac")
@@ -137,6 +137,14 @@ class LocalPlaybackTest {
         compose.onNodeWithText("Theme").performClick()
         compose.onNodeWithText("Dark", useUnmergedTree = true).performClick()
         compose.waitUntil(5_000) { model.state.value.settings.theme == "dark" }
+        compose.onNodeWithText("Cobalt").performClick()
+        compose.waitUntil(5_000) { model.state.value.settings.colorTheme == "cobalt" }
+        compose.onNodeWithText("Done").performClick()
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(5_000) {
+            val restored = ViewModelProvider(compose.activity)[MainViewModel::class.java].state.value.settings
+            restored.theme == "dark" && restored.colorTheme == "cobalt"
+        }
         screenshot("settings-dark")
     }
 

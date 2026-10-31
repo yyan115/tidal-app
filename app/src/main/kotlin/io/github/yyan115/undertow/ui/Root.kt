@@ -84,7 +84,7 @@ fun UndertowRoot(vm: MainViewModel, state: AppState) {
             TopAppBar(title = { Text(if (settings) "Settings" else state.detail?.let {
                 when (it.type) { ReleaseType.ALBUM -> "Album"; ReleaseType.ARTIST -> "Artist"; ReleaseType.PLAYLIST -> "Playlist" }
             } ?: navigationTitles[tab], style = if (LocalDensity.current.fontScale > 1.3f) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
                 navigationIcon = {
                     if (settings || state.detail != null) IconButton(onClick = { if (settings) settings = false else vm.closeDetail() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") }
                     else if (largeText) IconButton(onClick = { navigationMenu = true }) { Icon(Icons.Outlined.Menu, "Open navigation") }

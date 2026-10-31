@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
                     isAppearanceLightNavigationBars = !dark
                 }
             }
-            UndertowTheme(state.settings.theme) { CompositionLocalProvider(LocalOfflineMode provides state.settings.offline) { UndertowRoot(model, state) } }
+            UndertowTheme(state.settings.theme, state.settings.colorTheme) { CompositionLocalProvider(LocalOfflineMode provides state.settings.offline) { UndertowRoot(model, state) } }
         }
     }
 

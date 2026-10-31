@@ -11,6 +11,7 @@ data class Settings(
     val downloadOnWifi: Boolean = true,
     val offline: Boolean = false,
     val theme: String = "system",
+    val colorTheme: String = "studio",
 )
 
 class AppSettings(context: Context) {
@@ -21,13 +22,14 @@ class AppSettings(context: Context) {
     private val mutable = MutableStateFlow(Settings(
         quality("quality", AudioQuality.LOSSLESS), quality("mobileQuality", AudioQuality.LOSSLESS),
         preferences.getBoolean("downloadOnWifi", true), preferences.getBoolean("offline", false),
-        preferences.getString("theme", "system") ?: "system"))
+        preferences.getString("theme", "system") ?: "system",
+        preferences.getString("colorTheme", "studio") ?: "studio"))
     val state = mutable.asStateFlow()
     fun update(transform: (Settings) -> Settings) {
         val next = transform(mutable.value)
         preferences.edit().putString("quality", next.quality.name).putString("mobileQuality", next.mobileQuality.name)
             .putBoolean("downloadOnWifi", next.downloadOnWifi).putBoolean("offline", next.offline)
-            .putString("theme", next.theme).apply()
+            .putString("theme", next.theme).putString("colorTheme", next.colorTheme).apply()
         mutable.value = next
     }
 }

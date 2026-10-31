@@ -31,7 +31,7 @@ fun Artwork(uri: String?, description: String?, modifier: Modifier = Modifier) {
     val offline = LocalOfflineMode.current
     val request = remember(uri, offline, context) { ImageRequest.Builder(context).data(uri)
         .networkCachePolicy(if (offline) CachePolicy.DISABLED else CachePolicy.ENABLED).build() }
-    Box(modifier.clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+    Box(modifier.clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
         Icon(Icons.Outlined.MusicNote, null, Modifier.fillMaxSize(.36f), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f))
         if (uri != null) AsyncImage(request, description, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
     }

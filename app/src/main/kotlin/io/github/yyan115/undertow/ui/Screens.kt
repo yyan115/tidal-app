@@ -336,7 +336,7 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit) {
             Switch(state.settings.downloadOnWifi, { value -> vm.settings { it.copy(downloadOnWifi = value) } })
         }) }
         item { SectionTitle("Appearance") }
-        item { SettingRow(Icons.Outlined.Contrast, "Theme", state.settings.theme.replaceFirstChar(Char::uppercase), { theme = true }) }
+        item { SettingRow(Icons.Outlined.Contrast, "Theme", "${colorTheme(state.settings.colorTheme).name} · ${state.settings.theme.replaceFirstChar(Char::uppercase)}", { theme = true }) }
         item { SectionTitle("About") }
         item { SettingRow(Icons.Outlined.Info, "Undertow ${BuildConfig.VERSION_NAME}", "Independent, open-source music player") }
         item { SettingRow(Icons.Outlined.Code, "Source code", "github.com/yyan115/tidal-app", {
@@ -355,11 +355,7 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit) {
             RadioButton(if (mobile) state.settings.mobileQuality == value else state.settings.quality == value, onClick = null)
             Text(value.label, Modifier.padding(start = 12.dp), style = MaterialTheme.typography.bodyMedium)
         } } } }, confirmButton = {})
-    if (theme) AlertDialog(onDismissRequest = { theme = false }, title = { Text("Theme") }, text = { Column {
-        listOf("system", "light", "dark").forEach { value -> Row(Modifier.fillMaxWidth().clickable { vm.settings { it.copy(theme = value) }; theme = false }, verticalAlignment = Alignment.CenterVertically) {
-            RadioButton(state.settings.theme == value, onClick = null); Text(value.replaceFirstChar(Char::uppercase), Modifier.padding(start = 12.dp))
-        } }
-    } }, confirmButton = {})
+    if (theme) AppearanceSheet(state.settings, { next -> vm.settings { next } }) { theme = false }
     if (signOut) AlertDialog(onDismissRequest = { signOut = false }, title = { Text("Disconnect TIDAL?") }, text = { Text("Audio saved on this device stays in your library.") },
         confirmButton = { TextButton(onClick = { vm.signOut(); signOut = false }) { Text("Disconnect") } }, dismissButton = { TextButton(onClick = { signOut = false }) { Text("Cancel") } })
     if (client) AlertDialog(onDismissRequest = { client = false }, title = { Text("Device-code client") }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
