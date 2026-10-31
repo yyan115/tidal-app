@@ -12,10 +12,10 @@ val copyNotices = tasks.register<Sync>("copyNotices") {
     into(noticeAssets.map { it.dir("licenses") })
 }
 android {
-    namespace = "io.github.yyan115.undertow"
+    namespace = "io.github.yyan115.opentune"
     compileSdk = 36
     defaultConfig {
-        applicationId = "io.github.yyan115.undertow"
+        applicationId = "io.github.yyan115.opentune"
         minSdk = 26
         targetSdk = 36
         versionCode = versionParts[0] * 1_000_000 + versionParts[1] * 1_000 + versionParts[2]
@@ -23,12 +23,11 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     fun signingValue(name: String) = providers.environmentVariable("OPENTUNE_$name")
-        .orElse(providers.environmentVariable("UNDERTOW_$name"))
     val releaseKeyPath = signingValue("KEYSTORE").orNull
     if (releaseKeyPath != null) signingConfigs.create("release") {
         storeFile = file(releaseKeyPath)
         storePassword = signingValue("STORE_PASSWORD").get()
-        keyAlias = signingValue("KEY_ALIAS").getOrElse("undertow")
+        keyAlias = signingValue("KEY_ALIAS").getOrElse("opentune")
         keyPassword = signingValue("KEY_PASSWORD").get()
     }
     buildTypes {
