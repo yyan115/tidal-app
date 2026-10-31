@@ -2,46 +2,71 @@
 
 <img src="docs/branding/opentune-mark.svg" width="72" alt="OpenTune icon">
 
-Android music player for TIDAL and local audio files. Built with Kotlin, Compose, and Media3. Google Play Services are not required.
+Unofficial open source Android music player for TIDAL.
+
+OpenTune plays your TIDAL library in lossless quality, along with your own audio files. It has no ads, analytics or tracking, and it connects only to TIDAL.
+
+[![Check](https://github.com/yyan115/tidal-app/actions/workflows/check.yml/badge.svg)](https://github.com/yyan115/tidal-app/actions/workflows/check.yml)
+[![Release](https://img.shields.io/github/v/release/yyan115/tidal-app?include_prereleases)](https://github.com/yyan115/tidal-app/releases/latest)
+[![License](https://img.shields.io/github/license/yyan115/tidal-app)](LICENSE)
+
+<p align="center">
+  <img src="docs/screenshots/home.png" width="260" alt="Listen screen">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/player.png" width="260" alt="Player showing the source format">
+</p>
 
 ## Install
 
-[Download OpenTune 0.2.0](https://github.com/yyan115/tidal-app/releases/download/v0.2.0/opentune-0.2.0.apk) for Android 8 or later. The [release page](https://github.com/yyan115/tidal-app/releases/tag/v0.2.0) includes checksums. Allow installation from your browser or file manager when Android asks.
+Download the APK from the [latest release](https://github.com/yyan115/tidal-app/releases/latest) and open it. OpenTune needs Android 8 or later. Android may ask you to allow installs from your browser or file manager.
 
-| Listen | Player | Appearance |
-| --- | --- | --- |
-| ![Listen](docs/screenshots/home.png) | ![Player](docs/screenshots/player.png) | ![Appearance](docs/screenshots/appearance.png) |
+To receive updates automatically, add `https://github.com/yyan115/tidal-app` to [Obtainium](https://obtainium.imranr.dev/).
 
-Screenshots are from the signed 0.2.0 app. The player shows a full-length TIDAL FLAC stream at 24-bit/192 kHz.
+Releases are signed with one certificate. Compare it with the fingerprint below before you install, for example with [AppVerifier](https://github.com/soupslurpr/AppVerifier).
+
+```text
+SHA-256  4C:75:C0:15:05:B6:F2:A3:CF:88:57:6E:D4:A6:DA:93:AF:BD:13:D1:17:CF:7A:3A:C3:41:0C:AB:B9:66:B6:24
+```
+
+Each release also includes a `SHA256SUMS` file and a build provenance attestation. To check the attestation:
+
+```sh
+gh attestation verify opentune-<version>.apk --repo yyan115/tidal-app
+```
 
 ## Features
 
-- Search TIDAL, browse your collection, and play full tracks with a subscription.
-- Play local FLAC, AAC, MP3, and other formats supported by Android.
-- Edit and reorder the queue, use shuffle/repeat, and combine local and TIDAL tracks in device playlists.
-- Create, rename, and edit your TIDAL playlists. Keep your collection cached and sync saved-track changes after leaving offline mode.
-- Download supported audio with Wi-Fi-only controls and play saved copies after signing out.
-- Export clear lossless downloads as tagged FLAC files without re-encoding.
-- Control playback from notifications, the lock screen, or a Bluetooth device.
-- Show the audio format returned by the service rather than assuming the requested quality was delivered.
+- Stream TIDAL in lossless FLAC, up to 24-bit/192 kHz where TIDAL provides it. Lossless settings never fall back to AAC.
+- Search the catalogue and browse your saved tracks, albums and playlists. Create and edit TIDAL playlists.
+- See the codec, bit depth and sample rate of the playing track.
+- Download tracks and play them without a connection or an account.
+- Play local audio files and combine them with TIDAL tracks in playlists.
+- Edit the queue, shuffle and repeat. Control playback from the notification, the lock screen or a Bluetooth device.
+- Use offline mode and Wi-Fi-only downloads.
+- Export downloads and local files to a folder you choose.
 
-TIDAL integration is unofficial. It connects directly to TIDAL and requires your own account. Service changes can affect authentication and playback. Protected streams are not supported.
+The [usage guide](docs/usage.md) covers signing in, audio quality, downloads and export.
 
-Choose **Sign in to TIDAL**. A secure browser panel opens and returns to OpenTune automatically. See [sign-in](docs/sign-in.md) for details. Lossless modes reject lossy responses instead of silently accepting AAC. New installs default to lossless on both Wi-Fi and mobile data; existing quality preferences are preserved.
+## Privacy
 
-## Appearance
+OpenTune connects to TIDAL and nowhere else. It has no ads, analytics, crash reporting or server of its own.
 
-Gallery uses deep black, warm accents and Instrument Serif headings. **Settings → Theme** offers seven colour palettes, each with light, dark and system appearance. Choices are saved on the device. Tap the source format in the player to inspect the codec and source resolution.
+- You sign in on TIDAL's website in your browser. OpenTune never receives your password.
+- Account tokens are stored encrypted with a key held in the Android Keystore.
+- OpenTune requests no storage, location, contacts or microphone permissions. It reads only the files you pick with the system file picker.
+- Android backup and device transfer exclude OpenTune data.
 
-## Offline files
+TIDAL still receives your account and streaming requests.
 
-Choose **Download** in a track's menu or player. Completed downloads appear in **Downloads** and remain playable without an account. Enable **Settings → Offline mode** to use only saved audio.
+## Disclaimer
 
-To keep a standalone file, open a downloaded track's menu and choose **Export audio file**. Pick a destination with Android's file picker. Clear FLAC downloads become tagged `.flac` files without re-encoding; original local files are copied unchanged. Exports stay in the location you choose. Downloads held in app data are removed if you uninstall OpenTune or clear its storage.
+OpenTune is an independent project. It is not affiliated with, endorsed by or sponsored by TIDAL. TIDAL is a trademark of its owner.
+
+Streaming requires a TIDAL subscription. OpenTune uses TIDAL's unofficial interfaces, so TIDAL can change or block them without notice. Protected streams are not supported. You are responsible for following TIDAL's terms of service.
 
 ## Build
 
-Requirements: JDK 21, Android SDK 36, and Android Build Tools 35.0.0. Set `ANDROID_HOME` or add the SDK path to an untracked `local.properties` file.
+You need JDK 21, Android SDK 36 and Android build tools 35.0.0. Set `ANDROID_HOME` or put the SDK path in an untracked `local.properties` file.
 
 ```sh
 ./gradlew :app:assembleDebug
@@ -49,29 +74,10 @@ Requirements: JDK 21, Android SDK 36, and Android Build Tools 35.0.0. Set `ANDRO
 
 The APK is written to `app/build/outputs/apk/debug/app-debug.apk`. Debug and release builds use different application IDs, so both can be installed together.
 
-## Test
+## Contributing
 
-```sh
-./gradlew :core:test :app:lintDebug
-./gradlew :app:connectedDebugAndroidTest
-```
-
-The second command needs an emulator or connected Android device. Device tests play an original 24-bit/96 kHz FLAC fixture, exercise the interface, and capture screenshots. Gradle retrieves those images under `app/build/outputs/connected_android_test_additional_output/`.
-
-See [verification](docs/verification.md) for the checks performed and their limits.
-
-## Privacy
-
-Account tokens are encrypted with a key held in Android Keystore. Password entry happens on TIDAL's website. The app has no advertising, analytics, crash-reporting service, or shared account backend. TIDAL still receives account and streaming requests. Local files can be played without signing in.
-
-The file picker grants access only to the audio files you choose. Imported files stay in their original locations. Explicit downloads are stored in app data; temporary streaming cache is limited to 256 MB. Android backup is disabled for account and library data.
-
-## Development
-
-The `core` module contains the service client, models, and stream parsing. The `app` module contains storage, playback, downloads, and the Android interface. Tests do not need a TIDAL password. Keep real accounts, tokens, signing material, and private recordings out of the repository and issue reports.
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a change. Maintainers can follow the [release guide](docs/releasing.md). Report vulnerabilities using [SECURITY.md](SECURITY.md).
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before you open a pull request. Report security problems as described in [SECURITY.md](SECURITY.md). Maintainers can find the release process in [docs/releasing.md](docs/releasing.md).
 
 ## License
 
-[GPL-3.0-or-later](LICENSE). Dependency licences are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+[GPL-3.0-or-later](LICENSE). Dependency licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -1,8 +1,8 @@
 # Third-party notices
 
-OpenTune uses these open-source components:
+OpenTune uses these open source components.
 
-| Component | Project | Licence |
+| Component | Project | License |
 | --- | --- | --- |
 | Kotlin and kotlinx.coroutines | [JetBrains](https://github.com/JetBrains/kotlin) | Apache-2.0 |
 | Compose, Material, Activity, Browser, Lifecycle, WorkManager, SQLite | [AndroidX](https://android.googlesource.com/platform/frameworks/support/) | Apache-2.0 |
@@ -14,8 +14,14 @@ OpenTune uses these open-source components:
 | Guava | [Google](https://github.com/google/guava) | Apache-2.0 |
 | Gradle wrapper | [Gradle](https://github.com/gradle/gradle) | Apache-2.0 |
 
-The [Apache 2.0 licence](docs/licenses/Apache-2.0.txt) applies to those components. Their copyright notices remain with their respective authors.
+The [Apache 2.0 license](docs/licenses/Apache-2.0.txt) applies to those components. Their copyright notices remain with their authors.
 
-JUnit, AndroidX Test, MockWebServer, and JSON-java are used for testing and are not account services. The original test recording is a generated sine tone and contains no third-party recording.
+JUnit, AndroidX Test, MockWebServer and JSON-java are used for testing only. The FLAC file in the device tests is a generated sine tone and contains no third-party recording.
 
-Protocol references include TIDAL's developer documentation and the public [tidalapi](https://github.com/EbbLabs/python-tidal) and [SoundCrowd TIDAL](https://github.com/soundcrowd/soundcrowd-plugin-tidal) projects. TIDAL's names, catalogue metadata, and artwork belong to their respective owners. OpenTune is not affiliated with TIDAL.
+## Trademarks
+
+TIDAL's names, catalogue metadata and artwork belong to their respective owners. OpenTune is not affiliated with TIDAL.
+
+## References
+
+The TIDAL integration was written with reference to TIDAL's public developer documentation and the open source [tidalapi](https://github.com/EbbLabs/python-tidal), [Minim](https://github.com/bbye98/minim) and [SoundCrowd TIDAL](https://github.com/soundcrowd/soundcrowd-plugin-tidal) projects.

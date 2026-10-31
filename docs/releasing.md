@@ -1,30 +1,49 @@
 # Releasing
 
-Use JDK 21 and the Android SDK versions in the README. Update `VERSION`, the release notes, and the verification record. A version has three numeric components; the Android version code is derived from them.
+Releases are cut by the **Release** workflow. It needs no local build.
 
-Run the core tests, both lint variants, and the device suite before tagging. Inspect the running app and install a signed, optimized release build. Device CI covers API 26, 33, and 36 with Google Play Services disabled. Account tests remain an explicit local check and never run in public CI.
+## One-time setup
 
-## Signing
+Create a PKCS12 keystore with the key alias `opentune`. Keep the keystore and its password outside the repository, with an encrypted backup. Every update must use the same key.
 
-The release workflow expects two repository Actions secrets:
+Add two repository secrets under **Settings**, **Secrets and variables**, **Actions**:
 
-- `RELEASE_KEYSTORE_BASE64`: base64-encoded PKCS12 keystore.
-- `RELEASE_KEYSTORE_PASSWORD`: its password. The key alias is `undertow`.
+- `RELEASE_KEYSTORE_BASE64`: the keystore, base64-encoded.
+- `RELEASE_KEYSTORE_PASSWORD`: its password. The key password must be the same.
 
-Keep the keystore and its password outside the repository and retain an encrypted backup. Updates must use the same signing key. The current signing certificate's SHA-256 is:
+The SHA-256 of the signing certificate is stored in `.github/signing-certificate.sha256`. The workflow refuses to publish an APK signed with any other certificate. Update that file and the fingerprint in the README only when you rotate the key on purpose.
 
-```text
-75ef4ecb7ef9d49acc629e4fca8f187fa485b8c04dc7797e22b80762991230c2
+The workflow pushes the version commit and tag to `main`. If you protect `main`, allow GitHub Actions to bypass the pull request requirement.
+
+## Cutting a release
+
+1. Make sure the `Unreleased` section of `CHANGELOG.md` lists every change that users can see.
+2. Open **Actions**, choose **Release**, select **Run workflow** on `main` and enter the version, for example `1.1.0`.
+
+The workflow then:
+
+1. Runs the full check workflow on the commit.
+2. Rejects a version that is not newer than `VERSION` or that already has a tag.
+3. Moves the `Unreleased` entries to the new version in `CHANGELOG.md`, updates `VERSION` and writes the F-Droid changelog.
+4. Builds the release APK, signs it and checks its certificate and signature.
+5. Creates a build provenance attestation.
+6. Commits the version change, tags it `v<version>` and pushes both to `main`.
+7. Publishes the GitHub release with the APK and `SHA256SUMS`. Versions below 1.0.0 are marked as prereleases.
+
+Nothing is pushed or published if an earlier step fails.
+
+After the release is published, install the downloaded APK on a device and check sign-in and playback.
+
+## Local signed build
+
+Set `OPENTUNE_KEYSTORE`, `OPENTUNE_STORE_PASSWORD`, `OPENTUNE_KEY_PASSWORD` and, if the alias differs from `opentune`, `OPENTUNE_KEY_ALIAS` in a private environment, then run:
+
+```sh
+./gradlew :app:assembleRelease
 ```
 
-For a local signed build, set `OPENTUNE_KEYSTORE`, `OPENTUNE_STORE_PASSWORD`, `OPENTUNE_KEY_PASSWORD`, and optionally `OPENTUNE_KEY_ALIAS` in a private environment, then run `./gradlew :app:assembleRelease`. Do not put password values into shell history or Gradle properties committed to Git.
+Do not write these values to shell history or to committed Gradle properties.
 
-## Publishing
+## Version numbers
 
-Push the reviewed commit to `main`. After its checks pass, tag that commit `v` followed by `VERSION` and push the tag. The release workflow repeats the checks, verifies the version and main-branch ancestry, signs the APK, verifies its signature, and publishes a prerelease with `SHA256SUMS`.
-
-Download the published APK, verify its checksum and signing certificate, and install that exact artifact. Keep release notes specific to the shipped behavior and record any remaining device limitations.
-
-## Upgrade identity
-
-OpenTune retains its original Android application ID, signing key, private storage identifiers and offline URI scheme. These identify an existing installation and let users upgrade without losing accounts, library data or downloads. They are not the displayed application name.
+`VERSION` holds `MAJOR.MINOR.PATCH`. Gradle derives the Android version code as `MAJOR × 1,000,000 + MINOR × 1,000 + PATCH`, so each component must stay at or below 999.

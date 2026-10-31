@@ -1,7 +1,15 @@
-# Security
+# Security policy
 
-Report account, token, or file-access vulnerabilities privately through [GitHub security advisories](https://github.com/yyan115/tidal-app/security/advisories/new). Do not put credentials or working audio URLs in public issues.
+## Supported versions
 
-Include the affected version, reproduction steps, and the impact. Use a test account and a minimal example where possible.
+Only the latest release receives security fixes.
 
-Account tokens and OAuth client overrides are encrypted using Android Keystore. The release app does not expose an endpoint for importing account tokens. Signing keys and account credentials are not part of this repository or its test fixtures.
+## Reporting a vulnerability
+
+Report vulnerabilities privately through [GitHub security advisories](https://github.com/yyan115/tidal-app/security/advisories/new). Do not put credentials or working audio URLs in public issues.
+
+Include the affected version, the steps to reproduce and the impact. Use a test account and a minimal example where possible.
+
+## Scope
+
+Reports about account tokens, file access, sign-in handling and the signing of releases are in scope. Signing keys and account credentials are not part of this repository or its test fixtures. Account tokens are encrypted with a key held in the Android Keystore, and release builds do not provide a way to import tokens.

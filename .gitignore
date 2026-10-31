@@ -9,10 +9,11 @@ local.properties
 keystore.properties
 .env
 .env.*
-.agents/
-.codex/
 .aws/
 captures/
 test-results/
 *.hprof
 *.log
+*.p12
+*.pfx
+__pycache__/

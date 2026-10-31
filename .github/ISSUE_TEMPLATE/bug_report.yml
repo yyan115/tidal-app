@@ -1,27 +1,35 @@
 name: Bug report
-description: Something does not work as expected
+description: Report something that does not work as expected
+labels: [bug]
 body:
   - type: input
     id: app-version
     attributes:
       label: App version
+      description: Shown in Settings, About.
     validations:
       required: true
   - type: input
     id: device
     attributes:
       label: Device and Android version
+      placeholder: Pixel 8, GrapheneOS, Android 16
     validations:
       required: true
   - type: textarea
     id: reproduction
     attributes:
       label: Steps to reproduce
-      description: Include what you expected and what happened.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual result
     validations:
       required: true
   - type: textarea
     id: attachments
     attributes:
       label: Screenshots or logs
-      description: Remove account details, tokens, signed audio URLs, and private recordings.
+      description: Remove account details, tokens, signed audio URLs and private recordings.
