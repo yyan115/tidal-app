@@ -154,8 +154,18 @@ class PseudoLocaleTest {
             compose.waitUntil(timeoutMillis, condition)
         } catch (failure: ComposeTimeoutException) {
             val screen = runCatching { visibleTexts() }.getOrNull()
+            runCatching { screenshot("pseudo-timeout") }
             throw AssertionError("Timed out waiting for $what. Windows: ${runCatching { windows() }.getOrNull()}. The screen shows: $screen", failure)
         }
+    }
+
+    private fun screenshot(name: String) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val output = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+        val directory = (output?.let(::File) ?: File(activity.getExternalFilesDir(null), "screenshots")).apply { mkdirs() }
+        val bitmap = instrumentation.uiAutomation.takeScreenshot()
+        File(directory, "$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        bitmap.recycle()
     }
 
     private fun windows() = compose.onAllNodes(isRoot(), useUnmergedTree = true).fetchSemanticsNodes().size
