@@ -30,7 +30,7 @@ import io.github.yyan115.opentune.core.*
 @OptIn(ExperimentalMaterial3Api::class)
 @UnstableApi
 @Composable
-fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initialPlayer: Boolean = false, initialSettings: Boolean = false) {
+fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initialPlayer: Boolean = false, initialSettings: Boolean = false, initialLyrics: Boolean = false) {
     val context = LocalContext.current
     val pagesVm: PagesViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
     var tab by rememberSaveable { mutableIntStateOf(initialTab) }
@@ -152,7 +152,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initia
     if (nowPlaying && state.playback.track != null) NowPlayingScreen(state, vm, onClose = { nowPlaying = false }, onQueue = { queue = true }, onMenu = openTrackMenu, onDownload = { track ->
         if (Build.VERSION.SDK_INT >= 33) notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
         vm.download(track)
-    })
+    }, initialLyrics = initialLyrics)
     if (queue) QueueSheet(state, vm) { queue = false }
     trackMenu?.let { track ->
         ModalBottomSheet(onDismissRequest = { trackMenu = null; playlistPosition = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {

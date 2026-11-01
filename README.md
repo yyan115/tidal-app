@@ -11,9 +11,11 @@ OpenTune plays your TIDAL library in lossless quality, along with your own audio
 [![License](https://img.shields.io/github/license/yyan115/tidal-app)](LICENSE)
 
 <p align="center">
-  <img src="docs/screenshots/home.png" width="260" alt="Listen screen">
-  &nbsp;&nbsp;
-  <img src="docs/screenshots/player.png" width="260" alt="Player showing the source format">
+  <img src="docs/screenshots/home.png" width="220" alt="Listen screen">
+  &nbsp;
+  <img src="docs/screenshots/player.png" width="220" alt="Player showing the source format">
+  &nbsp;
+  <img src="docs/screenshots/lyrics.png" width="220" alt="Lyrics that follow the song">
 </p>
 
 ## Install
