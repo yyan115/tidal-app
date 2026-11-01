@@ -14,6 +14,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 ### Fixed
 
 - Missing fields from TIDAL no longer appear as the word "null" in lists.
+- The button row at the bottom of the player wraps onto a second line when the labels do not fit, instead of squeezing them. This affects small screens and longer text.
 
 ### Changed
 
