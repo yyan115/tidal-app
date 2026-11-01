@@ -19,6 +19,7 @@ import androidx.media3.common.util.UnstableApi
 import io.github.yyan115.opentune.ui.MainViewModel
 import io.github.yyan115.opentune.ui.OpenTuneRoot
 import io.github.yyan115.opentune.ui.OpenTuneTheme
+import io.github.yyan115.opentune.ui.enterVideoPip
 import io.github.yyan115.opentune.ui.LocalOfflineMode
 import io.github.yyan115.opentune.core.SignInCallback
 
@@ -46,6 +47,12 @@ class MainActivity : ComponentActivity() {
             }
             OpenTuneTheme(state.settings.theme, state.settings.colorTheme) { CompositionLocalProvider(LocalOfflineMode provides state.settings.offline) { OpenTuneRoot(model, state) } }
         }
+    }
+
+    /** Keeps a music video visible in a small window when the listener leaves the app. */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (androidx.lifecycle.ViewModelProvider(this)[MainViewModel::class.java].state.value.video != null) enterVideoPip()
     }
 
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); acceptIntent(intent) }

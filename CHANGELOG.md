@@ -21,7 +21,13 @@ OpenTune now has its own application ID, `io.github.yyan115.opentune`. It instal
 - Equalizer with presets, using the equalizer that Android provides.
 - Audio output information in Settings, showing where music plays and which sample rates the output accepts.
 - Experimental bit-perfect output to a USB DAC on Android 14 and later. It is off by default and has not been tested with a DAC yet.
-- Listening history on the device, kept for local statistics only.
+- Listening history on the device, with a statistics view for top tracks and artists.
+- Optional scrobbling to ListenBrainz or a compatible server. It is off by default and queues listens while the server is out of reach.
+- Music videos from artist pages and search, with picture-in-picture.
+- Back up and restore for settings, device playlists and listening history.
+- Keep saved tracks offline: downloads your saved TIDAL tracks in the background.
+- Move tracks up and down in your playlists, on the device and in TIDAL.
+- Mixes in Library, "Playing from" in the player and saving the queue as a playlist.
 
 ### Changed
 

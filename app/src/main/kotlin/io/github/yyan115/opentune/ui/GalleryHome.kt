@@ -43,7 +43,7 @@ fun ListenScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLog
     val pages: PagesViewModel = viewModel()
     val entries by pages.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val context = PageContext(state, vm, pages, scope, onMenu)
+    val context = PageContext(state, vm, pages, scope, onMenu, "Listen")
     val online = state.signedIn && !state.settings.offline
     LaunchedEffect(online) { if (online) { pages.load(PageRoute.ForYou); pages.load(PageRoute.Home) } }
     val forYou = entries[PageRoute.ForYou.key]?.takeIf { online }

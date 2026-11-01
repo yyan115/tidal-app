@@ -44,14 +44,16 @@ gh attestation verify opentune-<version>.apk --repo yyan115/tidal-app
 - Download tracks and play them without a connection or an account.
 - Play local audio files and combine them with TIDAL tracks in playlists.
 - Edit the queue, shuffle and repeat. Control playback from the notification, the lock screen or a Bluetooth device.
-- Use offline mode and Wi-Fi-only downloads.
+- Use offline mode and Wi-Fi-only downloads, and optionally keep your saved tracks downloaded.
+- Set a sleep timer, normalize volume, use an equalizer and watch music videos.
+- See your own listening statistics, back up your device data and optionally scrobble to ListenBrainz.
 - Export downloads and local files to a folder you choose.
 
 The [usage guide](docs/usage.md) covers signing in, audio quality, downloads and export.
 
 ## Privacy
 
-OpenTune connects to TIDAL and nowhere else. It has no ads, analytics, crash reporting or server of its own.
+OpenTune connects to TIDAL. It has no ads, analytics, crash reporting or server of its own. The only other connection is scrobbling, which is off by default. If you turn it on and add a token, OpenTune sends the artist, title and album of tracks you finish to the ListenBrainz server that you choose.
 
 - You sign in on TIDAL's website in your browser. OpenTune never receives your password.
 - Account tokens are stored encrypted with a key held in the Android Keystore.

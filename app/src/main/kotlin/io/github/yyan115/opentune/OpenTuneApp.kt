@@ -23,6 +23,7 @@ class OpenTuneApp : Application() {
         }.build() }
     val tidal by lazy { TidalClient(sessions::identity, sessions, http) }
     val importer by lazy { LocalImporter(this, library) }
+    val scrobbler by lazy { io.github.yyan115.opentune.data.Scrobbler(this) }
     val exporter by lazy { OfflineExporter(this) }
     val sources by lazy { AudioSources(this) }
 }

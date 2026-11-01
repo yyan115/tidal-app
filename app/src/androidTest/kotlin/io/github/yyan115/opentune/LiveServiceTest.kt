@@ -43,6 +43,13 @@ class LiveServiceTest {
         try {
             app.tidal.addToPlaylist(playlist.id, track.id)
             assertEquals(track.id, app.tidal.allTracks(playlist).single().id)
+            val second = app.tidal.search("Nujabes Reflection Eternal").tracks.first { it.id != track.id }
+            app.tidal.addToPlaylist(playlist.id, second.id)
+            assertEquals(listOf(track.id, second.id), app.tidal.allTracks(playlist).map { it.id })
+            app.tidal.moveInPlaylist(playlist.id, 0, 1, track.id)
+            assertEquals(listOf(second.id, track.id), app.tidal.allTracks(playlist).map { it.id })
+            app.tidal.removeFromPlaylist(playlist.id, 0, second.id)
+            assertEquals(listOf(track.id), app.tidal.allTracks(playlist).map { it.id })
             app.tidal.renamePlaylist(playlist.id, "OpenTune renamed check")
             assertTrue(app.tidal.allPlaylists().any { it.id == playlist.id && it.title == "OpenTune renamed check" })
             app.tidal.removeFromPlaylist(playlist.id, 0, track.id)

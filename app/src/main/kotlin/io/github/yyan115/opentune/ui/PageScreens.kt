@@ -32,7 +32,7 @@ import kotlinx.coroutines.launch
 @UnstableApi
 class PageContext(
     val state: AppState, val vm: MainViewModel, val pages: PagesViewModel,
-    val scope: CoroutineScope, val onMenu: (Track) -> Unit,
+    val scope: CoroutineScope, val onMenu: (Track) -> Unit, val source: String = "",
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,7 +42,7 @@ fun PageScreen(route: PageRoute, state: AppState, vm: MainViewModel, pages: Page
     val entries by pages.state.collectAsStateWithLifecycle()
     val entry = entries[route.key] ?: PageUi()
     val scope = rememberCoroutineScope()
-    val context = remember(state, vm, pages, scope, onMenu) { PageContext(state, vm, pages, scope, onMenu) }
+    val context = remember(state, vm, pages, scope, onMenu, route.title) { PageContext(state, vm, pages, scope, onMenu, route.title) }
     LaunchedEffect(route.key, state.signedIn, state.settings.offline) { pages.load(route) }
     val page = entry.page
     PullToRefreshBox(isRefreshing = entry.loading && page != null, onRefresh = { pages.load(route, force = true) }, modifier = Modifier.fillMaxSize()) {
@@ -117,7 +117,7 @@ private fun LazyListScope.trackList(module: TrackListModule, entry: PageUi, rout
     }
     val shown = if (viewAll || module.numbered) tracks else tracks.take(PREVIEW_TRACKS)
     itemsIndexed(shown, key = { position, track -> "$key:${track.id}:$position" }) { position, track ->
-        TrackRow(track, ctx.state.playback.track?.id == track.id, onPlay = { ctx.vm.play(tracks, position) }, onMenu = { ctx.onMenu(track) },
+        TrackRow(track, ctx.state.playback.track?.id == track.id, onPlay = { ctx.vm.play(tracks, position, ctx.source) }, onMenu = { ctx.onMenu(track) },
             index = if (module.numbered) position else null)
     }
     if (viewAll && module.dataPath != null && tracks.size < module.total) item(key = "$key:more") { LoadMore(routeKey, module, entry, ctx) }
@@ -214,7 +214,7 @@ private fun firstTracks(page: PageData): TrackListModule? = page.modules.filterI
 @UnstableApi
 private fun playFromPage(ctx: PageContext, routeKey: String, page: PageData, shuffle: Boolean) {
     val module = firstTracks(page) ?: return
-    ctx.scope.launch { ctx.vm.playTracks(ctx.pages.allTracks(routeKey, module), shuffle) }
+    ctx.scope.launch { ctx.vm.playTracks(ctx.pages.allTracks(routeKey, module), shuffle, ctx.source) }
 }
 
 @UnstableApi

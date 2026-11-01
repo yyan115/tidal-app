@@ -100,6 +100,7 @@ class PlaybackService : MediaSessionService() {
         })
         app.sources.onGains = { id -> Handler(Looper.getMainLooper()).post { if (player.currentMediaItem?.mediaId == id) applyNormalization() } }
         scope.launch { app.settings.state.collect { applyNormalization(); applyEqualizer(); applyBitPerfect() } }
+        scope.launch { runCatching { app.scrobbler.flush() } }
         if (Build.VERSION.SDK_INT >= 23) audioManager.registerAudioDeviceCallback(deviceCallback, Handler(Looper.getMainLooper()))
 
         val activity = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -198,6 +199,7 @@ class PlaybackService : MediaSessionService() {
     private fun startListening(track: Track) {
         listenedTrack = track; listenStartedAt = System.currentTimeMillis(); listenedMs = 0
         playingSince = if (player.isPlaying) SystemClock.elapsedRealtime() else 0
+        scope.launch { app.scrobbler.playingNow(track) }
     }
 
     /** Stores the finished listen once it is long enough to count: 30 seconds, and half the track or four minutes. */
@@ -211,6 +213,7 @@ class PlaybackService : MediaSessionService() {
         scope.launch(Dispatchers.IO) {
             runCatching { app.library.recordPlay(track, listened, startedAt) }
         }
+        scope.launch { runCatching { app.scrobbler.listened(track, startedAt) } }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session

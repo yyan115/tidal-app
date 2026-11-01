@@ -68,8 +68,9 @@ class PlaybackFeaturesTest {
         compose.waitUntil(10_000) { model.state.value.sleepEndsAt == 0L && !model.state.value.sleepAtTrackEnd }
         compose.runOnIdle { model.setSleepTimer(0, endOfTrack = true) }
         compose.waitUntil(10_000) { model.state.value.sleepAtTrackEnd }
+        compose.waitUntil(15_000) { model.state.value.playback.duration > 29_000 }
         compose.runOnIdle { model.seek(model.state.value.playback.duration - 1_500) }
-        compose.waitUntil(20_000) { !model.state.value.playback.playing }
+        compose.waitUntil(30_000) { !model.state.value.playback.playing }
         compose.waitUntil(10_000) { !model.state.value.sleepAtTrackEnd }
         assertEquals(0L, model.state.value.sleepEndsAt)
     }

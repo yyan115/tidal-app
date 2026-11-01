@@ -51,7 +51,7 @@ data class PlaybackState(
     val position: Long = 0, val duration: Long = 0,
     val shuffle: Boolean = false, val repeat: Int = Player.REPEAT_MODE_OFF,
     val quality: String = "", val error: String? = null,
-    val nextIndex: Int = -1,
+    val nextIndex: Int = -1, val source: String = "",
 ) { val track: Track? get() = queue.getOrNull(index) }
 
 enum class LyricsStatus { Idle, Loading, Ready, None, Offline, Error }
@@ -107,6 +107,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var favoritesOffset = 0
     private val favoriteSyncLock = Mutex()
     private var collectionReady = false
+    private var wasKeepingOffline = app.settings.state.value.keepFavoritesOffline
     private var networkCallbackRegistered = false
     private val connectivity = application.getSystemService(ConnectivityManager::class.java)
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
@@ -149,6 +150,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val wasOffline = ui.value.settings.offline
             ui.update { it.copy(settings = settings) }
             if (!wasOffline && settings.offline) app.http.dispatcher.cancelAll()
+            if (settings.keepFavoritesOffline && !wasKeepingOffline && collectionReady) autoDownload()
+            wasKeepingOffline = settings.keepFavoritesOffline
             if (wasOffline && !settings.offline && collectionReady) sync()
         } }
         viewModelScope.launch {
@@ -282,8 +285,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 ui.update { it.copy(error = userMessage(error)) }
-            } finally { ui.update { it.copy(syncing = false) } }
+            } finally { ui.update { it.copy(syncing = false) }; autoDownload() }
         }
+    }
+
+    /** Queues the next saved tracks for download when the listener keeps saved tracks offline. */
+    private fun autoDownload() = viewModelScope.launch {
+        val current = ui.value
+        if (!current.settings.keepFavoritesOffline || !current.signedIn || current.settings.offline) return@launch
+        if (app.filesDir.usableSpace < MIN_FREE_BYTES_FOR_AUTO_DOWNLOAD) return@launch
+        AutoDownload.pick(current.favorites, current.local.map(Track::id).toSet(), AUTO_DOWNLOAD_BATCH).forEach { download(it, quiet = true) }
     }
 
     fun moreFavorites() = viewModelScope.launch {
@@ -341,8 +352,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun closeAll() { detailJob?.cancel(); ui.update { it.copy(routes = emptyList(), detail = null, detailTracks = emptyList(), error = null) } }
 
-    fun play(tracks: List<Track>, index: Int = 0) {
+    fun play(tracks: List<Track>, index: Int = 0, source: String = "") {
         if (tracks.isEmpty()) return
+        preferences.edit().putString("source", source).apply()
+        ui.update { it.copy(playback = it.playback.copy(source = source)) }
         val player = controller ?: run { notify("The audio service is starting. Try again in a moment."); return }
         ui.update { it.copy(playback = it.playback.copy(error = null)) }
         player.setMediaItems(tracks.map(app.sources::unresolved), index.coerceIn(tracks.indices), 0)
@@ -430,16 +443,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (imported > 0) notify(if (imported == 1) "Audio file added" else "$imported audio files added")
     }
 
-    fun download(track: Track) = viewModelScope.launch {
-        if (track.isLocal || withContext(Dispatchers.IO) { app.library.get(track.id)?.isLocal == true }) { notify("This track is already on your device"); return@launch }
-        if (!app.tidal.signedIn) { notify("Sign in to TIDAL before downloading"); return@launch }
-        if (ui.value.settings.offline) { notify("Turn off offline mode before downloading"); return@launch }
+    fun download(track: Track, quiet: Boolean = false) = viewModelScope.launch {
+        if (track.isLocal || withContext(Dispatchers.IO) { app.library.get(track.id)?.isLocal == true }) { if (!quiet) notify("This track is already on your device"); return@launch }
+        if (!app.tidal.signedIn) { if (!quiet) notify("Sign in to TIDAL before downloading"); return@launch }
+        if (ui.value.settings.offline) { if (!quiet) notify("Turn off offline mode before downloading"); return@launch }
         withContext(Dispatchers.IO) { app.library.save(track) }
         val request = OneTimeWorkRequestBuilder<DownloadWorker>().setInputData(workDataOf("track" to JsonCodec.encodeTrack(track).toString()))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(if (ui.value.settings.downloadOnWifi) NetworkType.UNMETERED else NetworkType.CONNECTED).build())
             .addTag("audio-download").addTag("track:${track.id}").build()
         WorkManager.getInstance(app).enqueueUniqueWork("download:${track.id}", ExistingWorkPolicy.KEEP, request)
-        notify(if (ui.value.settings.downloadOnWifi && !app.sources.wifi()) "Download queued for Wi-Fi" else "Download queued")
+        if (!quiet) notify(if (ui.value.settings.downloadOnWifi && !app.sources.wifi()) "Download queued for Wi-Fi" else "Download queued")
     }
     fun cancelDownload(work: WorkInfo) { WorkManager.getInstance(app).cancelWorkById(work.id) }
     fun clearDownloadHistory() { WorkManager.getInstance(app).pruneWork() }
@@ -533,6 +546,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun scrobbleToken(): String = app.sessions.scrobbleToken().orEmpty()
+
+    fun saveScrobbling(enabled: Boolean, server: String, token: String) {
+        try { app.sessions.setScrobbleToken(token) } catch (_: Exception) { notify("The token could not be saved."); return }
+        settings { it.copy(scrobble = enabled, scrobbleServer = server.trim().ifBlank { "https://api.listenbrainz.org" }) }
+        if (enabled) viewModelScope.launch { runCatching { app.scrobbler.flush() } }
+    }
+
+    suspend fun checkScrobbling(server: String, token: String): String = try {
+        app.scrobbler.check(server, token.trim())?.let { "The token belongs to $it." } ?: "The server rejected the token."
+    } catch (error: ServiceException) { error.message.orEmpty() }
+    catch (_: java.io.IOException) { "The server could not be reached." }
+
+    suspend fun listeningStats(days: Int): ListeningStats = withContext(Dispatchers.IO) {
+        val since = if (days <= 0) 0L else System.currentTimeMillis() - days * 86_400_000L
+        val (plays, listened) = app.library.listeningTotals(since)
+        val tracks = app.library.topTracks(since, 500)
+        val artists = tracks.groupBy { it.track.artist }.map { (name, entries) -> name to entries.sumOf { it.plays } }.sortedByDescending { it.second }
+        ListeningStats(plays, listened / 3_600_000, listened / 60_000 % 60, tracks.take(25), artists)
+    }
+
+    fun clearListeningHistory() = viewModelScope.launch(Dispatchers.IO) { app.library.clearHistory(); notify("Listening history cleared") }
+
+    fun exportBackup(destination: Uri) = viewModelScope.launch(Dispatchers.IO) {
+        try {
+            val text = io.github.yyan115.opentune.data.BackupManager(app).toJson().toString(2)
+            app.contentResolver.openOutputStream(destination, "wt")!!.use { it.write(text.toByteArray()) }
+            notify("Backup saved")
+        } catch (error: Exception) { if (error is CancellationException) throw error; notify("The backup could not be saved. Check the destination and try again.") }
+    }
+
+    fun importBackup(source: Uri) = viewModelScope.launch(Dispatchers.IO) {
+        try {
+            val text = app.contentResolver.openInputStream(source)!!.use { it.readBytes().toString(Charsets.UTF_8) }
+            val summary = io.github.yyan115.opentune.data.BackupManager(app).restore(JSONObject(text))
+            refreshLocal()
+            notify("Restored ${summary.playlists} playlists and ${summary.plays} listens")
+        } catch (error: IllegalArgumentException) { notify(error.message ?: "This file is not an OpenTune backup.") }
+        catch (error: Exception) { if (error is CancellationException) throw error; notify("The backup could not be read.") }
+    }
+
     fun retryLyrics() { ui.update { it.copy(lyricsStatus = LyricsStatus.Idle, lyricsTrackId = "") }; loadLyrics() }
 
     fun showCredits(kind: String, id: String, title: String) {
@@ -565,9 +619,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val tracks = app.tidal.mixTracks(mixId)
         if (tracks.isEmpty()) notify("This mix has no tracks") else { play(tracks); if (shuffle && !ui.value.playback.shuffle) toggleShuffle() }
     }
-    fun playTracks(tracks: List<Track>, shuffle: Boolean) {
+    fun playTracks(tracks: List<Track>, shuffle: Boolean, source: String = "") {
         if (tracks.isEmpty()) return
-        play(tracks, if (shuffle) tracks.indices.random() else 0)
+        play(tracks, if (shuffle) tracks.indices.random() else 0, source)
         controller?.let { if (it.shuffleModeEnabled != shuffle) it.shuffleModeEnabled = shuffle }
     }
 
@@ -631,6 +685,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             it.setMediaItems(tracks.map(app.sources::unresolved), index, position)
             it.shuffleModeEnabled = shuffle
             it.repeatMode = repeat
+            ui.update { state -> state.copy(playback = state.playback.copy(source = preferences.getString("source", "").orEmpty())) }
         }
     }
 
@@ -668,6 +723,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } catch (error: Exception) { if (error is CancellationException) throw error; notify(userMessage(error)) }
     }
 
+    fun moveInPlaylist(release: Release, position: Int, delta: Int) = viewModelScope.launch {
+        val tracks = ui.value.detailTracks
+        val target = position + delta
+        if (!canEdit(release) || position !in tracks.indices || target !in tracks.indices) return@launch
+        try {
+            if (release.id.startsWith("local:")) withContext(Dispatchers.IO) { app.library.moveInPlaylist(release.id, position, target) }
+            else app.tidal.moveInPlaylist(release.id, position, target, tracks[position].id)
+            openDetail(release)
+        } catch (error: Exception) { if (error is CancellationException) throw error; notify(userMessage(error)) }
+    }
+
     fun deletePlaylist(release: Release) = viewModelScope.launch {
         if (!canEdit(release)) return@launch
         try {
@@ -694,7 +760,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         is java.io.IOException -> "The connection failed. Check your network and try again."
         else -> "The request could not be completed. Please retry."
     }
-    private companion object { const val MISSING_LYRICS_MS = 7 * 24 * 3600_000L }
+    private companion object {
+        const val MISSING_LYRICS_MS = 7 * 24 * 3600_000L
+        const val AUTO_DOWNLOAD_BATCH = 50
+        const val MIN_FREE_BYTES_FOR_AUTO_DOWNLOAD = 2L * 1024 * 1024 * 1024
+    }
 
     override fun onCleared() {
         if (networkCallbackRegistered) runCatching { connectivity.unregisterNetworkCallback(networkCallback) }

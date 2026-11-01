@@ -99,8 +99,8 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = onClose) { Icon(OpenTuneIcons.KeyboardArrowDown, "Close player", Modifier.size(22.dp)) }
                         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                            UpperLabel("From the album")
-                            Text(track.album.ifBlank { "Now playing" }, Modifier.padding(top = 3.dp), fontFamily = InterfaceFont,
+                            UpperLabel(if (state.playback.source.isNotBlank()) "Playing from" else "From the album")
+                            Text(state.playback.source.ifBlank { track.album.ifBlank { "Now playing" } }, Modifier.padding(top = 3.dp), fontFamily = InterfaceFont,
                                 fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         IconButton(onClick = { onMenu(track) }) { Icon(OpenTuneIcons.MoreHoriz, "Track options", Modifier.size(22.dp)) }

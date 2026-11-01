@@ -61,7 +61,7 @@ fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu
     val pages: PagesViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
     val entries by pages.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val context = PageContext(state, vm, pages, scope, onMenu)
+    val context = PageContext(state, vm, pages, scope, onMenu, "Search")
     val online = state.signedIn && !state.settings.offline
     LaunchedEffect(online) { if (online) pages.load(PageRoute.Explore) }
     val local = remember(state.local, query) { if (query.isBlank()) emptyList() else state.local.filter {
@@ -94,7 +94,7 @@ fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu
             } }
             if (state.searching) item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) }
             state.searchError?.let { error -> item { ErrorCard(error, vm::retrySearch) } }
-            val play: (Track) -> Unit = { track -> keyboard?.hide(); vm.rememberSearch(query); vm.play(songs, songs.indexOf(track)) }
+            val play: (Track) -> Unit = { track -> keyboard?.hide(); vm.rememberSearch(query); vm.play(songs, songs.indexOf(track), "Search") }
             when (filter) {
                 0 -> {
                     result.topRelease?.let { top -> item(key = "top-hit") {
@@ -181,6 +181,12 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLo
     var sort by rememberSaveable { mutableStateOf(LibrarySort.Recent) }
     var text by rememberSaveable { mutableStateOf("") }
     var sortMenu by remember { mutableStateOf(false) }
+    val pages: PagesViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val entries by pages.state.collectAsStateWithLifecycle()
+    val mixes = remember { PageRoute.path("pages/my_collection_my_mixes", "Mixes") }
+    val scope = rememberCoroutineScope()
+    val context = PageContext(state, vm, pages, scope, onMenu, "Mixes")
+    LaunchedEffect(filter, state.signedIn, state.settings.offline) { if (filter == 5 && state.signedIn && !state.settings.offline) pages.load(mixes) }
     fun matches(vararg fields: String) = text.isBlank() || fields.any { it.contains(text.trim(), ignoreCase = true) }
     fun <T> List<T>.ordered(title: (T) -> String, artist: (T) -> String): List<T> = when (sort) {
         LibrarySort.Recent -> this
@@ -190,7 +196,7 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLo
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Spacer(Modifier.height(8.dp)) }
         item { LazyRow(modifier = Modifier.testTag("library-filters"), state = filters, contentPadding = PaddingValues(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            itemsIndexed(listOf("Saved tracks", "Albums", "Artists", "Playlists", "On device")) { index, label -> FilterTab(filter == index, { onFilter(index) }, label) }
+            itemsIndexed(listOf("Saved tracks", "Albums", "Artists", "Playlists", "On device", "Mixes")) { index, label -> FilterTab(filter == index, { onFilter(index) }, label) }
         } }
         if (state.syncing) item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) }
         state.error?.let { item { ErrorCard(it, vm::sync) } }
@@ -213,7 +219,7 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLo
                 val all = if (state.settings.offline) state.favorites.filter(Track::isLocal) else state.favorites
                 val tracks = all.filter { matches(it.title, it.artist, it.album) }.ordered({ it.title }, { it.artist })
                 item { SectionTitle("${tracks.size} ${if (tracks.size == 1) "track" else "tracks"}", if (tracks.size > 1) "Shuffle" else null) { vm.playTracks(tracks, shuffle = true) } }
-                items(tracks, key = Track::id) { track -> TrackRow(track, state.playback.track?.id == track.id, { vm.play(tracks, tracks.indexOf(track)) }, { onMenu(track) }) }
+                items(tracks, key = Track::id) { track -> TrackRow(track, state.playback.track?.id == track.id, { vm.play(tracks, tracks.indexOf(track), "Saved tracks") }, { onMenu(track) }) }
                 if (tracks.isEmpty() && !state.syncing) item { EmptyState(OpenTuneIcons.FavoriteBorder, if (text.isBlank()) "No saved tracks" else "No matches",
                     if (text.isBlank()) "Save tracks from the player or connect your TIDAL collection." else "Try a different filter.", if (state.signedIn || text.isNotBlank()) null else "Connect TIDAL", onLogin) }
                 if (state.hasMoreFavorites && text.isBlank()) item { TextButton(onClick = { vm.moreFavorites() }, modifier = Modifier.fillMaxWidth()) { Text("Load more tracks") } }
@@ -242,9 +248,22 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLo
                 if (state.playlists.isNotEmpty()) item { SectionTitle("TIDAL playlists") }
                 items(state.playlists, key = Release::id) { ReleaseRow(it) { vm.open(it) } }
             }
+            5 -> {
+                val entry = entries[mixes.key]
+                val page = entry?.page
+                if (page != null) pageContent(page, entry, mixes.key, context, viewAll = true)
+                else item(key = "mixes-state") {
+                    when {
+                        !state.signedIn -> EmptyState(OpenTuneIcons.Waves, "No mixes yet", "Connect TIDAL to see your mixes.", "Connect TIDAL", onLogin)
+                        state.settings.offline -> EmptyState(OpenTuneIcons.CloudOff, "Mixes need a connection", "Turn off offline mode to see your mixes.")
+                        entry?.error != null -> ErrorCard(entry.error) { pages.load(mixes, force = true) }
+                        else -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 1.5.dp) }
+                    }
+                }
+            }
             else -> {
                 item { SectionTitle("${state.local.size} ${if (state.local.size == 1) "track" else "tracks"}", "Import", onImport) }
-                items(state.local, key = Track::id) { track -> TrackRow(track, state.playback.track?.id == track.id, { vm.play(state.local, state.local.indexOf(track)) }, { onMenu(track) }) }
+                items(state.local, key = Track::id) { track -> TrackRow(track, state.playback.track?.id == track.id, { vm.play(state.local, state.local.indexOf(track), "On device") }, { onMenu(track) }) }
                 if (state.local.isEmpty()) item { EmptyState(OpenTuneIcons.AudioFile, "No audio files yet", "Import FLAC, MP3, AAC, or other supported audio files. Your original files stay where they are.", "Import audio", onImport) }
             }
         }
@@ -274,7 +293,7 @@ fun DetailScreen(state: AppState, vm: MainViewModel, onMenu: (Track, Int) -> Uni
         if (state.detailLoading) item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(24.dp)) }
         state.error?.let { item { ErrorCard(it) { vm.open(release) } } }
         itemsIndexed(state.detailTracks, key = { index, track -> "$index:${track.id}" }) { index, track -> TrackRow(track, state.playback.track?.id == track.id,
-            { vm.play(state.detailTracks, index) }, { onMenu(track, index) }, index) }
+            { vm.play(state.detailTracks, index, release.title) }, { onMenu(track, index) }, index) }
         if (!state.detailLoading && state.detailTracks.isEmpty() && state.error == null) item { EmptyState(OpenTuneIcons.PlaylistPlay, "No tracks", "Tracks added to this playlist will appear here.") }
         if (state.detailAlbums.isNotEmpty()) item { SectionTitle("Albums") }
         items(state.detailAlbums, key = Release::id) { ReleaseRow(it) { vm.open(it) } }
@@ -351,6 +370,11 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit) {
     var normalization by remember { mutableStateOf(false) }
     var equalizer by remember { mutableStateOf(false) }
     var output by remember { mutableStateOf(false) }
+    var scrobbling by remember { mutableStateOf(false) }
+    var stats by remember { mutableStateOf(false) }
+    var clearHistory by remember { mutableStateOf(false) }
+    val backup = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(vm::exportBackup) }
+    val restore = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importBackup) }
     var licenses by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize().testTag("settings-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { SectionTitle("Account") }
@@ -375,6 +399,15 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit) {
         }) }
         item { SectionTitle("Appearance") }
         item { SettingRow(OpenTuneIcons.Contrast, "Theme", "${colorTheme(state.settings.colorTheme).name} · ${state.settings.theme.replaceFirstChar(Char::uppercase)}", { theme = true }) }
+        item { SectionTitle("Privacy and data") }
+        item { SettingRow(OpenTuneIcons.Download, "Keep saved tracks offline", "Downloads your saved TIDAL tracks in the background, 50 at a time.", trailing = {
+            Switch(state.settings.keepFavoritesOffline, { value -> vm.settings { it.copy(keepFavoritesOffline = value) } })
+        }) }
+        item { SettingRow(OpenTuneIcons.GraphicEq, "Scrobbling", if (state.settings.scrobble) "On · ${state.settings.scrobbleServer.removePrefix("https://")}" else "Off", { scrobbling = true }) }
+        item { SettingRow(OpenTuneIcons.LibraryMusic, "Listening statistics", "Kept on this device", { stats = true }) }
+        item { SettingRow(OpenTuneIcons.SaveAlt, "Back up data", "Settings, device playlists and listening history", { backup.launch("opentune-backup.json") }) }
+        item { SettingRow(OpenTuneIcons.Refresh, "Restore data", "Merge a backup into this install", { restore.launch(arrayOf("application/json", "*/*")) }) }
+        item { SettingRow(OpenTuneIcons.RemoveCircleOutline, "Clear listening history", "Removes statistics and recent plays", { clearHistory = true }) }
         item { SectionTitle("About") }
         item { SettingRow(OpenTuneIcons.Info, "OpenTune ${BuildConfig.VERSION_NAME}", "Unofficial open-source TIDAL client") }
         item { SettingRow(OpenTuneIcons.Code, "Source code", "github.com/yyan115/tidal-app", {
@@ -387,6 +420,12 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit) {
     if (normalization) NormalizationDialog(state.settings.normalization, { value -> vm.settings { it.copy(normalization = value) } }) { normalization = false }
     if (equalizer) EqualizerSheet(state.settings, { next -> vm.settings { next } }) { equalizer = false }
     if (output) AudioOutputDialog { output = false }
+    if (scrobbling) ScrobbleDialog(state.settings, vm) { scrobbling = false }
+    if (stats) StatsSheet(vm) { stats = false }
+    if (clearHistory) AlertDialog(onDismissRequest = { clearHistory = false }, title = { Text("Clear listening history?") },
+        text = { Text("Statistics and the recently played list are removed. Saved tracks and playlists stay.") },
+        confirmButton = { TextButton(onClick = { vm.clearListeningHistory(); clearHistory = false }) { Text("Clear") } },
+        dismissButton = { TextButton(onClick = { clearHistory = false }) { Text("Cancel") } })
     if (quality || mobile) AlertDialog(onDismissRequest = { quality = false; mobile = false }, title = { Text(if (mobile) "Mobile audio quality" else "Wi-Fi audio quality") },
         text = { Column { AudioQuality.entries.forEach { value -> Row(Modifier.fillMaxWidth().clickable {
             if (mobile) vm.settings { it.copy(mobileQuality = value) } else vm.settings { it.copy(quality = value) }

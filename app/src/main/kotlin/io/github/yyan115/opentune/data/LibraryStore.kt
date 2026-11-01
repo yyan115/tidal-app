@@ -129,6 +129,38 @@ class LibraryStore(context: Context, databaseName: String = "library.db") : SQLi
     @Synchronized fun listeningTotals(since: Long): Pair<Int, Long> = readableDatabase.rawQuery(
         "SELECT COUNT(*), COALESCE(SUM(listened_ms),0) FROM plays WHERE played_at>=?", arrayOf(since.toString())).use { it.moveToFirst(); it.getInt(0) to it.getLong(1) }
 
+    data class PlayEntry(val track: Track, val playedAt: Long, val listenedMs: Long)
+
+    @Synchronized fun exportPlays(limit: Int = 5000): List<PlayEntry> = readableDatabase.rawQuery(
+        "SELECT t.payload, p.played_at, p.listened_ms FROM plays p JOIN tracks t ON t.id=p.track_id ORDER BY p.played_at DESC LIMIT ?", arrayOf(limit.toString())).use {
+        buildList { while (it.moveToNext()) add(PlayEntry(JsonCodec.decodeTrack(JSONObject(it.getString(0))), it.getLong(1), it.getLong(2))) }
+    }
+
+    /** Adds history entries that are not stored yet and returns how many were new. */
+    @Synchronized fun importPlays(entries: List<PlayEntry>): Int {
+        var added = 0
+        for (entry in entries) {
+            val known = readableDatabase.rawQuery("SELECT 1 FROM plays WHERE track_id=? AND played_at=?", arrayOf(entry.track.id, entry.playedAt.toString())).use { it.moveToFirst() }
+            if (!known) { recordPlay(entry.track, entry.listenedMs, entry.playedAt); added++ }
+        }
+        return added
+    }
+
+    @Synchronized fun moveInPlaylist(playlistId: String, from: Int, to: Int) {
+        val ids = readableDatabase.rawQuery("SELECT track_id FROM playlist_tracks WHERE playlist_id=? ORDER BY position", arrayOf(playlistId)).use {
+            buildList { while (it.moveToNext()) add(it.getString(0)) }
+        }.toMutableList()
+        if (from !in ids.indices || to !in ids.indices || from == to) return
+        ids.add(to, ids.removeAt(from))
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            ids.forEachIndexed { position, id -> db.update("playlist_tracks", ContentValues().apply { put("position", position) }, "playlist_id=? AND track_id=?", arrayOf(playlistId, id)) }
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+        revision.value++
+    }
+
     @Synchronized fun clearHistory() { writableDatabase.delete("plays", null, null); writableDatabase.update("tracks", ContentValues().apply { put("played", 0) }, null, null); revision.value++ }
 
     @Synchronized fun queueScrobble(listenedAt: Long, payload: String) {

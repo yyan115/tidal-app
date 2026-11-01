@@ -31,9 +31,16 @@ import io.github.yyan115.opentune.core.formatDuration
 @Composable
 fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
     var confirmClear by remember { mutableStateOf(false) }
+    var save by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
     ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         LazyColumn(Modifier.fillMaxWidth().navigationBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
             item { SectionTitle("Queue", if (state.playback.queue.isNotEmpty()) "Clear" else null, { confirmClear = true }) }
+            if (state.playback.queue.isNotEmpty()) item(key = "save") {
+                TextButton(onClick = { name = state.playback.source; save = true }, modifier = Modifier.padding(horizontal = 16.dp)) {
+                    Icon(OpenTuneIcons.PlaylistAdd, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Save as playlist")
+                }
+            }
             if (state.playback.queue.isEmpty()) item { EmptyState(OpenTuneIcons.PlaylistPlay, "The queue is empty", "Play a track or add one from its menu.") }
             itemsIndexed(state.playback.queue, key = { index, track -> "$index:${track.id}" }) { index, track ->
                 Column {
@@ -50,6 +57,10 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
             }
         }
     }
+    if (save) AlertDialog(onDismissRequest = { save = false }, title = { Text("Save queue as playlist") }, text = {
+        OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
+    }, confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { vm.saveQueueAsPlaylist(name); save = false }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = { save = false }) { Text("Cancel") } })
     if (confirmClear) AlertDialog(onDismissRequest = { confirmClear = false }, title = { Text("Clear the queue?") }, text = { Text("Playback will stop.") },
         confirmButton = { TextButton(onClick = { vm.clearQueue(); confirmClear = false }) { Text("Clear") } },
         dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } })

@@ -181,6 +181,15 @@ class TidalClient(
         request("playlists/$playlistId/items/$index", method = "DELETE", match = etag)
     }
 
+    /** Moves the track at [from] to position [to]. The track is checked first so a playlist that changed elsewhere is not edited by mistake. */
+    suspend fun moveInPlaylist(playlistId: String, from: Int, to: Int, expectedTrackId: String) {
+        request("playlists/$playlistId")
+        val etag = etags["playlists/$playlistId"] ?: throw ServiceException(409, "Refresh this playlist before editing it.")
+        val item = JsonCodec.items(request("playlists/$playlistId/items", mapOf("limit" to "1", "offset" to "$from"))).singleOrNull()
+        if (item == null || JsonCodec.track(item).id != expectedTrackId) throw ServiceException(409, "This playlist changed elsewhere. Refresh it before editing again.")
+        request("playlists/$playlistId/items/$from", method = "POST", form = mapOf("toIndex" to "$to"), match = etag)
+    }
+
     suspend fun renamePlaylist(id: String, title: String) { request("playlists/$id", method = "POST", form = mapOf("title" to title)) }
     suspend fun deletePlaylist(id: String) { request("playlists/$id", method = "DELETE") }
     suspend fun setAlbumFavorite(id: String, favorite: Boolean) {

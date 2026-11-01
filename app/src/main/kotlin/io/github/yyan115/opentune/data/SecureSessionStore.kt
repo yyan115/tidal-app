@@ -91,6 +91,12 @@ class SecureSessionStore(context: Context) : SessionStore {
 
     fun clearPkce() { preferences.edit().remove("pending_pkce").apply() }
 
+    /** The ListenBrainz user token. It is stored encrypted like the TIDAL session. */
+    fun scrobbleToken(): String? = readEncrypted("scrobble_token")?.takeIf(String::isNotBlank)
+    fun setScrobbleToken(token: String) {
+        if (token.isBlank()) preferences.edit().remove("scrobble_token").apply() else writeEncrypted("scrobble_token", token.trim())
+    }
+
     fun identity(): ClientIdentity {
         fun decode(value: String) = String(Base64.decode(value, Base64.DEFAULT), Charsets.UTF_8)
         return ClientIdentity(

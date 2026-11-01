@@ -1,6 +1,8 @@
 package io.github.yyan115.opentune
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -85,6 +87,25 @@ class PagesLiveTest {
         compose.waitUntil(15_000) { model.state.value.playback.position >= lyrics.lines[index].timeMs }
         settle(2500); LiveAccount.screenshot("player-lyrics")
         compose.runOnIdle { model.togglePlay() }
+    }
+
+    @Test fun musicVideoPlaysFromAnArtistPage() {
+        compose.runOnIdle { model.settings { it.copy(offline = false) } }
+        val key = PageRoute.artist("10249").key
+        compose.runOnIdle { model.open(Release("10249", "Norah Jones", "", type = ReleaseType.ARTIST)) }
+        compose.waitUntil(30_000) { pages.state.value[key]?.page != null }
+        val video = pages.state.value.getValue(key).page!!.modules.filterIsInstance<CarouselModule>().first { it.layout == CarouselLayout.VIDEOS }.items.first()
+        compose.runOnIdle { model.open(video) }
+        try { compose.waitUntil(60_000) { compose.onAllNodesWithContentDescription("Pause video").fetchSemanticsNodes().isNotEmpty() } }
+        catch (timeout: Throwable) { LiveAccount.screenshot("video-timeout"); throw timeout }
+        fun videoPosition() = Regex("position=(\\d+)").find(compose.onNodeWithTag("video-player").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription])!!.groupValues[1].toLong()
+        try { compose.waitUntil(30_000) { videoPosition() > 3_000 } }
+        catch (timeout: Throwable) { LiveAccount.screenshot("video-stalled"); throw timeout }
+        compose.onNodeWithTag("video-player").performClick()
+        compose.waitForIdle(); Thread.sleep(500)
+        LiveAccount.screenshot("video-playing")
+        compose.runOnIdle { model.closeVideo() }
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("video-player").fetchSemanticsNodes().isEmpty() }
     }
 
     @Test fun mixPageAndTrackRadioPlay() {

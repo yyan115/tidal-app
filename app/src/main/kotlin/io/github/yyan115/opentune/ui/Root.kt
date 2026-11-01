@@ -172,9 +172,13 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initia
                 SettingRow(OpenTuneIcons.QueueMusic, "Add to queue", onClick = { vm.queue(track); trackMenu = null })
                 SettingRow(OpenTuneIcons.PlaylistAdd, "Add to playlist", onClick = { addToPlaylist = track; trackMenu = null })
                 state.detail?.takeIf { vm.canEdit(it) }?.let { release ->
-                    playlistPosition?.let { position -> SettingRow(OpenTuneIcons.PlaylistRemove, "Remove from this playlist", onClick = {
-                        vm.removeFromPlaylist(release, track, position); trackMenu = null; playlistPosition = null
-                    }) }
+                    playlistPosition?.let { position ->
+                        if (position > 0) SettingRow(OpenTuneIcons.ArrowUpward, "Move up", onClick = { vm.moveInPlaylist(release, position, -1); trackMenu = null; playlistPosition = null })
+                        if (position < state.detailTracks.lastIndex) SettingRow(OpenTuneIcons.KeyboardArrowDown, "Move down", onClick = { vm.moveInPlaylist(release, position, 1); trackMenu = null; playlistPosition = null })
+                        SettingRow(OpenTuneIcons.PlaylistRemove, "Remove from this playlist", onClick = {
+                            vm.removeFromPlaylist(release, track, position); trackMenu = null; playlistPosition = null
+                        })
+                    }
                 }
                 if (!track.isLocal) SettingRow(OpenTuneIcons.Download, "Download", onClick = {
                     if (Build.VERSION.SDK_INT >= 33) notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -205,6 +209,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initia
             }
         }
     }
+    state.video?.let { video -> VideoPlayerOverlay(video, state.settings.offline, vm::closeVideo) }
     state.credits?.let { credits -> CreditsSheet(credits, onClose = vm::dismissCredits, onPerson = { person ->
         vm.dismissCredits(); nowPlaying = false
         vm.open(Release(person.id, person.name, "", type = ReleaseType.ARTIST))

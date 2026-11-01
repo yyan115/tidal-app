@@ -33,6 +33,18 @@ Under **Settings**:
 - **Audio output** shows where the music plays and the sample rates that the output accepts.
 - **Bit-perfect USB output** asks Android 14 or later to send the audio to a USB DAC without mixing. It is experimental and has not been tested with a DAC yet.
 
+## Offline listening
+
+Turn on **Keep saved tracks offline** under **Settings**, **Privacy and data** to download your saved TIDAL tracks in the background, 50 at a time. Downloads follow the Wi-Fi setting and pause when free space is low.
+
+## Statistics, scrobbling and backup
+
+**Listening statistics** counts a listen after 30 seconds, or after half of the track when that comes first. The numbers stay on the device and **Clear listening history** removes them.
+
+**Scrobbling** is off by default. Add a [ListenBrainz](https://listenbrainz.org) user token, or the address of your own ListenBrainz-compatible server, and OpenTune sends the artist, title and album of each finished track. Listens that cannot be sent wait on the device until the server answers. The token is stored encrypted.
+
+**Back up data** writes a file with your settings, device playlists and listening history. **Restore data** merges such a file into the current install. TIDAL data stays in your account. The file holds no tokens, downloads or imported audio files.
+
 ## Audio quality
 
 Choose the quality for Wi-Fi and mobile data under **Settings**.
