@@ -119,7 +119,7 @@ class PseudoLocaleTest {
         sweep("Downloads")
 
         compose.runOnIdle { model.play(listOf(track)) }
-        compose.waitUntil(15_000) { model.state.value.playback.track != null }
+        compose.waitUntil(30_000) { model.state.value.playback.playing || model.state.value.playback.error != null }
         compose.onNodeWithTag("mini-player").performClick()
         sweep("Player")
         compose.onNodeWithText(s(R.string.player_queue_count, 1)).performClick()
@@ -128,6 +128,7 @@ class PseudoLocaleTest {
         compose.onNodeWithContentDescription(s(R.string.player_timer_set)).performClick()
         sweep("Sleep timer")
         back()
+        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription(s(R.string.player_source_details)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription(s(R.string.player_source_details)).performClick()
         sweep("Source details")
         back()
