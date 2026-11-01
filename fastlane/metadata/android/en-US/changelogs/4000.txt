@@ -1,0 +1,1 @@
+- Playlist folders: Library shows your TIDAL folders and the playlists inside them. Create, rename and delete folders, and move a playlist into a folder with its folder button. Deleting a folder moves its playlists to the top level first.
