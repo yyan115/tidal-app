@@ -7,7 +7,7 @@ Unofficial open source Android music player for TIDAL.
 OpenTune plays your TIDAL library in lossless quality, along with your own audio files. It has no ads, analytics or tracking, and it connects only to TIDAL.
 
 [![Check](https://github.com/yyan115/tidal-app/actions/workflows/check.yml/badge.svg)](https://github.com/yyan115/tidal-app/actions/workflows/check.yml)
-[![Release](https://img.shields.io/github/v/release/yyan115/tidal-app?include_prereleases)](https://github.com/yyan115/tidal-app/releases/latest)
+[![Release](https://img.shields.io/github/v/release/yyan115/tidal-app?include_prereleases)](https://github.com/yyan115/tidal-app/releases)
 [![License](https://img.shields.io/github/license/yyan115/tidal-app)](LICENSE)
 
 <p align="center">
