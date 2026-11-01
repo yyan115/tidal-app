@@ -103,15 +103,9 @@ class PseudoLocaleTest {
             compose.onNodeWithTag("library-filters").performScrollToNode(hasText(s(filter)))
             compose.onNode(hasText(s(filter)) and hasClickAction()).performClick()
             sweep("Library ${s(filter)}")
-            if (filter == R.string.label_playlists) {
-                compose.onNode(hasText(s(R.string.playlist_new)) and hasClickAction()).performClick()
-                sweep("New playlist")
-                back()
-            }
-            if (filter == R.string.library_on_device) {
+            if (filter == R.string.label_playlists) inWindow("New playlist") { compose.onNode(hasText(s(R.string.playlist_new)) and hasClickAction()).performClick() }
+            if (filter == R.string.library_on_device) inWindow("Track options") {
                 compose.onAllNodesWithContentDescription(s(R.string.track_options, "Night Walk")).onFirst().performClick()
-                sweep("Track options")
-                back()
             }
         }
 
@@ -120,31 +114,18 @@ class PseudoLocaleTest {
 
         compose.runOnIdle { model.play(listOf(track)) }
         compose.waitUntil(30_000) { model.state.value.playback.playing || model.state.value.playback.error != null }
-        compose.onNodeWithTag("mini-player").performClick()
+        val screen = openWindow { compose.onNodeWithTag("mini-player").performClick() }
         sweep("Player")
-        compose.onNodeWithText(s(R.string.player_queue_count, 1)).performClick()
-        sweep("Queue")
-        back()
-        compose.onNodeWithContentDescription(s(R.string.player_timer_set)).performClick()
-        sweep("Sleep timer")
-        back()
-        try {
-            compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription(s(R.string.player_source_details)).fetchSemanticsNodes().isNotEmpty() }
-        } catch (failure: ComposeTimeoutException) {
-            throw AssertionError("The source details are missing. The screen shows: ${visibleTexts()}", failure)
-        }
-        compose.onNodeWithContentDescription(s(R.string.player_source_details)).performClick()
-        sweep("Source details")
-        back()
-        back()
+        inWindow("Queue") { compose.onNodeWithText(s(R.string.player_queue_count, 1)).performClick() }
+        inWindow("Sleep timer") { compose.onNodeWithContentDescription(s(R.string.player_timer_set)).performClick() }
+        inWindow("Source details") { compose.onNodeWithContentDescription(s(R.string.player_source_details)).performClick() }
+        closeWindow(screen)
         compose.runOnIdle { model.clearQueue() }
 
         compose.onNodeWithContentDescription(s(R.string.nav_settings)).performClick()
         val list = compose.onNodeWithTag("settings-list")
         sweep("Settings top")
-        compose.onAllNodes(hasText(s(R.string.action_connect_tidal)) and hasClickAction()).onFirst().performClick()
-        sweep("Sign-in")
-        back()
+        inWindow("Sign-in") { compose.onAllNodes(hasText(s(R.string.action_connect_tidal)) and hasClickAction()).onFirst().performClick() }
         list.performScrollToNode(hasText(s(R.string.settings_privacy_data)))
         sweep("Settings middle")
         list.performScrollToNode(hasText(s(R.string.settings_licenses_text)))
@@ -155,13 +136,12 @@ class PseudoLocaleTest {
             R.string.stats_title to "Statistics", R.string.settings_clear_history to "Clear history", R.string.settings_licenses to "Licenses",
         )) {
             list.performScrollToNode(hasText(s(row)))
-            compose.onAllNodes(hasText(s(row)) and hasClickAction()).onFirst().performClick()
             // The licence texts are legal documents that stay in English, so only the title and the tabs of that dialog are checked.
-            if (row == R.string.settings_licenses) {
+            val check = if (row != R.string.settings_licenses) ({ sweep(name) }) else ({
                 listOf(R.string.licenses_title, R.string.licenses_notices, R.string.licenses_gpl, R.string.licenses_apache, R.string.licenses_inter, R.string.licenses_serif)
                     .forEach { assertTrue(s(it), compose.onAllNodes(hasText(s(it))).fetchSemanticsNodes().isNotEmpty()) }
-            } else sweep(name)
-            back()
+            })
+            inWindow(name, check) { compose.onAllNodes(hasText(s(row)) and hasClickAction()).onFirst().performClick() }
         }
 
         val report = offenders.joinToString("\n")
@@ -170,21 +150,34 @@ class PseudoLocaleTest {
 
     private fun windows() = compose.onAllNodes(isRoot(), useUnmergedTree = true).fetchSemanticsNodes().size
 
+    /** Opens a dialog, sheet or screen that has a window of its own, checks it and closes it again. */
+    private fun inWindow(name: String, check: () -> Unit = { sweep(name) }, open: () -> Unit) {
+        val base = openWindow(open)
+        check()
+        closeWindow(base)
+    }
+
+    /** Runs [open] and waits for the new window. Returns the number of windows from before, which [closeWindow] restores. */
+    private fun openWindow(open: () -> Unit): Int {
+        val base = windows()
+        open()
+        compose.waitUntil(10_000) { windows() > base }
+        return base
+    }
+
     /**
-     * Closes the topmost dialog or sheet. Back only reaches a window that has the focus, which a slow device gives late,
-     * so the key is sent again until that window is gone. Without an open window, back would leave the screen below it.
+     * Closes windows with the back key until [base] windows remain. Back only reaches a window that has the focus,
+     * which a slow device gives late, so the key is sent again until the window is gone.
      */
-    private fun back() {
-        compose.waitUntil(10_000) { windows() > 1 }
-        val before = windows()
+    private fun closeWindow(base: Int) {
         repeat(5) {
             InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
             compose.waitForIdle()
             val deadline = System.currentTimeMillis() + 2_000
-            while (windows() >= before && System.currentTimeMillis() < deadline) { Thread.sleep(100); compose.waitForIdle() }
-            if (windows() < before) return
+            while (windows() > base && System.currentTimeMillis() < deadline) { Thread.sleep(100); compose.waitForIdle() }
+            if (windows() <= base) return
         }
-        throw AssertionError("The dialog or sheet did not close")
+        throw AssertionError("The window did not close")
     }
 
     /** Collects the texts and descriptions that a screen shows and reports the ones that no resource wrapped. */
