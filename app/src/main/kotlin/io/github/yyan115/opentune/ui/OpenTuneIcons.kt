@@ -25,6 +25,7 @@ object OpenTuneIcons {
     val Video by lazy { glyph("Video", "M3.5 6.5H15V17.5H3.5Z M15 10.5L20.5 7.5V16.5L15 13.5") }
     val Person by lazy { glyph("Person", "M16 8A4 4 0 1 1 8 8A4 4 0 0 1 16 8Z M4.5 20.5C5.5 16.5 8.5 15 12 15C15.5 15 18.5 16.5 19.5 20.5") }
     val Fullscreen by lazy { glyph("Fullscreen", "M4 9V4H9 M15 4H20V9 M20 15V20H15 M9 20H4V15") }
+    val Folder by lazy { glyph("Folder", "M3 6.5H10L12 9H21V19H3Z") }
     val Brand by lazy { glyph("OpenTune", "M18.4 5.8A9 9 0 1 0 20.5 15 M9.3 5.5V10.2A2.7 2.7 0 0 0 14.7 10.2V5.5 M12 12.9V20") }
     val Headphones by lazy { glyph("Listen", "M4 13V11A8 8 0 0 1 20 11V13 M4 12H6.4V20H4.8A1.8 1.8 0 0 1 3 18.2V13.8A1.8 1.8 0 0 1 4.8 12 M20 12H17.6V20H19.2A1.8 1.8 0 0 0 21 18.2V13.8A1.8 1.8 0 0 0 19.2 12") }
     val Search by lazy { glyph("Search", "M16 16L21 21 M18 10.8A7.2 7.2 0 1 1 3.6 10.8A7.2 7.2 0 0 1 18 10.8Z") }

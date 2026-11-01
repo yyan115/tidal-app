@@ -34,7 +34,7 @@ data class Release(
     val artistId: String = "",
 )
 
-enum class ReleaseType { ALBUM, PLAYLIST, ARTIST, MIX, VIDEO }
+enum class ReleaseType { ALBUM, PLAYLIST, ARTIST, MIX, VIDEO, FOLDER }
 data class SearchResult(
     val tracks: List<Track> = emptyList(),
     val albums: List<Release> = emptyList(),

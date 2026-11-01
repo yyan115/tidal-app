@@ -23,7 +23,7 @@ class TidalClientTest {
         server = MockWebServer(); server.start()
         store = MemoryStore(Session("access-before", "refresh-before", System.currentTimeMillis() + 3_600_000, "123", "IN"))
         client = TidalClient({ ClientIdentity("test-client", "test-secret") }, store,
-            apiBase = server.url("/v1/").toString(), authBase = server.url("/oauth/").toString())
+            apiBase = server.url("/v1/").toString(), authBase = server.url("/oauth/").toString(), apiBaseV2 = server.url("/v2/").toString())
     }
     @After fun tearDown() { server.shutdown() }
 
@@ -250,6 +250,35 @@ class TidalClientTest {
         assertEquals("https://video.example/master.m3u8", StreamManifest.parseVideo(response("""{"urls":["https://video.example/master.m3u8"]}""")))
         try { StreamManifest.parseVideo(response("""{"urls":["http://video.example/a.m3u8"]}""")); fail("Plain HTTP accepted") } catch (_: ServiceException) { }
         try { StreamManifest.parseVideo(response("""{"urls":["https://v.example/a"],"encryptionType":"AES"}""")); fail("Protected video accepted") } catch (_: ProtectedStreamException) { }
+    }
+
+    @Test fun playlistFoldersListFoldersAndPlaylistsAcrossPages() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"items":[
+            {"itemType":"FOLDER","name":"Jazz","trn":"trn:folder:f1","data":{"id":"f1","name":"Jazz","totalNumberOfItems":3,"itemType":"FOLDER"}},
+            {"itemType":"PLAYLIST","name":"Mix","trn":"trn:playlist:p1","data":{"uuid":"p1","title":"Mix","creator":{"id":123},"image":"11111111-2222-3333-4444-555555555555","numberOfTracks":9}}],"cursor":"next-page"}"""))
+        server.enqueue(MockResponse().setBody("""{"items":[{"itemType":"PLAYLIST","name":"Later","trn":"trn:playlist:p2","data":{"uuid":"p2","title":"Later","creator":{"id":123}}}]}"""))
+        val entries = client.playlistFolder()
+        assertEquals(listOf(ReleaseType.FOLDER, ReleaseType.PLAYLIST, ReleaseType.PLAYLIST), entries.map { it.type })
+        assertEquals(listOf("f1", "p1", "p2"), entries.map { it.id })
+        assertEquals("3", entries[0].subtitle)
+        assertEquals("123", entries[1].ownerId)
+        val first = server.takeRequest()
+        assertEquals("/v2/my-collection/playlists/folders", first.requestUrl!!.encodedPath)
+        assertEquals("root", first.requestUrl!!.queryParameter("folderId"))
+        assertEquals("next-page", server.takeRequest().requestUrl!!.queryParameter("cursor"))
+    }
+
+    @Test fun folderChangesUseTheExpectedRequests() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"itemType":"FOLDER","name":"New","trn":"trn:folder:f9","data":{"id":"f9","name":"New","totalNumberOfItems":0}}"""))
+        val folder = client.createFolder(" New ")
+        assertEquals("f9", folder.id)
+        val create = server.takeRequest()
+        assertEquals("PUT", create.method); assertEquals("New", create.requestUrl!!.queryParameter("name")); assertEquals("root", create.requestUrl!!.queryParameter("folderId"))
+        repeat(3) { server.enqueue(MockResponse().setResponseCode(204)) }
+        client.renameFolder("f9", "Renamed"); client.moveToFolder("p1", "f9"); client.removeFolder("f9")
+        val rename = server.takeRequest(); assertEquals("trn:folder:f9", rename.requestUrl!!.queryParameter("trn")); assertEquals("Renamed", rename.requestUrl!!.queryParameter("name"))
+        val move = server.takeRequest(); assertEquals("trn:playlist:p1", move.requestUrl!!.queryParameter("trns")); assertEquals("f9", move.requestUrl!!.queryParameter("folderId"))
+        val remove = server.takeRequest(); assertEquals("/v2/my-collection/playlists/folders/remove", remove.requestUrl!!.encodedPath); assertEquals("trn:folder:f9", remove.requestUrl!!.queryParameter("trns"))
     }
 
     private class MemoryStore(var value: Session?) : SessionStore {

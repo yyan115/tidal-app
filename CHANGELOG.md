@@ -32,6 +32,11 @@ OpenTune now has its own application ID, `io.github.yyan115.opentune`. It instal
 - Mixes in Library, "Playing from" in the player and saving the queue as a playlist.
 - Browsing for cars and Bluetooth devices, including Android Auto, and voice requests such as "play Nujabes".
 - A home screen widget with the current track and playback buttons.
+- Playlist folders: Library shows your TIDAL folders and the playlists inside them. Create, rename and delete folders, and move a playlist into a folder with its folder button. Deleting a folder moves its playlists to the top level first.
+
+### Fixed
+
+- Missing fields from TIDAL no longer appear as the word "null" in lists.
 
 ### Changed
 

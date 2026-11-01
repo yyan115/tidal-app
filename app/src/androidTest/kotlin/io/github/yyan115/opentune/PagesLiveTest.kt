@@ -2,6 +2,9 @@ package io.github.yyan115.opentune
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -106,6 +109,33 @@ class PagesLiveTest {
         LiveAccount.screenshot("video-playing")
         compose.runOnIdle { model.closeVideo() }
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("video-player").fetchSemanticsNodes().isEmpty() }
+    }
+
+    @Test fun libraryShowsAFolderWithItsPlaylistAndOpensIt() {
+        compose.runOnIdle { model.settings { it.copy(offline = false, theme = "dark") } }
+        val suffix = java.util.UUID.randomUUID().toString().take(6)
+        val folderName = "Check folder $suffix"; val playlistName = "Check playlist $suffix"
+        val folder = kotlinx.coroutines.runBlocking { app.tidal.createFolder(folderName) }
+        val playlist = kotlinx.coroutines.runBlocking { app.tidal.createPlaylist(playlistName) }
+        try {
+            kotlinx.coroutines.runBlocking { app.tidal.moveToFolder(playlist.id, folder.id) }
+            compose.runOnIdle { model.loadFolder() }
+            compose.waitUntil(30_000) { model.state.value.folders[io.github.yyan115.opentune.core.TidalClient.ROOT_FOLDER].orEmpty().any { it.id == folder.id } }
+            compose.onNodeWithTag("nav-2").performClick()
+            compose.onNodeWithTag("library-filters").performScrollToNode(androidx.compose.ui.test.hasText("Playlists"))
+            compose.onNodeWithText("Playlists").performClick()
+            compose.onNodeWithText(folderName).performScrollTo()
+            settle(); LiveAccount.screenshot("library-folders")
+            compose.onNodeWithText(folderName).performClick()
+            compose.waitUntil(30_000) { compose.onAllNodesWithText(playlistName).fetchSemanticsNodes().isNotEmpty() }
+            settle(); LiveAccount.screenshot("library-folder-open")
+        } finally {
+            kotlinx.coroutines.runBlocking {
+                runCatching { app.tidal.deletePlaylist(playlist.id) }
+                runCatching { app.tidal.removeFolder(folder.id) }
+            }
+            compose.runOnIdle { model.loadFolder() }
+        }
     }
 
     @Test fun mixPageAndTrackRadioPlay() {

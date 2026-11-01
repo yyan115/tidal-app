@@ -58,6 +58,26 @@ class LiveServiceTest {
         assertFalse(app.tidal.allPlaylists().any { it.id == playlist.id })
     }
 
+    @Test fun temporaryFolderCanHoldAPlaylistAndBeRenamedAndRemoved() = runBlocking {
+        val suffix = UUID.randomUUID().toString().take(8)
+        val folder = app.tidal.createFolder("OpenTune check $suffix")
+        val playlist = app.tidal.createPlaylist("OpenTune folder check $suffix")
+        try {
+            assertTrue(app.tidal.playlistFolder().any { it.id == folder.id && it.type == io.github.yyan115.opentune.core.ReleaseType.FOLDER })
+            app.tidal.moveToFolder(playlist.id, folder.id)
+            assertEquals(listOf(playlist.id), app.tidal.playlistFolder(folder.id).map { it.id })
+            assertTrue(app.tidal.playlistFolder().none { it.id == playlist.id })
+            app.tidal.renameFolder(folder.id, "OpenTune renamed $suffix")
+            assertTrue(app.tidal.playlistFolder().any { it.id == folder.id && it.title == "OpenTune renamed $suffix" })
+            app.tidal.moveToFolder(playlist.id, io.github.yyan115.opentune.core.TidalClient.ROOT_FOLDER)
+            assertTrue(app.tidal.playlistFolder().any { it.id == playlist.id })
+        } finally {
+            runCatching { app.tidal.deletePlaylist(playlist.id) }
+            runCatching { app.tidal.removeFolder(folder.id) }
+        }
+        assertTrue(app.tidal.playlistFolder().none { it.id == folder.id })
+    }
+
     @Test fun favoriteChangesMadeOfflineAreUploadedWhenReconnected() = runBlocking {
         compose.runOnIdle { model.settings { it.copy(offline = false) } }
         val track = app.tidal.search("Nujabes Feather").tracks.first()

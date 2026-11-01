@@ -78,7 +78,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialTab: Int = 0, initia
     Scaffold(modifier = Modifier.weight(1f),
         topBar = {
             val title = if (settings) "Settings" else state.detail?.let {
-                when (it.type) { ReleaseType.ALBUM -> "Album"; ReleaseType.ARTIST -> "Artist"; ReleaseType.PLAYLIST -> "Playlist"; ReleaseType.MIX -> "Mix"; ReleaseType.VIDEO -> "Video" }
+                when (it.type) { ReleaseType.ALBUM -> "Album"; ReleaseType.ARTIST -> "Artist"; ReleaseType.PLAYLIST -> "Playlist"; ReleaseType.MIX -> "Mix"; ReleaseType.VIDEO -> "Video"; ReleaseType.FOLDER -> "Folder" }
             } ?: navigationTitles[tab]
             Column(Modifier.statusBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(start = if (settings || inDetail || largeText) 8.dp else 24.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {

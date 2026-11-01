@@ -169,6 +169,9 @@ private fun LazyListScope.releaseGrid(releases: List<Release>, columns: Int, onO
     }
 }
 
+private val FolderStackSaver = androidx.compose.runtime.saveable.Saver<List<Pair<String, String>>, List<String>>(
+    save = { stack -> stack.flatMap { listOf(it.first, it.second) } }, restore = { saved -> saved.chunked(2).map { it[0] to it[1] } })
+
 private enum class LibrarySort(val label: String) { Recent("Recently added"), Title("Title"), Artist("Artist") }
 
 @UnstableApi
@@ -187,6 +190,22 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLo
     val scope = rememberCoroutineScope()
     val context = PageContext(state, vm, pages, scope, onMenu, "Mixes")
     LaunchedEffect(filter, state.signedIn, state.settings.offline) { if (filter == 5 && state.signedIn && !state.settings.offline) pages.load(mixes) }
+    val online = state.signedIn && !state.settings.offline
+    var folderStack by rememberSaveable(stateSaver = FolderStackSaver) { mutableStateOf(emptyList<Pair<String, String>>()) }
+    val openFolder = folderStack.lastOrNull()
+    var newFolder by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf<Release?>(null) }
+    var deleting by remember { mutableStateOf<Release?>(null) }
+    var moving by remember { mutableStateOf<Release?>(null) }
+    LaunchedEffect(filter, openFolder?.first, state.signedIn) { if (filter == 3 && state.signedIn) vm.loadFolder(openFolder?.first ?: TidalClient.ROOT_FOLDER) }
+    androidx.activity.compose.BackHandler(enabled = filter == 3 && openFolder != null) { folderStack = folderStack.dropLast(1) }
+    if (newFolder) NameDialog("New folder", "", "Create", vm::createFolder) { newFolder = false }
+    renaming?.let { folder -> NameDialog("Rename folder", folder.title, "Save", { vm.renameFolder(folder, it) }) { renaming = null } }
+    moving?.let { playlist -> MoveToFolderDialog(playlist, state.folders[TidalClient.ROOT_FOLDER].orEmpty(), { vm.moveToFolder(playlist, it) }) { moving = null } }
+    deleting?.let { folder -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text("Delete ${folder.title}?") },
+        text = { Text("The folder is removed and its playlists move to the top level. No playlist is deleted.") },
+        confirmButton = { TextButton(onClick = { vm.deleteFolder(folder); deleting = null; if (openFolder?.first == folder.id) folderStack = emptyList() }) { Text("Delete") } },
+        dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } }) }
     fun matches(vararg fields: String) = text.isBlank() || fields.any { it.contains(text.trim(), ignoreCase = true) }
     fun <T> List<T>.ordered(title: (T) -> String, artist: (T) -> String): List<T> = when (sort) {
         LibrarySort.Recent -> this
@@ -245,8 +264,25 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLo
                 }
                 if (state.localPlaylists.isEmpty()) item { Text("Create playlists for your local and TIDAL tracks.", Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                if (state.playlists.isNotEmpty()) item { SectionTitle("TIDAL playlists") }
-                items(state.playlists, key = Release::id) { ReleaseRow(it) { vm.open(it) } }
+                val folderId = openFolder?.first ?: TidalClient.ROOT_FOLDER
+                val entries = state.folders[folderId] ?: if (openFolder == null) state.playlists else emptyList()
+                if (state.playlists.isNotEmpty() || state.folders.isNotEmpty()) {
+                    item(key = "tidal-title") {
+                        SectionTitle(openFolder?.second ?: "TIDAL playlists", if (openFolder == null && online) "New folder" else null) { newFolder = true }
+                    }
+                    if (openFolder != null) item(key = "folder-back") {
+                        TextButton(onClick = { folderStack = folderStack.dropLast(1) }, modifier = Modifier.padding(horizontal = 16.dp)) {
+                            Icon(OpenTuneIcons.ArrowBack, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("All playlists")
+                        }
+                    }
+                    items(entries, key = { "${it.type}:${it.id}" }) { entry ->
+                        if (entry.type == ReleaseType.FOLDER) FolderRow(entry, onOpen = { folderStack = folderStack + (entry.id to entry.title) },
+                            onRename = { renaming = entry }, onDelete = { deleting = entry })
+                        else PlaylistRow(entry, canMove = online, onMove = { moving = entry }) { vm.open(entry) }
+                    }
+                    if (entries.isEmpty() && openFolder != null) item { Text("This folder is empty. Move a playlist here with its folder button.", Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
             }
             5 -> {
                 val entry = entries[mixes.key]

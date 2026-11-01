@@ -8,18 +8,18 @@ object JsonCodec {
         val album = value.optJSONObject("album")
         val artists = value.optJSONArray("artists")
         val artist = if (artists != null && artists.length() > 0) {
-            (0 until artists.length()).mapNotNull { artists.optJSONObject(it)?.optString("name") }
+            (0 until artists.length()).map { text(artists.optJSONObject(it), "name") }
                 .filter(String::isNotBlank).distinct().joinToString(", ")
-        } else value.optJSONObject("artist")?.optString("name").orEmpty()
+        } else text(value.optJSONObject("artist"), "name")
         val primary = artists?.optJSONObject(0) ?: value.optJSONObject("artist")
         return Track(
             id = value.get("id").toString(),
-            title = value.optString("title", "Untitled").let { title ->
-                val version = value.optString("version").takeIf { it.isNotBlank() && it != "null" }
+            title = text(value, "title").ifBlank { "Untitled" }.let { title ->
+                val version = text(value, "version").takeIf(String::isNotBlank)
                 if (version != null && !title.contains(version, ignoreCase = true)) "$title ($version)" else title
             },
-            artist = artist.ifBlank { value.optString("artistName", "Unknown artist") },
-            album = album?.optString("title").orEmpty(),
+            artist = artist.ifBlank { text(value, "artistName").ifBlank { "Unknown artist" } },
+            album = text(album, "title"),
             albumId = album?.opt("id")?.toString().orEmpty(),
             artwork = image(album?.optString("cover") ?: value.optString("cover")),
             durationMs = value.optLong("duration") * 1000,
@@ -45,12 +45,15 @@ object JsonCodec {
     private fun number(value: JSONObject, name: String): Double? =
         if (value.has(name) && !value.isNull(name)) value.optDouble(name, Double.NaN).takeIf { !it.isNaN() } else null
 
+    /** A string field, or an empty string when the field is missing or JSON null (which org.json would turn into the text "null"). */
+    private fun text(value: JSONObject?, name: String): String = if (value == null || value.isNull(name)) "" else value.optString(name)
+
     fun release(value: JSONObject, type: ReleaseType): Release {
         val artists = value.optJSONArray("artists")
         val firstArtist = artists?.optJSONObject(0) ?: value.optJSONObject("artist")
-        val artistName = value.optJSONObject("artist")?.optString("name")?.takeIf(String::isNotBlank)
-            ?: artists?.let { list -> (0 until list.length()).mapNotNull { list.optJSONObject(it)?.optString("name") }.filter(String::isNotBlank).distinct().joinToString(", ") }
-            ?: value.optJSONObject("creator")?.optString("name").orEmpty()
+        val artistName = text(value.optJSONObject("artist"), "name").takeIf(String::isNotBlank)
+            ?: artists?.let { list -> (0 until list.length()).mapNotNull { text(list.optJSONObject(it), "name") }.filter(String::isNotBlank).distinct().joinToString(", ") }?.takeIf(String::isNotBlank)
+            ?: text(value.optJSONObject("creator"), "name")
         val mixImage = value.optJSONObject("images")?.let { images ->
             (images.optJSONObject("MEDIUM") ?: images.optJSONObject("LARGE") ?: images.optJSONObject("SMALL"))?.optString("url")
         }
@@ -71,22 +74,37 @@ object JsonCodec {
             })
         }
         val subtitle = when (type) {
-            ReleaseType.MIX -> value.optString("shortSubtitle").ifBlank { value.optString("subTitle") }
+            ReleaseType.MIX -> text(value, "shortSubtitle").ifBlank { text(value, "subTitle") }
             ReleaseType.VIDEO -> formatDuration(value.optLong("duration") * 1000)
-            else -> value.optString("releaseDate").take(4)
+            else -> text(value, "releaseDate").take(4)
         }
         return Release(
             id = (value.opt("uuid") ?: value.opt("id") ?: "").toString(),
-            title = value.optString("title").ifBlank { value.optString("name", "Untitled") },
+            title = text(value, "title").ifBlank { text(value, "name").ifBlank { "Untitled" } },
             artist = artistName,
             artwork = artwork,
             subtitle = subtitle,
             type = type,
             ownerId = value.optJSONObject("creator")?.let { (it.opt("id") ?: it.opt("userId") ?: "").toString() }.orEmpty(),
             tags = tags(value),
-            description = value.optString("description").takeIf { it != "null" }.orEmpty(),
+            description = text(value, "description"),
             artistId = firstArtist?.opt("id")?.toString()?.takeIf { it != "null" }.orEmpty(),
         )
+    }
+
+    /** Entries of a playlist folder listing: folders and playlists, in the order TIDAL sent them. */
+    fun folderEntries(value: JSONObject): List<Release> {
+        val array = value.optJSONArray("items") ?: return emptyList()
+        return (0 until array.length()).mapNotNull { index ->
+            val entry = array.optJSONObject(index) ?: return@mapNotNull null
+            val data = entry.optJSONObject("data") ?: return@mapNotNull null
+            when (entry.optString("itemType")) {
+                "FOLDER" -> Release(data.optString("id").ifBlank { entry.optString("trn").substringAfterLast(':') }, entry.optString("name").ifBlank { data.optString("name") }, "",
+                    subtitle = data.optInt("totalNumberOfItems").toString(), type = ReleaseType.FOLDER).takeIf { it.id.isNotBlank() }
+                "PLAYLIST" -> release(data, ReleaseType.PLAYLIST).takeIf { it.id.isNotBlank() }
+                else -> null
+            }
+        }
     }
 
     fun items(value: JSONObject): List<JSONObject> {

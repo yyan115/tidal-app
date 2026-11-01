@@ -75,6 +75,8 @@ data class AppState(
     val routes: List<PageRoute> = emptyList(), val artists: List<Release> = emptyList(),
     val credits: CreditsUi? = null, val recentSearches: List<String> = emptyList(), val video: Release? = null,
     val sleepEndsAt: Long = 0, val sleepAtTrackEnd: Boolean = false,
+    /** Playlist folder listings by folder id. The top level is stored as "root". */
+    val folders: Map<String, List<Release>> = emptyMap(),
     val hasMoreFavorites: Boolean = false,
     val exportProgress: Int? = null,
 )
@@ -191,6 +193,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val cached = withContext(Dispatchers.IO) {
             Triple(app.library.cache(account, "favorites"), app.library.cache(account, "albums"), app.library.cache(account, "playlists"))
         }
+        val cachedRoot = withContext(Dispatchers.IO) { app.library.cache(account, "folder:${TidalClient.ROOT_FOLDER}") }
+        cachedRoot?.let { value -> runCatching { JsonCodec.decodeReleases(value) }.getOrNull() }?.let { list -> ui.update { it.copy(folders = it.folders + (TidalClient.ROOT_FOLDER to list)) } }
         val cachedArtists = withContext(Dispatchers.IO) { app.library.cache(account, "artists") }
         cachedArtists?.let { value -> runCatching { JsonCodec.decodeReleases(value) }.getOrNull() }?.let { list -> ui.update { it.copy(artists = list) } }
         if (account != app.tidal.accountId) return
@@ -279,6 +283,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val playlists = app.tidal.allPlaylists()
                 withContext(Dispatchers.IO) { app.library.cache(account, "playlists", JsonCodec.encodeReleases(playlists)) }
                 ui.update { it.copy(playlists = playlists) }
+                loadFolder().join()
                 val artists = app.tidal.followedArtists()
                 withContext(Dispatchers.IO) { app.library.cache(account, "artists", JsonCodec.encodeReleases(artists)) }
                 ui.update { it.copy(artists = artists) }
@@ -313,6 +318,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ReleaseType.VIDEO -> ui.update { it.copy(video = release) }
             ReleaseType.ALBUM -> if (app.tidal.signedIn && !ui.value.settings.offline) pushRoute(PageRoute.album(release.id, release.title)) else openDetail(release)
             ReleaseType.PLAYLIST -> openDetail(release)
+            ReleaseType.FOLDER -> Unit
         }
     }
     fun openPage(route: PageRoute) = pushRoute(route)
@@ -635,6 +641,51 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (tracks.isEmpty()) return
         play(tracks, if (shuffle) tracks.indices.random() else 0, source)
         controller?.let { if (it.shuffleModeEnabled != shuffle) it.shuffleModeEnabled = shuffle }
+    }
+
+    /** Loads the playlists and folders inside a folder. The last result stays on screen until a new one arrives. */
+    fun loadFolder(id: String = TidalClient.ROOT_FOLDER) = viewModelScope.launch {
+        val account = app.tidal.accountId
+        if (account.isBlank()) return@launch
+        if (ui.value.folders[id] == null) {
+            withContext(Dispatchers.IO) { app.library.cache(account, "folder:$id") }?.let { runCatching { JsonCodec.decodeReleases(it) }.getOrNull() }
+                ?.let { list -> ui.update { it.copy(folders = it.folders + (id to list)) } }
+        }
+        if (!ui.value.signedIn || ui.value.settings.offline) return@launch
+        try {
+            val list = app.tidal.playlistFolder(id)
+            withContext(Dispatchers.IO) { app.library.cache(account, "folder:$id", JsonCodec.encodeReleases(list)) }
+            ui.update { it.copy(folders = it.folders + (id to list)) }
+        } catch (error: Exception) {
+            if (error is CancellationException) throw error
+            if (ui.value.folders[id] == null) notify(userMessage(error))
+        }
+    }
+
+    private suspend fun refreshFolders() { ui.value.folders.keys.plus(TidalClient.ROOT_FOLDER).forEach { loadFolder(it).join() } }
+
+    fun createFolder(name: String) = accountAction {
+        if (name.isBlank()) return@accountAction
+        app.tidal.createFolder(name); refreshFolders(); notify("Folder created")
+    }
+
+    fun renameFolder(folder: Release, name: String) = accountAction {
+        if (name.isBlank()) return@accountAction
+        app.tidal.renameFolder(folder.id, name); refreshFolders()
+    }
+
+    /** Deletes a folder after moving its playlists to the top level, because TIDAL hides the playlists of a deleted folder. */
+    fun deleteFolder(folder: Release) = accountAction {
+        val inside = app.tidal.playlistFolder(folder.id)
+        if (inside.any { it.type == ReleaseType.FOLDER }) { notify("Remove the folders inside first"); return@accountAction }
+        inside.forEach { app.tidal.moveToFolder(it.id, TidalClient.ROOT_FOLDER) }
+        app.tidal.removeFolder(folder.id)
+        ui.update { it.copy(folders = it.folders - folder.id) }
+        refreshFolders(); notify("Folder deleted")
+    }
+
+    fun moveToFolder(playlist: Release, folderId: String) = accountAction {
+        app.tidal.moveToFolder(playlist.id, folderId); refreshFolders()
     }
 
     fun toggleFollow(artist: Release) = accountAction {

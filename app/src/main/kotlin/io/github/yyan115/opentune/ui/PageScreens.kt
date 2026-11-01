@@ -185,8 +185,8 @@ fun PageCard(release: Release, modifier: Modifier = Modifier, fill: Boolean = fa
 @Composable
 fun QualityBadges(tags: List<String>, modifier: Modifier = Modifier) {
     val labels = buildList {
+        // Dolby Atmos mixes are not badged: TIDAL sends this client their stereo mix.
         if ("HIRES_LOSSLESS" in tags) add("HI-RES") else if ("LOSSLESS" in tags) add("LOSSLESS")
-        if ("DOLBY_ATMOS" in tags) add("ATMOS")
     }
     if (labels.isEmpty()) return
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

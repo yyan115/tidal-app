@@ -36,6 +36,7 @@ class TidalClient(
         .followSslRedirects(false).build(),
     private val apiBase: String = "https://api.tidal.com/v1/",
     private val authBase: String = "https://auth.tidal.com/v1/oauth2/",
+    private val apiBaseV2: String = "https://api.tidal.com/v2/",
 ) {
     private val refreshLock = Mutex()
     private val generation = AtomicLong()
@@ -120,7 +121,7 @@ class TidalClient(
             ReleaseType.PLAYLIST -> "playlists/${release.id}/items"
             ReleaseType.ARTIST -> "artists/${release.id}/toptracks"
             ReleaseType.MIX -> "mixes/${release.id}/items"
-            ReleaseType.VIDEO -> throw IllegalArgumentException("Videos have no track list.")
+            ReleaseType.VIDEO, ReleaseType.FOLDER -> throw IllegalArgumentException("This item has no track list.")
         }
         return JsonCodec.items(request(path, mapOf("limit" to "100", "offset" to "$offset"))).map(JsonCodec::track)
     }
@@ -188,6 +189,37 @@ class TidalClient(
         val item = JsonCodec.items(request("playlists/$playlistId/items", mapOf("limit" to "1", "offset" to "$from"))).singleOrNull()
         if (item == null || JsonCodec.track(item).id != expectedTrackId) throw ServiceException(409, "This playlist changed elsewhere. Refresh it before editing again.")
         request("playlists/$playlistId/items/$from", method = "POST", form = mapOf("toIndex" to "$to"), match = etag)
+    }
+
+    /** The folders and playlists inside a playlist folder. The top level is the folder "root". */
+    suspend fun playlistFolder(folderId: String = ROOT_FOLDER): List<Release> {
+        val result = mutableListOf<Release>()
+        var cursor: String? = null
+        do {
+            val page = request("my-collection/playlists/folders", buildMap {
+                put("folderId", folderId); put("limit", "50"); put("order", "NAME"); put("orderDirection", "ASC"); put("includeOnly", "")
+                cursor?.let { put("cursor", it) }
+            }, base = apiBaseV2)
+            result += JsonCodec.folderEntries(page)
+            cursor = page.optString("cursor").takeIf { it.isNotBlank() && it != "null" }
+        } while (cursor != null)
+        return result
+    }
+
+    suspend fun createFolder(name: String, parentId: String = ROOT_FOLDER): Release = JsonCodec.folderEntries(JSONObject().put("items",
+        org.json.JSONArray().put(request("my-collection/playlists/folders/create-folder", mapOf("name" to name.trim(), "folderId" to parentId), method = "PUT", base = apiBaseV2)))).single()
+
+    suspend fun renameFolder(folderId: String, name: String) {
+        request("my-collection/playlists/folders/rename", mapOf("trn" to "trn:folder:$folderId", "name" to name.trim()), method = "PUT", base = apiBaseV2)
+    }
+
+    suspend fun removeFolder(folderId: String) {
+        request("my-collection/playlists/folders/remove", mapOf("trns" to "trn:folder:$folderId"), method = "PUT", base = apiBaseV2)
+    }
+
+    /** Moves a playlist into a folder, or back to the top level with [ROOT_FOLDER]. */
+    suspend fun moveToFolder(playlistId: String, folderId: String) {
+        request("my-collection/playlists/folders/move", mapOf("folderId" to folderId, "trns" to "trn:playlist:$playlistId"), method = "PUT", base = apiBaseV2)
     }
 
     suspend fun renamePlaylist(id: String, title: String) { request("playlists/$id", method = "POST", form = mapOf("title" to title)) }
@@ -276,7 +308,7 @@ class TidalClient(
     }
 
     private suspend fun request(path: String, parameters: Map<String, String> = emptyMap(),
-        method: String = "GET", form: Map<String, String>? = null, match: String? = null): JSONObject {
+        method: String = "GET", form: Map<String, String>? = null, match: String? = null, base: String = apiBase): JSONObject {
         val requestGeneration = generation.get()
         for (attempt in 0..1) {
             currentCoroutineContext().ensureActive()
@@ -284,7 +316,7 @@ class TidalClient(
             val token = accessToken(force = attempt == 1)
             val country = sessions.read()?.country ?: "US"
             val result = withContext(Dispatchers.IO) {
-                val url = (apiBase + path).toHttpUrl().newBuilder().addQueryParameter("countryCode", country).apply {
+                val url = (base + path).toHttpUrl().newBuilder().addQueryParameter("countryCode", country).apply {
                     parameters.forEach { (key, value) -> addQueryParameter(key, value) }
                 }.build()
                 val body = form?.let { values -> FormBody.Builder().apply { values.forEach { (k, v) -> add(k, v) } }.build() }
@@ -338,6 +370,7 @@ class TidalClient(
 
     companion object {
         const val PKCE_REDIRECT = SignInCallback.NATIVE
+        const val ROOT_FOLDER = "root"
         private val pageParameters = mapOf("locale" to "en_US", "deviceType" to "PHONE")
     }
 }

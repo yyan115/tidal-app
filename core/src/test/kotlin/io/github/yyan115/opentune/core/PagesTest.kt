@@ -91,6 +91,12 @@ class PagesTest {
         assertEquals(listOf(original), JsonCodec.decodeReleases(JsonCodec.encodeReleases(listOf(original))))
     }
 
+    @Test fun nullFieldsDoNotBecomeTheWordNull() {
+        val release = JsonCodec.release(JSONObject("""{"uuid":"p","title":"List","releaseDate":null,"creator":{"id":1,"name":null},"description":null,"shortSubtitle":null}"""), ReleaseType.PLAYLIST)
+        assertEquals("", release.artist); assertEquals("", release.subtitle); assertEquals("", release.description)
+        assertEquals("Untitled", JsonCodec.release(JSONObject("""{"id":3,"title":null,"name":null}"""), ReleaseType.ALBUM).title)
+    }
+
     @Test fun markupIsRemovedFromText() {
         assertEquals("One Two\nThree", PageCodec.plainText("""[wimpLink artistId="1"]One[/wimpLink] <b>Two</b><br>Three"""))
         assertEquals("", PageCodec.plainText(null))

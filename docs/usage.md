@@ -39,6 +39,10 @@ Cars and Bluetooth devices can browse **Recently played**, **Saved tracks**, **A
 
 Add the **OpenTune** widget from your launcher's widget list. It shows the current track with previous, play or pause, and next buttons. A tap on the cover or the title opens the app.
 
+## Playlist folders
+
+**Library**, **Playlists** lists your TIDAL playlists with the folders you made in TIDAL. Tap a folder to open it. **New folder** creates a folder at the top level. A playlist's folder button moves it into a folder or back to the top level. Deleting a folder moves its playlists to the top level first, because TIDAL hides the playlists of a folder that is removed with them inside.
+
 ## Offline listening
 
 Turn on **Keep saved tracks offline** under **Settings**, **Privacy and data** to download your saved TIDAL tracks in the background, 50 at a time. Downloads follow the Wi-Fi setting and pause when free space is low.
@@ -50,6 +54,11 @@ Turn on **Keep saved tracks offline** under **Settings**, **Privacy and data** t
 **Scrobbling** is off by default. Add a [ListenBrainz](https://listenbrainz.org) user token, or the address of your own ListenBrainz-compatible server, and OpenTune sends the artist, title and album of each finished track. Listens that cannot be sent wait on the device until the server answers. The token is stored encrypted.
 
 **Back up data** writes a file with your settings, device playlists and listening history. **Restore data** merges such a file into the current install. TIDAL data stays in your account. The file holds no tokens, downloads or imported audio files.
+
+## Limits
+
+- **Dolby Atmos:** TIDAL sends this client the stereo mix of tracks that also have an Atmos mix, whatever quality or format is requested, so OpenTune cannot play Atmos. Tracks that exist only as Atmos mixes may not play at all.
+- **Crossfade:** not offered. Tracks play gapless, with no overlap.
 
 ## Audio quality
 
