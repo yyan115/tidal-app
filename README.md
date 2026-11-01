@@ -20,9 +20,9 @@ OpenTune plays your TIDAL library in lossless quality, along with your own audio
 
 ## Install
 
-Download the APK from the [latest release](https://github.com/yyan115/tidal-app/releases/latest) and open it. OpenTune needs Android 8 or later. Android may ask you to allow installs from your browser or file manager.
+Download the APK from the [newest release](https://github.com/yyan115/tidal-app/releases) and open it. Releases before 1.0.0 are marked as prereleases. OpenTune needs Android 8 or later. Android may ask you to allow installs from your browser or file manager.
 
-To receive updates automatically, add `https://github.com/yyan115/tidal-app` to [Obtainium](https://obtainium.imranr.dev/).
+To receive updates automatically, add `https://github.com/yyan115/tidal-app` to [Obtainium](https://obtainium.imranr.dev/) and turn on **Include prereleases**.
 
 Releases are signed with one certificate. Compare it with the fingerprint below before you install, for example with [AppVerifier](https://github.com/soupslurpr/AppVerifier).
 
