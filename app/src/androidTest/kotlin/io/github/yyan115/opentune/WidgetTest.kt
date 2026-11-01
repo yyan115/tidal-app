@@ -31,7 +31,7 @@ class WidgetTest {
         val provider = ComponentName(context, NowPlayingWidget::class.java)
         val installed = manager.getInstalledProvidersForPackage(context.packageName, null)
         val info = installed.single { it.provider == provider }
-        assertEquals(4, info.targetCellWidth)
+        if (android.os.Build.VERSION.SDK_INT >= 31) assertEquals(4, info.targetCellWidth)
 
         WidgetState.write(context, WidgetState.Snapshot("Night Walk", "Playback test", playing = true))
         var rendered: Bitmap? = null
@@ -40,7 +40,6 @@ class WidgetTest {
             assertEquals("Night Walk", root.findViewById<TextView>(R.id.widget_title).text.toString())
             assertEquals("Playback test", root.findViewById<TextView>(R.id.widget_artist).text.toString())
             assertNotNull(root.findViewById<ImageButton>(R.id.widget_play))
-            assertTrue(root.findViewById<View>(R.id.widget_previous).hasOnClickListeners() || true)
             val density = context.resources.displayMetrics.density
             val width = (320 * density).toInt(); val height = (74 * density).toInt()
             root.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
