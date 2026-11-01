@@ -37,7 +37,8 @@ jobs:
         with:
           languages: java-kotlin
           build-mode: manual
-      - run: ./gradlew --no-daemon :app:assembleDebug
+      # CodeQL traces the compiler, so the build must compile and not restore its output from the Gradle cache.
+      - run: ./gradlew --no-daemon --no-build-cache :app:assembleDebug
       - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           category: /language:java-kotlin

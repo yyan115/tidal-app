@@ -128,7 +128,11 @@ class PseudoLocaleTest {
         compose.onNodeWithContentDescription(s(R.string.player_timer_set)).performClick()
         sweep("Sleep timer")
         back()
-        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription(s(R.string.player_source_details)).fetchSemanticsNodes().isNotEmpty() }
+        try {
+            compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription(s(R.string.player_source_details)).fetchSemanticsNodes().isNotEmpty() }
+        } catch (failure: ComposeTimeoutException) {
+            throw AssertionError("The source details are missing. The screen shows: ${visibleTexts()}", failure)
+        }
         compose.onNodeWithContentDescription(s(R.string.player_source_details)).performClick()
         sweep("Source details")
         back()
@@ -164,25 +168,43 @@ class PseudoLocaleTest {
         assertTrue("Text written in code, which cannot be translated:\n$report", offenders.isEmpty())
     }
 
+    private fun windows() = compose.onAllNodes(isRoot(), useUnmergedTree = true).fetchSemanticsNodes().size
+
+    /**
+     * Closes the topmost dialog or sheet. Back only reaches a window that has the focus, which a slow device gives late,
+     * so the key is sent again until that window is gone. Without an open window, back would leave the screen below it.
+     */
     private fun back() {
-        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
-        compose.waitForIdle()
+        compose.waitUntil(10_000) { windows() > 1 }
+        val before = windows()
+        repeat(5) {
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+            compose.waitForIdle()
+            val deadline = System.currentTimeMillis() + 2_000
+            while (windows() >= before && System.currentTimeMillis() < deadline) { Thread.sleep(100); compose.waitForIdle() }
+            if (windows() < before) return
+        }
+        throw AssertionError("The dialog or sheet did not close")
     }
 
     /** Collects the texts and descriptions that a screen shows and reports the ones that no resource wrapped. */
     private fun sweep(screen: String) {
         compose.waitForIdle()
         val systemText = systemTexts()
-        val roots = compose.onAllNodes(isRoot(), useUnmergedTree = true).fetchSemanticsNodes()
+        val texts = visibleTexts()
+        texts.filter { text -> !isPseudo(text) && text !in data && text !in systemText && letters(text, systemText) }
+            .forEach { offenders += "$screen: \"$it\"" }
+    }
+
+    private fun visibleTexts(): Set<String> {
         val texts = linkedSetOf<String>()
         fun visit(node: SemanticsNode) {
             node.config.getOrNull(SemanticsProperties.Text)?.forEach { texts += it.text }
             node.config.getOrNull(SemanticsProperties.ContentDescription)?.let { texts += it }
             node.children.forEach(::visit)
         }
-        roots.forEach(::visit)
-        texts.filter { text -> !isPseudo(text) && text !in data && text !in systemText && letters(text, systemText) }
-            .forEach { offenders += "$screen: \"$it\"" }
+        compose.onAllNodes(isRoot(), useUnmergedTree = true).fetchSemanticsNodes().forEach(::visit)
+        return texts
     }
 
     private fun isPseudo(text: String) = text.startsWith("[") && text.endsWith("]")
