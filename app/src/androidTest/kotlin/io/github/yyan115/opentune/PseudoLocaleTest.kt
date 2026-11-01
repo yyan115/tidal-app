@@ -116,9 +116,9 @@ class PseudoLocaleTest {
         await("playback to start", 30_000) { model.state.value.playback.playing || model.state.value.playback.error != null }
         val screen = openWindow("Player") { compose.onNodeWithTag("mini-player").performClick() }
         sweep("Player")
-        inWindow("Queue") { compose.onNodeWithText(s(R.string.player_queue_count, 1)).performClick() }
-        inWindow("Sleep timer") { compose.onNodeWithContentDescription(s(R.string.player_timer_set)).performClick() }
-        inWindow("Source details") { compose.onNodeWithContentDescription(s(R.string.player_source_details)).performClick() }
+        inWindow("Queue") { compose.onNodeWithText(s(R.string.player_queue_count, 1)).scrollAndClick() }
+        inWindow("Sleep timer") { compose.onNodeWithContentDescription(s(R.string.player_timer_set)).scrollAndClick() }
+        inWindow("Source details") { compose.onNodeWithContentDescription(s(R.string.player_source_details)).scrollAndClick() }
         closeWindow(screen)
         compose.runOnIdle { model.clearQueue() }
 
@@ -166,6 +166,12 @@ class PseudoLocaleTest {
         val bitmap = instrumentation.uiAutomation.takeScreenshot()
         File(directory, "$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
+    }
+
+    /** The player scrolls on a small screen, so a button can sit below the visible part. */
+    private fun SemanticsNodeInteraction.scrollAndClick() {
+        runCatching { performScrollTo() }
+        performClick()
     }
 
     private fun windows() = compose.onAllNodes(isRoot(), useUnmergedTree = true).fetchSemanticsNodes().size

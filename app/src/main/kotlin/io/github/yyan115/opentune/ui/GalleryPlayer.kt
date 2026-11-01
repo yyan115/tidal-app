@@ -214,7 +214,8 @@ private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> U
                 Modifier.size(20.dp), tint = if (player.repeat != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-    Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    // A longer translation wraps the buttons onto a second line instead of squeezing their labels.
+    FlowRow(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, itemVerticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = onLyrics, colors = ButtonDefaults.textButtonColors(contentColor = if (lyricsActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant),
             modifier = Modifier.semantics { contentDescription = lyricsDescription }) {
             Icon(OpenTuneIcons.Lyrics, null, Modifier.size(17.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.player_lyrics), fontSize = 11.sp)
