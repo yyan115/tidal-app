@@ -91,6 +91,18 @@ class LibraryStore(context: Context, databaseName: String = "library.db") : SQLi
         revision.value++
     }
 
+    /** Stores many tracks in one step, keeping the copies that are already stored. Used for browse lists. */
+    @Synchronized fun saveAll(tracks: List<Track>) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            tracks.forEach { track ->
+                db.insertWithOnConflict("tracks", null, ContentValues().apply { put("id", track.id); put("payload", JsonCodec.encodeTrack(track).toString()) }, SQLiteDatabase.CONFLICT_IGNORE)
+            }
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+    }
+
     @Synchronized fun get(id: String): Track? = readableDatabase.rawQuery("SELECT payload FROM tracks WHERE id=?", arrayOf(id)).use {
         if (it.moveToFirst()) JsonCodec.decodeTrack(JSONObject(it.getString(0))) else null
     }

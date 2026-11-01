@@ -46,6 +46,7 @@ gh attestation verify opentune-<version>.apk --repo yyan115/tidal-app
 - Edit the queue, shuffle and repeat. Control playback from the notification, the lock screen or a Bluetooth device.
 - Use offline mode and Wi-Fi-only downloads, and optionally keep your saved tracks downloaded.
 - Set a sleep timer, normalize volume, use an equalizer and watch music videos.
+- Browse your library from a car or a Bluetooth device, ask a voice assistant to play music, and control playback from a home screen widget.
 - See your own listening statistics, back up your device data and optionally scrobble to ListenBrainz.
 - Export downloads and local files to a folder you choose.
 

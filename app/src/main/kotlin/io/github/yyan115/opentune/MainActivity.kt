@@ -26,6 +26,7 @@ import io.github.yyan115.opentune.core.SignInCallback
 @UnstableApi
 class MainActivity : ComponentActivity() {
     private var incomingCallback by mutableStateOf<String?>(null)
+    private var incomingSearch by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,6 +35,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val model: MainViewModel = viewModel()
             val state by model.state.collectAsStateWithLifecycle()
+            LaunchedEffect(incomingSearch) { incomingSearch?.let { model.playFromSearch(it); incomingSearch = null } }
             LaunchedEffect(incomingCallback) {
                 incomingCallback?.let { model.completeBrowserLogin(it); incomingCallback = null }
             }
@@ -58,6 +60,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); acceptIntent(intent) }
 
     private fun acceptIntent(incoming: Intent) {
+        if (incoming.action == "android.media.action.MEDIA_PLAY_FROM_SEARCH") incomingSearch = incoming.getStringExtra(android.app.SearchManager.QUERY)
         if (incoming.action == Intent.ACTION_VIEW) {
             incoming.dataString?.takeIf(SignInCallback::supported)?.let { incomingCallback = it }
             // Keep the launch action intact so lifecycle observers can identify this activity.

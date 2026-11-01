@@ -28,6 +28,8 @@ OpenTune now has its own application ID, `io.github.yyan115.opentune`. It instal
 - Keep saved tracks offline: downloads your saved TIDAL tracks in the background.
 - Move tracks up and down in your playlists, on the device and in TIDAL.
 - Mixes in Library, "Playing from" in the player and saving the queue as a playlist.
+- Browsing for cars and Bluetooth devices, including Android Auto, and voice requests such as "play Nujabes".
+- A home screen widget with the current track and playback buttons.
 
 ### Changed
 

@@ -18,11 +18,14 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.LibraryResult
+import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
+import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.SettableFuture
 import com.google.common.util.concurrent.ListenableFuture
 import io.github.yyan115.opentune.MainActivity
 import io.github.yyan115.opentune.OpenTuneApp
@@ -35,6 +38,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -48,9 +52,10 @@ object PlaybackCommands {
 }
 
 @UnstableApi
-class PlaybackService : MediaSessionService() {
+class PlaybackService : MediaLibraryService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private var session: MediaSession? = null
+    private var session: MediaLibrarySession? = null
+    private val tree by lazy { BrowseTree(app) }
     private lateinit var app: OpenTuneApp
     private lateinit var player: ExoPlayer
     private var equalizer: Equalizer? = null
@@ -87,10 +92,12 @@ class PlaybackService : MediaSessionService() {
                 }
                 applyNormalization()
                 applyBitPerfect()
+                updateWidget(reloadArtwork = true)
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (isPlaying) playingSince = SystemClock.elapsedRealtime()
                 else if (playingSince != 0L) { listenedMs += SystemClock.elapsedRealtime() - playingSince; playingSince = 0 }
+                updateWidget()
             }
             override fun onPlaybackStateChanged(playbackState: Int) { if (playbackState == Player.STATE_ENDED) finishListening() }
             override fun onAudioSessionIdChanged(audioSessionId: Int) { applyEqualizer(); applyBitPerfect() }
@@ -104,10 +111,10 @@ class PlaybackService : MediaSessionService() {
         if (Build.VERSION.SDK_INT >= 23) audioManager.registerAudioDeviceCallback(deviceCallback, Handler(Looper.getMainLooper()))
 
         val activity = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        session = MediaSession.Builder(this, player).setSessionActivity(activity).setCallback(object : MediaSession.Callback {
+        session = MediaLibrarySession.Builder(this, player, object : MediaLibrarySession.Callback {
             override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
                 if (controller.packageName != packageName && !controller.isTrusted) return MediaSession.ConnectionResult.reject()
-                val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(PlaybackCommands.SleepTimer).build()
+                val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon().add(PlaybackCommands.SleepTimer).build()
                 return MediaSession.ConnectionResult.AcceptedResultBuilder(session).setAvailableSessionCommands(commands).build()
             }
 
@@ -117,9 +124,74 @@ class PlaybackService : MediaSessionService() {
                 return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
             }
 
-            override fun onAddMediaItems(session: MediaSession, controller: MediaSession.ControllerInfo,
-                mediaItems: MutableList<MediaItem>): ListenableFuture<MutableList<MediaItem>> = Futures.immediateFuture(mediaItems)
-        }).build()
+            override fun onGetLibraryRoot(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, params: LibraryParams?): ListenableFuture<LibraryResult<MediaItem>> =
+                Futures.immediateFuture(LibraryResult.ofItem(tree.root(), params))
+
+            override fun onGetItem(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, mediaId: String): ListenableFuture<LibraryResult<MediaItem>> =
+                Futures.immediateFuture(tree.item(mediaId)?.let { LibraryResult.ofItem(it, null) } ?: LibraryResult.ofError(androidx.media3.session.SessionError.ERROR_BAD_VALUE))
+
+            override fun onGetChildren(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, parentId: String, page: Int, pageSize: Int, params: LibraryParams?):
+                ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
+                val result = SettableFuture.create<LibraryResult<ImmutableList<MediaItem>>>()
+                scope.launch {
+                    val items = runCatching { withContext(Dispatchers.IO) { tree.children(parentId) } }.getOrDefault(emptyList())
+                    val from = (page * pageSize).coerceAtMost(items.size)
+                    result.set(LibraryResult.ofItemList(ImmutableList.copyOf(items.subList(from, (from + pageSize).coerceAtMost(items.size))), params))
+                }
+                return result
+            }
+
+            override fun onSearch(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, query: String, params: LibraryParams?): ListenableFuture<LibraryResult<Void>> {
+                scope.launch { session.notifySearchResultChanged(browser, query, runCatching { withContext(Dispatchers.IO) { tree.search(query) } }.getOrDefault(emptyList()).size, params) }
+                return Futures.immediateFuture(LibraryResult.ofVoid())
+            }
+
+            override fun onGetSearchResult(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, query: String, page: Int, pageSize: Int, params: LibraryParams?):
+                ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
+                val result = SettableFuture.create<LibraryResult<ImmutableList<MediaItem>>>()
+                scope.launch {
+                    val items = runCatching { withContext(Dispatchers.IO) { tree.search(query) } }.getOrDefault(emptyList())
+                    val from = (page * pageSize).coerceAtMost(items.size)
+                    result.set(LibraryResult.ofItemList(ImmutableList.copyOf(items.subList(from, (from + pageSize).coerceAtMost(items.size))), params))
+                }
+                return result
+            }
+
+            override fun onAddMediaItems(mediaSession: MediaSession, controller: MediaSession.ControllerInfo, mediaItems: MutableList<MediaItem>): ListenableFuture<MutableList<MediaItem>> {
+                val result = SettableFuture.create<MutableList<MediaItem>>()
+                scope.launch {
+                    val expanded = withContext(Dispatchers.IO) {
+                        mediaItems.flatMap { item ->
+                            val query = item.requestMetadata.searchQuery
+                            // A spoken request such as "play Nujabes" arrives as a search query.
+                            if (query != null && item.mediaId.isBlank() || query != null && item.localConfiguration == null && tree.item(item.mediaId) == null) runCatching { tree.search(query) }.getOrDefault(emptyList())
+                            else listOf(tree.resolve(item))
+                        }
+                    }
+                    result.set(expanded.toMutableList())
+                }
+                return result
+            }
+        }).setSessionActivity(activity).build()
+    }
+
+    /** Writes what the home screen widget shows. A new cover is fetched in the background. */
+    private fun updateWidget(reloadArtwork: Boolean = false) {
+        val track = player.currentMediaItem?.let(::trackOf)
+        WidgetState.write(this, track?.let { WidgetState.Snapshot(it.title, it.artist, player.isPlaying) })
+        NowPlayingWidget.refresh(this)
+        if (!reloadArtwork) return
+        val artwork = track?.artwork
+        scope.launch(Dispatchers.IO) {
+            val bytes = artwork?.takeIf { it.startsWith("https://") || it.startsWith("file:") }?.let { address ->
+                runCatching {
+                    if (address.startsWith("file:")) java.io.File(android.net.Uri.parse(address).path.orEmpty()).readBytes()
+                    else app.http.newCall(okhttp3.Request.Builder().url(address).build()).execute().use { response -> if (response.isSuccessful) response.body.bytes() else null }
+                }.getOrNull()
+            }
+            runCatching { WidgetState.saveArtwork(this@PlaybackService, bytes) }
+            withContext(Dispatchers.Main) { NowPlayingWidget.refresh(this@PlaybackService) }
+        }
     }
 
     private fun trackOf(item: MediaItem): Track? = item.mediaMetadata.extras?.getString("track")
@@ -216,7 +288,7 @@ class PlaybackService : MediaSessionService() {
         scope.launch { runCatching { app.scrobbler.listened(track, startedAt) } }
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
     override fun onTaskRemoved(rootIntent: Intent?) {
         val current = session?.player
         if (current == null || !current.playWhenReady || current.mediaItemCount == 0) stopSelf()
@@ -225,6 +297,7 @@ class PlaybackService : MediaSessionService() {
         finishListening()
         if (Build.VERSION.SDK_INT >= 23) audioManager.unregisterAudioDeviceCallback(deviceCallback)
         app.sources.onGains = null
+        WidgetState.write(this, null); NowPlayingWidget.refresh(this)
         runCatching { equalizer?.release() }
         scope.cancel(); session?.player?.release(); session?.release(); session = null; super.onDestroy()
     }

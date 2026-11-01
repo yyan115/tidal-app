@@ -546,6 +546,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Plays the best matches for a spoken request such as "play Nujabes". */
+    fun playFromSearch(query: String) = viewModelScope.launch {
+        val text = query.trim()
+        if (text.isEmpty()) return@launch
+        val local = withContext(Dispatchers.IO) { (app.library.localTracks() + app.library.favorites() + app.library.recent()).filter {
+            it.title.contains(text, true) || it.artist.contains(text, true) || it.album.contains(text, true)
+        } }
+        val remote = if (app.tidal.signedIn && !ui.value.settings.offline) runCatching { app.tidal.search(text).tracks }.getOrDefault(emptyList()) else emptyList()
+        val tracks = (local + remote).distinctBy(Track::id).take(30)
+        if (tracks.isEmpty()) notify("Nothing found for $text") else play(tracks, 0, "Search")
+    }
+
     fun scrobbleToken(): String = app.sessions.scrobbleToken().orEmpty()
 
     fun saveScrobbling(enabled: Boolean, server: String, token: String) {

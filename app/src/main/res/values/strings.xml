@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">OpenTune</string>
+    <string name="widget_description">Shows the current track with play, pause and skip buttons.</string>
 </resources>

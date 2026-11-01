@@ -33,6 +33,12 @@ Under **Settings**:
 - **Audio output** shows where the music plays and the sample rates that the output accepts.
 - **Bit-perfect USB output** asks Android 14 or later to send the audio to a USB DAC without mixing. It is experimental and has not been tested with a DAC yet.
 
+## Cars, Bluetooth and the widget
+
+Cars and Bluetooth devices can browse **Recently played**, **Saved tracks**, **Albums**, **Playlists** and **Downloads**, and start a track from there. Lists are served from the device first, so browsing works without a connection, but streaming a track needs one unless it is downloaded. Android Auto needs its developer setting for apps from unknown sources, as for any app that is not installed from Google Play. A voice request such as "play Nujabes" searches your library and TIDAL.
+
+Add the **OpenTune** widget from your launcher's widget list. It shows the current track with previous, play or pause, and next buttons. A tap on the cover or the title opens the app.
+
 ## Offline listening
 
 Turn on **Keep saved tracks offline** under **Settings**, **Privacy and data** to download your saved TIDAL tracks in the background, 50 at a time. Downloads follow the Wi-Fi setting and pause when free space is low.
