@@ -1,0 +1,3 @@
+OpenTune now has its own application ID, io.github.yyan115.opentune. It installs next to the earlier prerelease builds and does not update them. Downloads and the TIDAL session from those builds do not carry over, so export any downloads you want to keep before you uninstall.
+
+- Synced lyrics in the player. The current line is highlighted and centred, and a tap on a line seeks to it. Lyrics are kept on the device after the first load.
