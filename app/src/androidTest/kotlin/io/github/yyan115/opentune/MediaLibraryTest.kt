@@ -54,7 +54,7 @@ class MediaLibraryTest {
 
     @Test fun rootListsTheFoldersAndRecentTracksArePlayable() {
         val root = onMain { browser.getLibraryRoot(null) }.ok()
-        assertEquals("OpenTune", root.mediaMetadata.title.toString())
+        assertEquals(context.getString(R.string.app_name), root.mediaMetadata.title.toString())
         val top = onMain { browser.getChildren(root.mediaId, 0, 50, null) }.ok()
         assertEquals(listOf("Recently played", "Saved tracks", "Albums", "Playlists", "Downloads"), top.map { it.mediaMetadata.title.toString() })
         assertTrue(top.all { it.mediaMetadata.isBrowsable == true })

@@ -53,7 +53,7 @@ class WidgetTest {
         WidgetState.write(context, null)
         instrumentation.runOnMainSync {
             val root = NowPlayingWidget.views(context).apply(context, FrameLayout(context))
-            assertEquals("OpenTune", root.findViewById<TextView>(R.id.widget_title).text.toString())
+            assertEquals(context.getString(R.string.app_name), root.findViewById<TextView>(R.id.widget_title).text.toString())
             assertEquals("Nothing playing", root.findViewById<TextView>(R.id.widget_artist).text.toString())
         }
     }

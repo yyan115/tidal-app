@@ -4,6 +4,21 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- Playlist folders: Library shows your TIDAL folders and the playlists inside them. Create, rename and delete folders, and move a playlist into a folder with its folder button. Deleting a folder moves its playlists to the top level first.
+- Translation support. All text in the interface, the widget, the notifications and the error messages comes from string resources, and the system language settings list every language that has translations. [docs/translating.md](docs/translating.md) explains how to add a language. Only English ships so far.
+- TIDAL pages, such as Home and Explore, now ask TIDAL for text in the language of the device.
+- Checks for translation: a script rejects text that is written in code, and a device test runs the main screens in a pseudo-language to show that no text is left untranslated.
+
+### Fixed
+
+- Missing fields from TIDAL no longer appear as the word "null" in lists.
+
+### Changed
+
+- The ATMOS badge is gone. TIDAL sends this client the stereo mix of every track that also has an Atmos mix, so OpenTune cannot play Atmos. The limit is listed in the usage guide.
+
 ## [0.3.0] - 2026-11-01
 
 OpenTune now has its own application ID, `io.github.yyan115.opentune`. It installs next to the earlier prerelease builds and does not update them. Downloads and the TIDAL session from those builds do not carry over, so export any downloads you want to keep before you uninstall.
@@ -32,11 +47,6 @@ OpenTune now has its own application ID, `io.github.yyan115.opentune`. It instal
 - Mixes in Library, "Playing from" in the player and saving the queue as a playlist.
 - Browsing for cars and Bluetooth devices, including Android Auto, and voice requests such as "play Nujabes".
 - A home screen widget with the current track and playback buttons.
-- Playlist folders: Library shows your TIDAL folders and the playlists inside them. Create, rename and delete folders, and move a playlist into a folder with its folder button. Deleting a folder moves its playlists to the top level first.
-
-### Fixed
-
-- Missing fields from TIDAL no longer appear as the word "null" in lists.
 
 ### Changed
 

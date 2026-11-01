@@ -1,5 +1,7 @@
 package io.github.yyan115.opentune.ui
 
+import io.github.yyan115.opentune.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,13 +20,13 @@ fun CreditsSheet(credits: CreditsUi, onClose: () -> Unit, onPerson: (Contributor
     ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         LazyColumn(Modifier.navigationBarsPadding(), contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 24.dp)) {
             item(key = "title") {
-                Text("Credits", fontFamily = EditorialFont, fontSize = 32.sp, lineHeight = 38.sp)
+                Text(stringResource(R.string.credits_title), fontFamily = EditorialFont, fontSize = 32.sp, lineHeight = 38.sp)
                 Text(credits.title, Modifier.padding(top = 4.dp, bottom = 12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (credits.loading) item(key = "loading") { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
             credits.error?.let { error -> item(key = "error") { Text(error, color = MaterialTheme.colorScheme.error) } }
             if (!credits.loading && credits.error == null && credits.credits.isEmpty()) item(key = "empty") {
-                Text("TIDAL lists no credits for this release.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.credits_none), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             items(credits.credits, key = { it.role }) { credit ->
                 Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {

@@ -21,7 +21,8 @@ The `core` module holds the TIDAL client, models and stream parsing. The `app` m
 Unit tests run without a TIDAL account:
 
 ```sh
-./gradlew :core:test
+./gradlew :core:test :app:testDebugUnitTest
+python3 -m unittest discover -s scripts -p 'test_*.py'
 ```
 
 Device tests need an emulator or a connected device. They play an original 24-bit/96 kHz FLAC fixture, exercise the interface and capture screenshots:
@@ -41,6 +42,10 @@ adb shell am instrument -w -r -e liveAccount true \
 ```
 
 These checks download a track, change and restore a saved-track entry, and create and remove a temporary playlist. Add `-e networkToggle true` only on a dedicated test device. That check turns Wi-Fi and mobile data off and on. Never put account credentials or tokens in source files or CI secrets.
+
+## Text and translation
+
+All text for the user belongs in `app/src/main/res/values/strings.xml`, not in code. `python3 scripts/check_strings.py` rejects text that is written in code, and CI runs it. [docs/translating.md](docs/translating.md) explains how to add a language and how to check it with the pseudo-languages.
 
 ## Pull requests
 

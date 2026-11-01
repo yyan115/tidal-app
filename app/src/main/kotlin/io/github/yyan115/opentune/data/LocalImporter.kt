@@ -1,5 +1,6 @@
 package io.github.yyan115.opentune.data
 
+import io.github.yyan115.opentune.R
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
@@ -16,7 +17,7 @@ class LocalImporter(private val context: Context, private val library: LibrarySt
             .joinToString("") { "%02x".format(it) }.take(24)
         val filename = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
             if (it.moveToFirst()) it.getString(0) else null
-        } ?: "Audio file"
+        } ?: context.getString(R.string.import_default_title)
         val retriever = MediaMetadataRetriever()
         try {
             retriever.setDataSource(context, uri)
@@ -26,7 +27,7 @@ class LocalImporter(private val context: Context, private val library: LibrarySt
             }
             val mime = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE).orEmpty()
             Track(id, retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)?.takeIf(String::isNotBlank) ?: filename.substringBeforeLast('.'),
-                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)?.takeIf(String::isNotBlank) ?: "Unknown artist",
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)?.takeIf(String::isNotBlank) ?: context.getString(R.string.import_unknown_artist),
                 album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM).orEmpty(), artwork = art,
                 durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0,
                 localUri = uri.toString(), quality = if (mime.contains("flac")) "FLAC" else mime.substringAfterLast('/').uppercase())

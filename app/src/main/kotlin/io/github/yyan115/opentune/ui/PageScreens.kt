@@ -1,5 +1,8 @@
 package io.github.yyan115.opentune.ui
 
+import io.github.yyan115.opentune.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -58,7 +61,7 @@ fun PageScreen(route: PageRoute, state: AppState, vm: MainViewModel, pages: Page
                     Text(page.title.ifBlank { route.title }, Modifier.padding(horizontal = 24.dp, vertical = 8.dp), fontFamily = EditorialFont, fontSize = 40.sp, lineHeight = 46.sp)
                 }
                 pageContent(page, entry, route.key, context, viewAll = headerless && page.modules.size == 1)
-                if (page.modules.isEmpty()) item(key = "empty") { EmptyState(OpenTuneIcons.SearchOff, "Nothing here yet", "TIDAL returned no content for this page.") }
+                if (page.modules.isEmpty()) item(key = "empty") { EmptyState(OpenTuneIcons.SearchOff, stringResource(R.string.page_empty_title), stringResource(R.string.page_empty_text)) }
             }
         }
     }
@@ -97,7 +100,7 @@ private fun LazyListScope.carousel(module: CarouselModule, entry: PageUi, routeK
         if (module.dataPath != null && items.size < module.total) item(key = "$key:more") { LoadMore(routeKey, module, entry, ctx) }
     } else item(key = key) {
         Column {
-            SectionTitle(module.title, module.showMore?.let { "View all" }) { module.showMore?.let { ctx.vm.openPage(PageRoute.path(it, module.title)) } }
+            SectionTitle(module.title, module.showMore?.let { stringResource(R.string.action_view_all) }) { module.showMore?.let { ctx.vm.openPage(PageRoute.path(it, module.title)) } }
             LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 itemsIndexed(items, key = { position, release -> "${release.type}:${release.id}:$position" }) { _, release ->
                     PageCard(release) { ctx.vm.open(release) }
@@ -111,7 +114,7 @@ private fun LazyListScope.carousel(module: CarouselModule, entry: PageUi, routeK
 private fun LazyListScope.trackList(module: TrackListModule, entry: PageUi, routeKey: String, ctx: PageContext, key: String, viewAll: Boolean) {
     val tracks = module.tracks + entry.moreTracks[module.id].orEmpty()
     if (module.title.isNotBlank()) item(key = "$key:title") {
-        SectionTitle(module.title, if (!viewAll && (module.showMore != null)) "View all" else null) {
+        SectionTitle(module.title, if (!viewAll && (module.showMore != null)) stringResource(R.string.action_view_all) else null) {
             module.showMore?.let { ctx.vm.openPage(PageRoute.path(it, module.title)) }
         }
     }
@@ -128,7 +131,7 @@ private fun LazyListScope.trackList(module: TrackListModule, entry: PageUi, rout
 private fun LoadMore(routeKey: String, module: PageModule, entry: PageUi, ctx: PageContext) {
     val loading = module.id in entry.loadingMore
     TextButton(onClick = { ctx.pages.loadMore(routeKey, module) }, enabled = !loading, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        if (loading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 1.5.dp) else Text("Load more")
+        if (loading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 1.5.dp) else Text(stringResource(R.string.action_load_more))
     }
 }
 
@@ -165,7 +168,7 @@ fun PageCard(release: Release, modifier: Modifier = Modifier, fill: Boolean = fa
         Box {
             if (release.type == ReleaseType.ARTIST) Artwork(release.artwork, null, Modifier.fillMaxWidth().aspectRatio(1f).clip(CircleShape))
             else Artwork(release.artwork, null, Modifier.fillMaxWidth().aspectRatio(if (video) 16f / 9f else 1f))
-            if (video) Icon(OpenTuneIcons.PlayArrow, "Play video", Modifier.align(Alignment.Center).size(36.dp).background(androidx.compose.ui.graphics.Color(0x99000000), CircleShape).padding(6.dp),
+            if (video) Icon(OpenTuneIcons.PlayArrow, stringResource(R.string.video_play), Modifier.align(Alignment.Center).size(36.dp).background(androidx.compose.ui.graphics.Color(0x99000000), CircleShape).padding(6.dp),
                 tint = androidx.compose.ui.graphics.Color.White)
         }
         val round = release.type == ReleaseType.ARTIST
@@ -186,7 +189,7 @@ fun PageCard(release: Release, modifier: Modifier = Modifier, fill: Boolean = fa
 fun QualityBadges(tags: List<String>, modifier: Modifier = Modifier) {
     val labels = buildList {
         // Dolby Atmos mixes are not badged: TIDAL sends this client their stereo mix.
-        if ("HIRES_LOSSLESS" in tags) add("HI-RES") else if ("LOSSLESS" in tags) add("LOSSLESS")
+        if ("HIRES_LOSSLESS" in tags) add(stringResource(R.string.badge_hires)) else if (stringResource(R.string.badge_lossless) in tags) add(stringResource(R.string.badge_lossless))
     }
     if (labels.isEmpty()) return
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -204,8 +207,8 @@ private fun ExpandableText(text: String, source: String, modifier: Modifier = Mo
     Column(modifier) {
         Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = if (expanded) Int.MAX_VALUE else 4, overflow = TextOverflow.Ellipsis)
-        if (text.length > 220) TextButton(onClick = { expanded = !expanded }, contentPadding = PaddingValues(0.dp)) { Text(if (expanded) "Show less" else "Read more") }
-        if (expanded && source.isNotBlank()) Text("Source: $source", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (text.length > 220) TextButton(onClick = { expanded = !expanded }, contentPadding = PaddingValues(0.dp)) { Text(if (expanded) stringResource(R.string.text_show_less) else stringResource(R.string.text_read_more)) }
+        if (expanded && source.isNotBlank()) Text(stringResource(R.string.page_source, source), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -226,13 +229,13 @@ private fun ArtistHeaderRow(header: ArtistHeader, ctx: PageContext, routeKey: St
         Text(header.artist.title, Modifier.padding(top = 18.dp), fontFamily = EditorialFont, fontSize = 42.sp, lineHeight = 48.sp)
         Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             TuneButton(onClick = { ctx.vm.playArtistTopTracks(header.artist.id) }, modifier = Modifier.weight(1f)) {
-                Icon(OpenTuneIcons.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text("Play")
+                Icon(OpenTuneIcons.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.action_play))
             }
-            TuneTonalButton(onClick = { ctx.vm.playArtistTopTracks(header.artist.id, shuffle = true) }) { Icon(OpenTuneIcons.Shuffle, "Shuffle top tracks") }
-            TuneOutlinedButton(onClick = { ctx.vm.playArtistRadio(header.artist.id) }) { Icon(OpenTuneIcons.Radio, "Artist radio") }
+            TuneTonalButton(onClick = { ctx.vm.playArtistTopTracks(header.artist.id, shuffle = true) }) { Icon(OpenTuneIcons.Shuffle, stringResource(R.string.artist_shuffle)) }
+            TuneOutlinedButton(onClick = { ctx.vm.playArtistRadio(header.artist.id) }) { Icon(OpenTuneIcons.Radio, stringResource(R.string.artist_radio)) }
         }
         if (ctx.state.signedIn) TuneOutlinedButton(onClick = { ctx.vm.toggleFollow(header.artist) }, modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
-            Icon(if (following) OpenTuneIcons.Check else OpenTuneIcons.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(if (following) "Following" else "Follow")
+            Icon(if (following) OpenTuneIcons.Check else OpenTuneIcons.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(if (following) stringResource(R.string.artist_following) else stringResource(R.string.artist_follow))
         }
         ExpandableText(header.bio, header.bioSource, Modifier.padding(top = 14.dp))
     }
@@ -249,22 +252,22 @@ private fun AlbumHeaderRow(header: AlbumHeader, ctx: PageContext, routeKey: Stri
             if (header.artistId.isNotBlank()) Modifier.clickable { ctx.vm.open(Release(header.artistId, header.artistName, "", type = ReleaseType.ARTIST)) } else Modifier),
             color = MaterialTheme.colorScheme.primary)
         val facts = listOfNotNull(header.releaseDate.take(4).takeIf(String::isNotBlank),
-            header.trackCount.takeIf { it > 0 }?.let { "$it ${if (it == 1) "track" else "tracks"}" },
-            header.durationMs.takeIf { it > 0 }?.let { "${(it / 60_000).coerceAtLeast(1)} min" }).joinToString(" · ")
+            header.trackCount.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.track_count, it, it) },
+            header.durationMs.takeIf { it > 0 }?.let { stringResource(R.string.album_minutes, (it / 60_000).coerceAtLeast(1).toInt()) }).joinToString(" · ")
         if (facts.isNotBlank()) Text(facts, Modifier.padding(top = 4.dp).fillMaxWidth(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         QualityBadges(header.tags, Modifier.fillMaxWidth().padding(top = 10.dp))
         Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TuneButton(onClick = { playFromPage(ctx, routeKey, page, false) }, modifier = Modifier.weight(1f)) { Icon(OpenTuneIcons.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text("Play") }
-            TuneTonalButton(onClick = { playFromPage(ctx, routeKey, page, true) }) { Icon(OpenTuneIcons.Shuffle, "Shuffle play") }
+            TuneButton(onClick = { playFromPage(ctx, routeKey, page, false) }, modifier = Modifier.weight(1f)) { Icon(OpenTuneIcons.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.action_play)) }
+            TuneTonalButton(onClick = { playFromPage(ctx, routeKey, page, true) }) { Icon(OpenTuneIcons.Shuffle, stringResource(R.string.album_shuffle)) }
             TuneOutlinedButton(onClick = {
                 firstTracks(page)?.let { module -> ctx.scope.launch { ctx.pages.allTracks(routeKey, module).filterNot(Track::isLocal).forEach { ctx.vm.download(it) } } }
-            }) { Icon(OpenTuneIcons.Download, "Download all tracks") }
+            }) { Icon(OpenTuneIcons.Download, stringResource(R.string.album_download_all)) }
         }
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             if (ctx.state.signedIn) TextButton(onClick = { ctx.vm.favoriteAlbum(header.album) }) {
-                Icon(if (saved) OpenTuneIcons.Favorite else OpenTuneIcons.FavoriteBorder, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(if (saved) "Saved" else "Save album")
+                Icon(if (saved) OpenTuneIcons.Favorite else OpenTuneIcons.FavoriteBorder, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(if (saved) stringResource(R.string.album_saved) else stringResource(R.string.album_save))
             }
-            TextButton(onClick = { ctx.vm.showCredits("album", header.album.id, header.album.title) }) { Icon(OpenTuneIcons.Info, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Credits") }
+            TextButton(onClick = { ctx.vm.showCredits("album", header.album.id, header.album.title) }) { Icon(OpenTuneIcons.Info, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.album_credits)) }
         }
         ExpandableText(header.review, header.reviewSource, Modifier.fillMaxWidth().padding(top = 6.dp))
         if (header.copyright.isNotBlank()) Text(header.copyright, Modifier.fillMaxWidth().padding(top = 8.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -279,8 +282,8 @@ private fun MixHeaderRow(header: MixHeader, ctx: PageContext, routeKey: String, 
         Text(header.mix.title, Modifier.padding(top = 20.dp).fillMaxWidth(), style = MaterialTheme.typography.headlineLarge)
         if (header.subtitle.isNotBlank()) Text(header.subtitle, Modifier.padding(top = 6.dp).fillMaxWidth(), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TuneButton(onClick = { playFromPage(ctx, routeKey, page, false) }, modifier = Modifier.weight(1f)) { Icon(OpenTuneIcons.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text("Play") }
-            TuneTonalButton(onClick = { playFromPage(ctx, routeKey, page, true) }) { Icon(OpenTuneIcons.Shuffle, "Shuffle play") }
+            TuneButton(onClick = { playFromPage(ctx, routeKey, page, false) }, modifier = Modifier.weight(1f)) { Icon(OpenTuneIcons.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.action_play)) }
+            TuneTonalButton(onClick = { playFromPage(ctx, routeKey, page, true) }) { Icon(OpenTuneIcons.Shuffle, stringResource(R.string.album_shuffle)) }
         }
     }
 }

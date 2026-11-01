@@ -1,5 +1,7 @@
 package io.github.yyan115.opentune.playback
 
+import io.github.yyan115.opentune.core.ServiceException
+import io.github.yyan115.opentune.core.Problem
 import android.os.Handler
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -39,7 +41,7 @@ class ResolvingSource(private val app: OpenTuneApp, private val original: MediaI
                 try {
                     val encoded = original.mediaMetadata.extras?.getString("track")
                     val track = encoded?.let { JsonCodec.decodeTrack(JSONObject(it)) } ?: app.library.get(original.mediaId)
-                        ?: throw IOException("This track is no longer in the library.")
+                        ?: throw ServiceException(0, "This track is no longer in the library.", Problem.TRACK_MISSING)
                     val resolved = app.sources.resolve(track)
                     val offlineCopy = app.library.get(track.id)?.localUri?.startsWith("opentune-offline:") == true
                     handler.post {

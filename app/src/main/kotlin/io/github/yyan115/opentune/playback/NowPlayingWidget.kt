@@ -69,8 +69,8 @@ class NowPlayingWidget : AppWidgetProvider() {
         fun views(context: Context): RemoteViews {
             val snapshot = WidgetState.read(context)
             return RemoteViews(context.packageName, R.layout.widget_now_playing).apply {
-                setTextViewText(R.id.widget_title, snapshot?.title ?: "OpenTune")
-                setTextViewText(R.id.widget_artist, snapshot?.artist?.ifBlank { null } ?: if (snapshot == null) "Nothing playing" else "")
+                setTextViewText(R.id.widget_title, snapshot?.title ?: context.getString(R.string.app_name))
+                setTextViewText(R.id.widget_artist, snapshot?.artist?.ifBlank { null } ?: if (snapshot == null) context.getString(R.string.widget_nothing_playing) else "")
                 WidgetState.artworkBitmap(context)?.let { setImageViewBitmap(R.id.widget_artwork, it) } ?: setImageViewResource(R.id.widget_artwork, R.drawable.ic_launcher_foreground)
                 setImageViewResource(R.id.widget_play, if (snapshot?.playing == true) R.drawable.ic_widget_pause else R.drawable.ic_widget_play)
                 setOnClickPendingIntent(R.id.widget_previous, mediaButton(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS))

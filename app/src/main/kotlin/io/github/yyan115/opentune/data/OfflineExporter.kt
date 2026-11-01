@@ -1,5 +1,6 @@
 package io.github.yyan115.opentune.data
 
+import io.github.yyan115.opentune.R
 import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
@@ -47,7 +48,7 @@ class OfflineExporter(private val app: OpenTuneApp) {
             else -> android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(mime) ?: "audio"
         }
         val name = "${track.artist} - ${track.title}".replace(Regex("[\\p{Cntrl}/\\\\:*?\"<>|]"), "_").trim().take(160)
-        return ExportSpec("${name.ifBlank { "Audio" }}.$extension", mime)
+        return ExportSpec("${name.ifBlank { app.getString(R.string.export_default_name) }}.$extension", mime)
     }
 
     suspend fun write(track: Track, destination: Uri, onProgress: (Int) -> Unit = {}) = withContext(Dispatchers.IO) {

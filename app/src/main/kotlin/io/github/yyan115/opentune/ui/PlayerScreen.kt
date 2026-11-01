@@ -1,5 +1,7 @@
 package io.github.yyan115.opentune.ui
 
+import io.github.yyan115.opentune.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -35,13 +37,13 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
     var name by remember { mutableStateOf("") }
     ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         LazyColumn(Modifier.fillMaxWidth().navigationBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
-            item { SectionTitle("Queue", if (state.playback.queue.isNotEmpty()) "Clear" else null, { confirmClear = true }) }
+            item { SectionTitle(stringResource(R.string.queue_title), if (state.playback.queue.isNotEmpty()) stringResource(R.string.action_clear) else null, { confirmClear = true }) }
             if (state.playback.queue.isNotEmpty()) item(key = "save") {
                 TextButton(onClick = { name = state.playback.source; save = true }, modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Icon(OpenTuneIcons.PlaylistAdd, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Save as playlist")
+                    Icon(OpenTuneIcons.PlaylistAdd, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.queue_save))
                 }
             }
-            if (state.playback.queue.isEmpty()) item { EmptyState(OpenTuneIcons.PlaylistPlay, "The queue is empty", "Play a track or add one from its menu.") }
+            if (state.playback.queue.isEmpty()) item { EmptyState(OpenTuneIcons.PlaylistPlay, stringResource(R.string.queue_empty_title), stringResource(R.string.queue_empty_text)) }
             itemsIndexed(state.playback.queue, key = { index, track -> "$index:${track.id}" }) { index, track ->
                 Column {
                     Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -50,18 +52,18 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
                                 color = if (index == state.playback.index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                             Text(track.artist, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        IconButton(onClick = { vm.moveQueue(index, index - 1) }, enabled = index > 0) { Icon(OpenTuneIcons.ArrowUpward, "Move ${track.title} up") }
-                        IconButton(onClick = { vm.removeQueue(index) }) { Icon(OpenTuneIcons.Close, "Remove ${track.title} from queue") }
+                        IconButton(onClick = { vm.moveQueue(index, index - 1) }, enabled = index > 0) { Icon(OpenTuneIcons.ArrowUpward, stringResource(R.string.queue_move_up, track.title)) }
+                        IconButton(onClick = { vm.removeQueue(index) }) { Icon(OpenTuneIcons.Close, stringResource(R.string.queue_remove, track.title)) }
                     }
                 }
             }
         }
     }
-    if (save) AlertDialog(onDismissRequest = { save = false }, title = { Text("Save queue as playlist") }, text = {
-        OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
-    }, confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { vm.saveQueueAsPlaylist(name); save = false }) { Text("Save") } },
-        dismissButton = { TextButton(onClick = { save = false }) { Text("Cancel") } })
-    if (confirmClear) AlertDialog(onDismissRequest = { confirmClear = false }, title = { Text("Clear the queue?") }, text = { Text("Playback will stop.") },
-        confirmButton = { TextButton(onClick = { vm.clearQueue(); confirmClear = false }) { Text("Clear") } },
-        dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } })
+    if (save) AlertDialog(onDismissRequest = { save = false }, title = { Text(stringResource(R.string.queue_save_title)) }, text = {
+        OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.field_name)) }, singleLine = true)
+    }, confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { vm.saveQueueAsPlaylist(name); save = false }) { Text(stringResource(R.string.action_save)) } },
+        dismissButton = { TextButton(onClick = { save = false }) { Text(stringResource(R.string.action_cancel)) } })
+    if (confirmClear) AlertDialog(onDismissRequest = { confirmClear = false }, title = { Text(stringResource(R.string.queue_clear_title)) }, text = { Text(stringResource(R.string.queue_clear_text)) },
+        confirmButton = { TextButton(onClick = { vm.clearQueue(); confirmClear = false }) { Text(stringResource(R.string.action_clear)) } },
+        dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.action_cancel)) } })
 }

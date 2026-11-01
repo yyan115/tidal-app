@@ -11,13 +11,13 @@ import java.net.URI
 object StreamManifest {
     fun parse(response: JSONObject): StreamInfo {
         if (response.optString("assetPresentation", "FULL") != "FULL") {
-            throw ServiceException(403, "TIDAL returned a preview instead of a full track. Check this client's account access.")
+            throw ServiceException(403, "TIDAL returned a preview instead of a full track. Check this client's account access.", Problem.PREVIEW_ONLY)
         }
         val bytes = try { Base64.getDecoder().decode(response.getString("manifest")) }
-        catch (_: IllegalArgumentException) { throw ServiceException(502, "The stream manifest is invalid.") }
+        catch (_: IllegalArgumentException) { throw ServiceException(502, "The stream manifest is invalid.", Problem.STREAM_INVALID) }
         val manifest = bytes.toString(Charsets.UTF_8)
         if (manifest.length > 2_000_000 || manifest.contains("<!DOCTYPE", ignoreCase = true) || manifest.contains("<!ENTITY", ignoreCase = true)) {
-            throw ServiceException(502, "The stream manifest contains unsupported XML declarations.")
+            throw ServiceException(502, "The stream manifest contains unsupported XML declarations.", Problem.STREAM_INVALID)
         }
         val quality = response.optString("audioQuality")
         val bitDepth = response.optInt("bitDepth")
@@ -33,7 +33,7 @@ object StreamManifest {
                 }
                 val urls = data.optJSONArray("urls")
                 val url = urls?.optString(0)?.takeIf(String::isNotBlank)
-                    ?: throw ServiceException(502, "No audio URL was returned.")
+                    ?: throw ServiceException(502, "No audio URL was returned.", Problem.STREAM_INVALID)
                 requireHttps(url)
                 StreamInfo(uri = url, mimeType = data.optString("mimeType", "audio/mp4"),
                     codec = data.optString("codecs", "unknown"), quality = quality,
@@ -62,21 +62,21 @@ object StreamManifest {
                     sampleRate = sampleRate.takeIf { it > 0 } ?: representation?.getAttribute("audioSamplingRate")?.toIntOrNull() ?: 0,
                     trackGain = trackGain, trackPeak = trackPeak, albumGain = albumGain, albumPeak = albumPeak)
             }
-            else -> throw ServiceException(502, "This stream format is not supported.")
+            else -> throw ServiceException(502, "This stream format is not supported.", Problem.STREAM_UNSUPPORTED)
         }
     }
 
     /** Reads the HLS address from a music video manifest. */
     fun parseVideo(response: JSONObject): String {
         if (response.optString("assetPresentation", "FULL") != "FULL") {
-            throw ServiceException(403, "TIDAL returned a preview instead of the full video.")
+            throw ServiceException(403, "TIDAL returned a preview instead of the full video.", Problem.PREVIEW_ONLY)
         }
         val bytes = try { Base64.getDecoder().decode(response.getString("manifest")) }
-        catch (_: Exception) { throw ServiceException(502, "The video manifest is invalid.") }
-        val data = try { JSONObject(bytes.toString(Charsets.UTF_8)) } catch (_: Exception) { throw ServiceException(502, "The video manifest is invalid.") }
+        catch (_: Exception) { throw ServiceException(502, "The video manifest is invalid.", Problem.STREAM_INVALID) }
+        val data = try { JSONObject(bytes.toString(Charsets.UTF_8)) } catch (_: Exception) { throw ServiceException(502, "The video manifest is invalid.", Problem.STREAM_INVALID) }
         if (data.optString("encryptionType", "NONE") != "NONE") throw ProtectedStreamException()
         val url = data.optJSONArray("urls")?.optString(0)?.takeIf(String::isNotBlank)
-            ?: throw ServiceException(502, "No video URL was returned.")
+            ?: throw ServiceException(502, "No video URL was returned.", Problem.STREAM_INVALID)
         requireHttps(url)
         return url
     }
@@ -84,7 +84,7 @@ object StreamManifest {
     fun requireHttps(value: String) {
         val uri = URI(value)
         if (uri.scheme != "https" || uri.host.isNullOrBlank() || uri.userInfo != null) {
-            throw ServiceException(502, "The service returned an unsafe audio URL.")
+            throw ServiceException(502, "The service returned an unsafe audio URL.", Problem.STREAM_INVALID)
         }
     }
 }

@@ -48,9 +48,9 @@ class ListenBrainzClient(private val http: OkHttpClient, private val server: () 
     fun validate(): String? {
         val request = Request.Builder().url(url("1/validate-token")).header("Authorization", "Token ${requireToken()}").build()
         return http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw ServiceException(response.code, "The server could not check the token (HTTP ${response.code}).")
+            if (!response.isSuccessful) throw ServiceException(response.code, "The server could not check the token (HTTP ${response.code}).", Problem.SCROBBLE_CHECK_FAILED)
             val body = JSONObject(response.body.string())
-            if (body.optBoolean("valid")) body.optString("user_name").ifBlank { "unknown user" } else null
+            if (body.optBoolean("valid")) body.optString("user_name") else null
         }
     }
 
@@ -60,16 +60,16 @@ class ListenBrainzClient(private val http: OkHttpClient, private val server: () 
         http.newCall(request).execute().use { response ->
             when {
                 response.isSuccessful -> Unit
-                response.code == 401 -> throw ServiceException(401, "The server rejected the token.")
-                response.code in 400..499 -> throw ServiceException(response.code, "The server rejected the listen (HTTP ${response.code}).")
+                response.code == 401 -> throw ServiceException(401, "The server rejected the token.", Problem.SCROBBLE_TOKEN_REJECTED)
+                response.code in 400..499 -> throw ServiceException(response.code, "The server rejected the listen (HTTP ${response.code}).", Problem.SCROBBLE_LISTEN_REJECTED)
                 else -> throw IOException("The server answered with HTTP ${response.code}.")
             }
         }
     }
 
-    private fun requireToken() = token()?.takeIf(String::isNotBlank) ?: throw ServiceException(401, "Add a ListenBrainz token first.")
+    private fun requireToken() = token()?.takeIf(String::isNotBlank) ?: throw ServiceException(401, "Add a ListenBrainz token first.", Problem.SCROBBLE_TOKEN_MISSING)
 
     private fun url(path: String) = (server().trim().trimEnd('/') + "/" + path).let {
-        try { it.toHttpUrl() } catch (_: IllegalArgumentException) { throw ServiceException(400, "The server address is not valid.") }
+        try { it.toHttpUrl() } catch (_: IllegalArgumentException) { throw ServiceException(400, "The server address is not valid.", Problem.SCROBBLE_ADDRESS_INVALID) }
     }
 }

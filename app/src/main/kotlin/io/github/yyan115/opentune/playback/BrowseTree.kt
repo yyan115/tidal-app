@@ -1,5 +1,6 @@
 package io.github.yyan115.opentune.playback
 
+import io.github.yyan115.opentune.R
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -16,24 +17,24 @@ import io.github.yyan115.opentune.core.Track
  */
 @UnstableApi
 class BrowseTree(private val app: OpenTuneApp) {
-    fun root(): MediaItem = folder(ROOT, "OpenTune")
+    fun root(): MediaItem = folder(ROOT, app.getString(R.string.app_name))
 
     fun isFolder(id: String) = id == ROOT || id in TOP || id.startsWith("album:") || id.startsWith("playlist:") || id.startsWith("lp:")
 
     fun item(id: String): MediaItem? = when {
         id == ROOT -> root()
-        id in TOP -> folder(id, TOP_TITLES.getValue(id))
+        id in TOP -> folder(id, topTitle(id))
         id.startsWith("album:") || id.startsWith("playlist:") || id.startsWith("lp:") -> folder(id, id.substringAfter(':'))
         else -> app.library.get(id)?.let(app.sources::unresolved)
     }
 
     suspend fun children(parentId: String): List<MediaItem> = when {
-        parentId == ROOT -> TOP.map { folder(it, TOP_TITLES.getValue(it)) }
+        parentId == ROOT -> TOP.map { folder(it, topTitle(it)) }
         parentId == RECENT -> tracks(app.library.recent())
         parentId == FAVORITES -> tracks((app.library.favorites() + cached("favorites")).distinctBy(Track::id))
         parentId == DOWNLOADS -> tracks(app.library.localTracks())
         parentId == ALBUMS -> releases("albums", "album")
-        parentId == PLAYLISTS -> app.library.playlists().map { folder("lp:${it.id}", it.title, "${it.trackIds.size} tracks") } + releases("playlists", "playlist")
+        parentId == PLAYLISTS -> app.library.playlists().map { folder("lp:${it.id}", it.title, app.resources.getQuantityString(R.plurals.track_count, it.trackIds.size, it.trackIds.size)) } + releases("playlists", "playlist")
         parentId.startsWith("album:") -> {
             val id = parentId.removePrefix("album:")
             tracks(if (online()) runCatching { app.tidal.allTracks(Release(id, "", "", type = ReleaseType.ALBUM)) }.getOrDefault(emptyList())
@@ -57,6 +58,14 @@ class BrowseTree(private val app: OpenTuneApp) {
         if (item.localConfiguration != null) return item
         return app.library.get(item.mediaId)?.let(app.sources::unresolved) ?: item
     }
+
+    private fun topTitle(id: String): String = app.getString(when (id) {
+        RECENT -> R.string.home_recently_played
+        FAVORITES -> R.string.library_saved_tracks
+        ALBUMS -> R.string.label_albums
+        PLAYLISTS -> R.string.label_playlists
+        else -> R.string.nav_downloads
+    })
 
     private fun online() = app.tidal.signedIn && !app.settings.state.value.offline
 
@@ -85,7 +94,6 @@ class BrowseTree(private val app: OpenTuneApp) {
         const val PLAYLISTS = "playlists"
         const val DOWNLOADS = "downloads"
         private val TOP = listOf(RECENT, FAVORITES, ALBUMS, PLAYLISTS, DOWNLOADS)
-        private val TOP_TITLES = mapOf(RECENT to "Recently played", FAVORITES to "Saved tracks", ALBUMS to "Albums", PLAYLISTS to "Playlists", DOWNLOADS to "Downloads")
         private const val MAX_TRACKS = 300
         private const val MAX_SEARCH_RESULTS = 30
     }

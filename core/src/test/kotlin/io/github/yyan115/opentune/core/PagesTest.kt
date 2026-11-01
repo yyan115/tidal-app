@@ -97,6 +97,14 @@ class PagesTest {
         assertEquals("Untitled", JsonCodec.release(JSONObject("""{"id":3,"title":null,"name":null}"""), ReleaseType.ALBUM).title)
     }
 
+    @Test fun missingTitlesUseTheTextThatTheAppSupplies() {
+        val before = Placeholders.untitled
+        try {
+            Placeholders.untitled = "Sans titre"
+            assertEquals("Sans titre", JsonCodec.release(JSONObject("""{"id":3,"title":null,"name":null}"""), ReleaseType.ALBUM).title)
+        } finally { Placeholders.untitled = before }
+    }
+
     @Test fun markupIsRemovedFromText() {
         assertEquals("One Two\nThree", PageCodec.plainText("""[wimpLink artistId="1"]One[/wimpLink] <b>Two</b><br>Three"""))
         assertEquals("", PageCodec.plainText(null))

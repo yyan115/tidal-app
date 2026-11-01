@@ -1,5 +1,6 @@
 package io.github.yyan115.opentune.playback
 
+import io.github.yyan115.opentune.R
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
@@ -11,15 +12,15 @@ import android.os.Build
 data class OutputDevice(val name: String, val kind: String, val sampleRates: List<Int>, val active: Boolean)
 
 object AudioOutput {
-    private fun kind(type: Int): String? = when (type) {
-        AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Phone speaker"
-        AudioDeviceInfo.TYPE_WIRED_HEADPHONES, AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Wired headphones"
-        AudioDeviceInfo.TYPE_USB_DEVICE, AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_USB_ACCESSORY -> "USB audio"
-        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth"
-        AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER, AudioDeviceInfo.TYPE_BLE_BROADCAST -> "Bluetooth LE"
-        AudioDeviceInfo.TYPE_HDMI, AudioDeviceInfo.TYPE_HDMI_ARC, AudioDeviceInfo.TYPE_HDMI_EARC -> "HDMI"
-        AudioDeviceInfo.TYPE_LINE_ANALOG, AudioDeviceInfo.TYPE_LINE_DIGITAL -> "Line out"
-        AudioDeviceInfo.TYPE_DOCK -> "Dock"
+    private fun kind(context: Context, type: Int): String? = when (type) {
+        AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> context.getString(R.string.output_kind_speaker)
+        AudioDeviceInfo.TYPE_WIRED_HEADPHONES, AudioDeviceInfo.TYPE_WIRED_HEADSET -> context.getString(R.string.output_kind_wired)
+        AudioDeviceInfo.TYPE_USB_DEVICE, AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_USB_ACCESSORY -> context.getString(R.string.output_kind_usb)
+        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> context.getString(R.string.output_kind_bluetooth)
+        AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER, AudioDeviceInfo.TYPE_BLE_BROADCAST -> context.getString(R.string.output_kind_ble)
+        AudioDeviceInfo.TYPE_HDMI, AudioDeviceInfo.TYPE_HDMI_ARC, AudioDeviceInfo.TYPE_HDMI_EARC -> context.getString(R.string.output_kind_hdmi)
+        AudioDeviceInfo.TYPE_LINE_ANALOG, AudioDeviceInfo.TYPE_LINE_DIGITAL -> context.getString(R.string.output_kind_line)
+        AudioDeviceInfo.TYPE_DOCK -> context.getString(R.string.output_kind_dock)
         else -> null
     }
 
@@ -30,7 +31,7 @@ object AudioOutput {
             manager.getAudioDevicesForAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()).map { it.id }
         }.getOrDefault(emptyList()) else emptyList()
         return manager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).mapNotNull { device ->
-            kind(device.type)?.let { label ->
+            kind(context, device.type)?.let { label ->
                 OutputDevice(device.productName?.toString().orEmpty().ifBlank { label }, label,
                     device.sampleRates.filter { it > 0 }.sorted(), active = device.id in routed)
             }

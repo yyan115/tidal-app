@@ -1,5 +1,7 @@
 package io.github.yyan115.opentune.playback
 
+import io.github.yyan115.opentune.core.ServiceException
+import io.github.yyan115.opentune.core.Problem
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -59,7 +61,7 @@ class AudioSources(private val app: OpenTuneApp) {
             if (local.startsWith("opentune-offline:")) return item(saved, readOffline(saved.id))
             return metadata(saved).setUri(local).build()
         }
-        check(!app.settings.state.value.offline) { "This track is not available offline. Download it first." }
+        if (app.settings.state.value.offline) throw ServiceException(0, "This track is not available offline. Download it first.", Problem.NOT_AVAILABLE_OFFLINE)
         val settings = app.settings.state.value
         val stream = app.tidal.stream(track.id, if (wifi()) settings.quality else settings.mobileQuality)
         return item(track, stream)

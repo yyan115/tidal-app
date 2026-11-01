@@ -1,5 +1,8 @@
 package io.github.yyan115.opentune.ui
 
+import io.github.yyan115.opentune.textRes
+import io.github.yyan115.opentune.problemText
+import io.github.yyan115.opentune.R
 import android.app.Application
 import android.content.ComponentName
 import android.net.Uri
@@ -126,15 +129,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     override fun onPlayerError(error: PlaybackException) {
                         val cause = generateSequence<Throwable>(error) { it.cause }.last()
                         ui.update { it.copy(playback = it.playback.copy(error = when (cause) {
-                            is ServiceException, is ProtectedStreamException, is IllegalStateException -> cause.message
-                            else -> "Playback stopped. Check the connection or choose another track."
+                            is ServiceException, is ProtectedStreamException -> app.problemText(cause)
+                            else -> app.getString(R.string.error_playback_stopped)
                         })) }
                     }
                 })
                 restoreQueue()
                 updatePlayback()
                 updateSleepTimer(player.sessionExtras)
-            } catch (_: Exception) { notify("The audio service could not start. Reopen the app to retry.") }
+            } catch (_: Exception) { notify(app.getString(R.string.notify_service_failed)) }
         }, ContextCompat.getMainExecutor(application))
         viewModelScope.launch {
             while (true) {
@@ -231,7 +234,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun completeBrowserLogin(callback: String) {
         if (loginJob?.isActive == true) return
         val pending = app.sessions.pendingPkce() ?: run {
-            val message = "This sign-in expired. Start a new TIDAL sign-in."
+            val message = app.getString(R.string.login_expired)
             ui.update { it.copy(error = message) }
             notify(message)
             return
@@ -242,7 +245,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 app.tidal.completePkce(pending, callback)
                 app.sessions.clearPkce()
                 ui.update { it.copy(pkceLogin = null, signedIn = true, signingIn = false, error = null) }
-                notify("TIDAL connected"); sync()
+                notify(app.getString(R.string.settings_connected)); sync()
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 ui.update { it.copy(signingIn = false, error = userMessage(error)) }
@@ -362,7 +365,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (tracks.isEmpty()) return
         preferences.edit().putString("source", source).apply()
         ui.update { it.copy(playback = it.playback.copy(source = source)) }
-        val player = controller ?: run { notify("The audio service is starting. Try again in a moment."); return }
+        val player = controller ?: run { notify(app.getString(R.string.notify_service_starting)); return }
         ui.update { it.copy(playback = it.playback.copy(error = null)) }
         player.setMediaItems(tracks.map(app.sources::unresolved), index.coerceIn(tracks.indices), 0)
         player.prepare(); player.play()
@@ -397,7 +400,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val player = controller ?: return
         if (player.mediaItemCount == 0) { play(listOf(track)); return }
         player.addMediaItem(if (next) player.currentMediaItemIndex + 1 else player.mediaItemCount, app.sources.unresolved(track))
-        notify(if (next) "Plays next" else "Added to queue")
+        notify(app.getString(if (next) R.string.notify_plays_next else R.string.notify_added_queue))
     }
     fun removeQueue(index: Int) { controller?.removeMediaItem(index) }
     fun moveQueue(from: Int, to: Int) { controller?.let { if (to in 0 until it.mediaItemCount) it.moveMediaItem(from, to) } }
@@ -412,13 +415,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (!track.id.startsWith("local:")) app.library.queueFavorite(account, track.id, !previous)
         } } catch (error: Exception) {
             if (error is CancellationException) throw error
-            notify("The track could not be saved. Check available storage and try again."); return@launch
+            notify(app.getString(R.string.notify_track_not_saved)); return@launch
         }
         cloudFavorites = if (previous) cloudFavorites.filterNot { it.id == track.id } else cloudFavorites
         refreshLocal()
         if (!track.id.startsWith("local:") && app.tidal.signedIn && !ui.value.settings.offline) {
             try { favoriteSyncLock.withLock { drainFavorites(account) } }
-            catch (error: Exception) { if (error is CancellationException) throw error; notify("Saved on this device. TIDAL could not be updated: ${userMessage(error)}") }
+            catch (error: Exception) { if (error is CancellationException) throw error; notify(app.getString(R.string.notify_saved_local_failed, userMessage(error))) }
         }
     }
 
@@ -444,34 +447,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 app.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 app.importer.import(uri); imported++
-            } catch (error: Exception) { if (error is CancellationException) throw error; notify("An audio file could not be imported. Check that it is readable.") }
+            } catch (error: Exception) { if (error is CancellationException) throw error; notify(app.getString(R.string.notify_import_failed)) }
         }
-        if (imported > 0) notify(if (imported == 1) "Audio file added" else "$imported audio files added")
+        if (imported > 0) notify(app.resources.getQuantityString(R.plurals.notify_files_added, imported, imported))
     }
 
     fun download(track: Track, quiet: Boolean = false) = viewModelScope.launch {
-        if (track.isLocal || withContext(Dispatchers.IO) { app.library.get(track.id)?.isLocal == true }) { if (!quiet) notify("This track is already on your device"); return@launch }
-        if (!app.tidal.signedIn) { if (!quiet) notify("Sign in to TIDAL before downloading"); return@launch }
-        if (ui.value.settings.offline) { if (!quiet) notify("Turn off offline mode before downloading"); return@launch }
+        if (track.isLocal || withContext(Dispatchers.IO) { app.library.get(track.id)?.isLocal == true }) { if (!quiet) notify(app.getString(R.string.notify_already_local)); return@launch }
+        if (!app.tidal.signedIn) { if (!quiet) notify(app.getString(R.string.notify_download_sign_in)); return@launch }
+        if (ui.value.settings.offline) { if (!quiet) notify(app.getString(R.string.notify_download_offline)); return@launch }
         withContext(Dispatchers.IO) { app.library.save(track) }
         val request = OneTimeWorkRequestBuilder<DownloadWorker>().setInputData(workDataOf("track" to JsonCodec.encodeTrack(track).toString()))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(if (ui.value.settings.downloadOnWifi) NetworkType.UNMETERED else NetworkType.CONNECTED).build())
             .addTag("audio-download").addTag("track:${track.id}").build()
         WorkManager.getInstance(app).enqueueUniqueWork("download:${track.id}", ExistingWorkPolicy.KEEP, request)
-        if (!quiet) notify(if (ui.value.settings.downloadOnWifi && !app.sources.wifi()) "Download queued for Wi-Fi" else "Download queued")
+        if (!quiet) notify(app.getString(if (ui.value.settings.downloadOnWifi && !app.sources.wifi()) R.string.notify_download_queued_wifi else R.string.notify_download_queued))
     }
     fun cancelDownload(work: WorkInfo) { WorkManager.getInstance(app).cancelWorkById(work.id) }
     fun clearDownloadHistory() { WorkManager.getInstance(app).pruneWork() }
 
     fun export(track: Track, destination: Uri) = viewModelScope.launch {
-        if (ui.value.exportProgress != null) { notify("Wait for the current export to finish"); return@launch }
+        if (ui.value.exportProgress != null) { notify(app.getString(R.string.notify_export_busy)); return@launch }
         ui.update { it.copy(exportProgress = 0) }
         try {
             app.exporter.write(track, destination) { percent -> ui.update { it.copy(exportProgress = percent) } }
-            notify("Audio file exported")
+            notify(app.getString(R.string.notify_exported))
         } catch (error: Exception) {
             if (error is CancellationException) throw error
-            notify("The audio could not be exported. Check the destination and try again.")
+            notify(app.getString(R.string.notify_export_failed))
         } finally { ui.update { it.copy(exportProgress = null) } }
     }
 
@@ -497,7 +500,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ui.value.detail?.takeIf { it.id.startsWith("local:") }?.let(::open)
         } catch (error: Exception) {
             if (error is CancellationException) throw error
-            notify("The audio could not be removed. Try again.")
+            notify(app.getString(R.string.notify_remove_failed))
         }
     }
 
@@ -506,12 +509,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (title.isNotBlank()) {
                 val playlist = app.library.createPlaylist(title)
                 initialTrack?.let { app.library.addToPlaylist(playlist.id, it) }
-                notify("Playlist created")
+                notify(app.getString(R.string.notify_playlist_created))
             }
-        } catch (_: Exception) { notify("The playlist could not be saved. Check available storage and try again.") }
+        } catch (_: Exception) { notify(app.getString(R.string.notify_playlist_not_saved)) }
     }
     fun addToPlaylist(playlist: LocalPlaylist, track: Track) = viewModelScope.launch(Dispatchers.IO) {
-        app.library.addToPlaylist(playlist.id, track); notify("Added to ${playlist.title}")
+        app.library.addToPlaylist(playlist.id, track); notify(app.getString(R.string.notify_added_to, playlist.title))
     }
     fun deletePlaylist(id: String) = viewModelScope.launch(Dispatchers.IO) { app.library.deletePlaylist(id); closeDetail() }
 
@@ -561,21 +564,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } }
         val remote = if (app.tidal.signedIn && !ui.value.settings.offline) runCatching { app.tidal.search(text).tracks }.getOrDefault(emptyList()) else emptyList()
         val tracks = (local + remote).distinctBy(Track::id).take(30)
-        if (tracks.isEmpty()) notify("Nothing found for $text") else play(tracks, 0, "Search")
+        if (tracks.isEmpty()) notify(app.getString(R.string.notify_nothing_found, text)) else play(tracks, 0, app.getString(R.string.nav_search))
     }
 
     fun scrobbleToken(): String = app.sessions.scrobbleToken().orEmpty()
 
     fun saveScrobbling(enabled: Boolean, server: String, token: String) {
-        try { app.sessions.setScrobbleToken(token) } catch (_: Exception) { notify("The token could not be saved."); return }
+        try { app.sessions.setScrobbleToken(token) } catch (_: Exception) { notify(app.getString(R.string.notify_token_not_saved)); return }
         settings { it.copy(scrobble = enabled, scrobbleServer = server.trim().ifBlank { "https://api.listenbrainz.org" }) }
         if (enabled) viewModelScope.launch { runCatching { app.scrobbler.flush() } }
     }
 
     suspend fun checkScrobbling(server: String, token: String): String = try {
-        app.scrobbler.check(server, token.trim())?.let { "The token belongs to $it." } ?: "The server rejected the token."
-    } catch (error: ServiceException) { error.message.orEmpty() }
-    catch (_: java.io.IOException) { "The server could not be reached." }
+        app.scrobbler.check(server, token.trim())?.let { name -> if (name.isBlank()) app.getString(R.string.scrobble_token_valid) else app.getString(R.string.scrobble_token_ok, name) } ?: app.getString(R.string.error_scrobble_token_rejected)
+    } catch (error: ServiceException) { app.problemText(error) }
+    catch (_: java.io.IOException) { app.getString(R.string.scrobble_unreachable) }
 
     suspend fun listeningStats(days: Int): ListeningStats = withContext(Dispatchers.IO) {
         val since = if (days <= 0) 0L else System.currentTimeMillis() - days * 86_400_000L
@@ -585,14 +588,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         ListeningStats(plays, listened / 3_600_000, listened / 60_000 % 60, tracks.take(25), artists)
     }
 
-    fun clearListeningHistory() = viewModelScope.launch(Dispatchers.IO) { app.library.clearHistory(); notify("Listening history cleared") }
+    fun clearListeningHistory() = viewModelScope.launch(Dispatchers.IO) { app.library.clearHistory(); notify(app.getString(R.string.notify_history_cleared)) }
 
     fun exportBackup(destination: Uri) = viewModelScope.launch(Dispatchers.IO) {
         try {
             val text = io.github.yyan115.opentune.data.BackupManager(app).toJson().toString(2)
             app.contentResolver.openOutputStream(destination, "wt")!!.use { it.write(text.toByteArray()) }
-            notify("Backup saved")
-        } catch (error: Exception) { if (error is CancellationException) throw error; notify("The backup could not be saved. Check the destination and try again.") }
+            notify(app.getString(R.string.notify_backup_saved))
+        } catch (error: Exception) { if (error is CancellationException) throw error; notify(app.getString(R.string.notify_backup_failed)) }
     }
 
     fun importBackup(source: Uri) = viewModelScope.launch(Dispatchers.IO) {
@@ -600,9 +603,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val text = app.contentResolver.openInputStream(source)!!.use { it.readBytes().toString(Charsets.UTF_8) }
             val summary = io.github.yyan115.opentune.data.BackupManager(app).restore(JSONObject(text))
             refreshLocal()
-            notify("Restored ${summary.playlists} playlists and ${summary.plays} listens")
-        } catch (error: IllegalArgumentException) { notify(error.message ?: "This file is not an OpenTune backup.") }
-        catch (error: Exception) { if (error is CancellationException) throw error; notify("The backup could not be read.") }
+            notify(app.getString(R.string.notify_restored, app.resources.getQuantityString(R.plurals.playlist_count, summary.playlists, summary.playlists), app.resources.getQuantityString(R.plurals.stats_listens, summary.plays, summary.plays)))
+        } catch (error: IllegalArgumentException) { notify(app.getString(((error as? io.github.yyan115.opentune.data.BackupException)?.problem ?: Problem.BACKUP_INVALID).textRes())) }
+        catch (error: Exception) { if (error is CancellationException) throw error; notify(app.getString(R.string.notify_backup_unreadable)) }
     }
 
     fun retryLyrics() { ui.update { it.copy(lyricsStatus = LyricsStatus.Idle, lyricsTrackId = "") }; loadLyrics() }
@@ -623,19 +626,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun playTrackRadio(track: Track) = accountAction {
         val radio = app.tidal.trackRadio(track.id).filterNot { it.id == track.id }
-        if (radio.isEmpty()) notify("TIDAL has no radio for this track") else play(listOf(track) + radio)
+        if (radio.isEmpty()) notify(app.getString(R.string.notify_no_radio_track)) else play(listOf(track) + radio)
     }
     fun playArtistRadio(artistId: String) = accountAction {
         val radio = app.tidal.artistRadio(artistId)
-        if (radio.isEmpty()) notify("TIDAL has no radio for this artist") else play(radio)
+        if (radio.isEmpty()) notify(app.getString(R.string.notify_no_radio_artist)) else play(radio)
     }
     fun playArtistTopTracks(artistId: String, shuffle: Boolean = false) = accountAction {
         val tracks = app.tidal.artistTopTracks(artistId)
-        if (tracks.isEmpty()) notify("This artist has no tracks to play") else { play(tracks); if (shuffle && !ui.value.playback.shuffle) toggleShuffle() }
+        if (tracks.isEmpty()) notify(app.getString(R.string.notify_artist_empty)) else { play(tracks); if (shuffle && !ui.value.playback.shuffle) toggleShuffle() }
     }
     fun playMix(mixId: String, shuffle: Boolean = false) = accountAction {
         val tracks = app.tidal.mixTracks(mixId)
-        if (tracks.isEmpty()) notify("This mix has no tracks") else { play(tracks); if (shuffle && !ui.value.playback.shuffle) toggleShuffle() }
+        if (tracks.isEmpty()) notify(app.getString(R.string.notify_mix_empty)) else { play(tracks); if (shuffle && !ui.value.playback.shuffle) toggleShuffle() }
     }
     fun playTracks(tracks: List<Track>, shuffle: Boolean, source: String = "") {
         if (tracks.isEmpty()) return
@@ -666,7 +669,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun createFolder(name: String) = accountAction {
         if (name.isBlank()) return@accountAction
-        app.tidal.createFolder(name); refreshFolders(); notify("Folder created")
+        app.tidal.createFolder(name); refreshFolders(); notify(app.getString(R.string.notify_folder_created))
     }
 
     fun renameFolder(folder: Release, name: String) = accountAction {
@@ -677,11 +680,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** Deletes a folder after moving its playlists to the top level, because TIDAL hides the playlists of a deleted folder. */
     fun deleteFolder(folder: Release) = accountAction {
         val inside = app.tidal.playlistFolder(folder.id)
-        if (inside.any { it.type == ReleaseType.FOLDER }) { notify("Remove the folders inside first"); return@accountAction }
+        if (inside.any { it.type == ReleaseType.FOLDER }) { notify(app.getString(R.string.notify_folder_nested)); return@accountAction }
         inside.forEach { app.tidal.moveToFolder(it.id, TidalClient.ROOT_FOLDER) }
         app.tidal.removeFolder(folder.id)
         ui.update { it.copy(folders = it.folders - folder.id) }
-        refreshFolders(); notify("Folder deleted")
+        refreshFolders(); notify(app.getString(R.string.notify_folder_deleted))
     }
 
     fun moveToFolder(playlist: Release, folderId: String) = accountAction {
@@ -711,8 +714,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         try {
             val playlist = app.library.createPlaylist(title)
             queue.forEach { app.library.addToPlaylist(playlist.id, it) }
-            notify("Saved ${queue.size} tracks as ${playlist.title}")
-        } catch (_: Exception) { notify("The playlist could not be saved. Check available storage and try again.") }
+            notify(app.resources.getQuantityString(R.plurals.notify_queue_saved, queue.size, queue.size, playlist.title))
+        } catch (_: Exception) { notify(app.getString(R.string.notify_playlist_not_saved)) }
     }
 
     private fun updatePlayback() {
@@ -759,12 +762,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val playlist = app.tidal.createPlaylist(title.trim())
         ui.update { it.copy(playlists = it.playlists + playlist) }
         initialTrack?.let { app.tidal.addToPlaylist(playlist.id, it.id) }
-        notify("Playlist created in TIDAL")
+        notify(app.getString(R.string.notify_tidal_playlist_created))
     }
 
     fun addToCloudPlaylist(playlist: Release, track: Track) = accountAction {
         app.tidal.addToPlaylist(playlist.id, track.id)
-        notify("Added to ${playlist.title}")
+        notify(app.getString(R.string.notify_added_to, playlist.title))
     }
 
     fun renamePlaylist(release: Release, title: String) = viewModelScope.launch {
@@ -814,15 +817,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun accountAction(action: suspend () -> Unit) = viewModelScope.launch {
-        if (!app.tidal.signedIn || ui.value.settings.offline) { notify("Connect TIDAL and turn off offline mode to make this change"); return@launch }
+        if (!app.tidal.signedIn || ui.value.settings.offline) { notify(app.getString(R.string.notify_account_change)); return@launch }
         try { action() }
         catch (error: Exception) { if (error is CancellationException) throw error; notify(userMessage(error)) }
     }
-    private fun userMessage(error: Exception): String = when (error) {
-        is ServiceException, is ProtectedStreamException -> error.message ?: "The request failed."
-        is java.io.IOException -> "The connection failed. Check your network and try again."
-        else -> "The request could not be completed. Please retry."
-    }
+    private fun userMessage(error: Exception): String = app.problemText(error)
     private companion object {
         const val MISSING_LYRICS_MS = 7 * 24 * 3600_000L
         const val AUTO_DOWNLOAD_BATCH = 50

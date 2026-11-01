@@ -1,5 +1,7 @@
 package io.github.yyan115.opentune.ui
 
+import io.github.yyan115.opentune.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
@@ -70,7 +72,7 @@ fun ErrorCard(message: String, onRetry: (() -> Unit)? = null) {
         color = MaterialTheme.colorScheme.errorContainer) {
         Column(Modifier.padding(16.dp)) {
             Text(message, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
-            if (onRetry != null) TextButton(onClick = onRetry) { Text("Retry", color = MaterialTheme.colorScheme.onErrorContainer) }
+            if (onRetry != null) TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry), color = MaterialTheme.colorScheme.onErrorContainer) }
         }
     }
 }
@@ -91,12 +93,12 @@ fun TrackRow(track: Track, playing: Boolean = false, onPlay: () -> Unit, onMenu:
                     Text("E", Modifier.padding(end = 6.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(2.dp)).padding(horizontal = 3.dp),
                         style = MaterialTheme.typography.labelSmall)
                 }
-                if (track.isLocal) Icon(OpenTuneIcons.DownloadDone, "Available offline", Modifier.padding(end = 4.dp).size(13.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (track.isLocal) Icon(OpenTuneIcons.DownloadDone, stringResource(R.string.track_available_offline), Modifier.padding(end = 4.dp).size(13.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(track.artist, fontFamily = InterfaceFont, fontSize = 11.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        IconButton(onClick = onMenu) { Icon(OpenTuneIcons.MoreVert, "Options for ${track.title}", Modifier.size(20.dp)) }
+        IconButton(onClick = onMenu) { Icon(OpenTuneIcons.MoreVert, stringResource(R.string.track_options, track.title), Modifier.size(20.dp)) }
     }
 }
 

@@ -1,5 +1,6 @@
 package io.github.yyan115.opentune.data
 
+import io.github.yyan115.opentune.downloadErrorCode
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -93,13 +94,7 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
             if (dash != null) app.sources.offlineFile(track.id).delete()
             if (isStopped) throw error
             if (app.settings.state.value.offline) return@withContext Result.retry()
-            val message = when (error) {
-                is io.github.yyan115.opentune.core.ServiceException -> error.message
-                is io.github.yyan115.opentune.core.ProtectedStreamException -> error.message
-                is java.io.IOException -> "The connection was interrupted. Retry the download."
-                else -> "The audio could not be saved. Check available storage and retry."
-            }
-            Result.failure(workDataOf("error" to message))
+            Result.failure(workDataOf("error" to downloadErrorCode(error)))
         }
     }
 
@@ -111,12 +106,12 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
         }
     }
 
-    override suspend fun getForegroundInfo(): ForegroundInfo = notification("Preparing download", 0)
+    override suspend fun getForegroundInfo(): ForegroundInfo = notification(applicationContext.getString(R.string.download_preparing), 0)
     private fun notification(title: String, percent: Int): ForegroundInfo {
         val manager = applicationContext.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel("downloads", "Downloads", NotificationManager.IMPORTANCE_LOW))
+        manager.createNotificationChannel(NotificationChannel("downloads", applicationContext.getString(R.string.download_channel), NotificationManager.IMPORTANCE_LOW))
         val notification = Notification.Builder(applicationContext, "downloads").setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title).setContentText("Saving audio for offline listening")
+            .setContentTitle(title).setContentText(applicationContext.getString(R.string.download_notification_text))
             .setProgress(100, percent, percent == 0).setOngoing(true).build()
         val notificationId = 2100 + (id.hashCode() and 1023)
         return if (android.os.Build.VERSION.SDK_INT >= 29) ForegroundInfo(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)

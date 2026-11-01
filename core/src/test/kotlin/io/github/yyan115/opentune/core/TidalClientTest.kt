@@ -226,6 +226,30 @@ class TidalClientTest {
         assertEquals("IN", request.requestUrl!!.queryParameter("countryCode"))
     }
 
+    @Test fun pagesAskForTheLanguageOfTheDevice() = runBlocking {
+        var language = "de_DE"
+        val translated = TidalClient({ ClientIdentity("test-client", "test-secret") }, store,
+            apiBase = server.url("/v1/").toString(), authBase = server.url("/oauth/").toString(), apiBaseV2 = server.url("/v2/").toString(), locale = { language })
+        server.enqueue(MockResponse().setBody("""{"id":"x","title":"T","rows":[]}"""))
+        translated.page("pages/home")
+        assertEquals("de_DE", server.takeRequest().requestUrl!!.queryParameter("locale"))
+        language = "fr_CA"
+        server.enqueue(MockResponse().setBody("""{"id":"x","title":"T","rows":[]}"""))
+        translated.page("pages/home")
+        assertEquals("fr_CA", server.takeRequest().requestUrl!!.queryParameter("locale"))
+    }
+
+    @Test fun everyServiceFailureCarriesAProblemTheAppCanTranslate() {
+        assertEquals(Problem.SESSION_EXPIRED, Problem.forStatus(401))
+        assertEquals(Problem.HTTP_FORBIDDEN, Problem.forStatus(403))
+        assertEquals(Problem.HTTP_NOT_FOUND, Problem.forStatus(404))
+        assertEquals(Problem.HTTP_RATE_LIMIT, Problem.forStatus(429))
+        assertEquals(Problem.HTTP_CONFLICT, Problem.forStatus(412))
+        assertEquals(Problem.HTTP_SERVER, Problem.forStatus(503))
+        assertEquals(Problem.HTTP_OTHER, Problem.forStatus(418))
+        assertEquals(Problem.HTTP_OTHER, ServiceException(418, "teapot").problem)
+    }
+
     @Test fun creditsAcceptAResponseThatIsAnArray() = runBlocking {
         server.enqueue(MockResponse().setBody("""[{"type":"Producer","contributors":[{"name":"A","id":1}]}]"""))
         val credits = client.credits("album", "9")

@@ -1,5 +1,7 @@
 package io.github.yyan115.opentune.ui
 
+import io.github.yyan115.opentune.problemText
+import io.github.yyan115.opentune.R
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -58,7 +60,7 @@ class PagesViewModel(application: Application) : AndroidViewModel(application) {
             }
             val offline = app.settings.state.value.offline
             if (offline || !app.tidal.signedIn) {
-                update(key) { it.copy(loading = false, error = if (it.page == null) (if (offline) "This page is not available offline." else "Connect TIDAL to see this page.") else null) }
+                update(key) { it.copy(loading = false, error = if (it.page == null) app.getString(if (offline) R.string.page_error_offline else R.string.page_error_signed_out) else null) }
                 return@launch
             }
             try {
@@ -71,7 +73,7 @@ class PagesViewModel(application: Application) : AndroidViewModel(application) {
                 update(key) { PageUi(page = page, loadedAt = System.currentTimeMillis()) }
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
-                update(key) { it.copy(loading = false, error = if (it.page == null) pageError(error) else null) }
+                update(key) { it.copy(loading = false, error = if (it.page == null) app.pageError(error) else null) }
             }
         }
     }
@@ -133,8 +135,8 @@ class PagesViewModel(application: Application) : AndroidViewModel(application) {
     }
 }
 
-internal fun pageError(error: Throwable): String = when (error) {
-    is ServiceException -> error.message.orEmpty()
-    is java.io.IOException -> "TIDAL could not be reached. Check the connection and try again."
-    else -> "Something went wrong. Try again."
+internal fun android.content.Context.pageError(error: Throwable): String = when (error) {
+    is ServiceException, is io.github.yyan115.opentune.core.ProtectedStreamException -> problemText(error)
+    is java.io.IOException -> getString(R.string.page_error_unreachable)
+    else -> getString(R.string.page_error_generic)
 }

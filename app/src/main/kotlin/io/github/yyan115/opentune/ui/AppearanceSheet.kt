@@ -1,5 +1,7 @@
 package io.github.yyan115.opentune.ui
 
+import io.github.yyan115.opentune.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
@@ -32,18 +34,18 @@ fun AppearanceSheet(settings: Settings, onChange: (Settings) -> Unit, onClose: (
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             stickyHeader {
                 Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Appearance", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-                    TextButton(onClick = onClose) { Text("Done") }
+                    Text(stringResource(R.string.appearance_title), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+                    TextButton(onClick = onClose) { Text(stringResource(R.string.action_done)) }
                 }
             }
             item {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (value, title) ->
-                        FilterChip(settings.theme == value, { onChange(settings.copy(theme = value)) }, label = { Text(title) })
+                    listOf("system" to R.string.appearance_system, "light" to R.string.appearance_light, "dark" to R.string.appearance_dark).forEach { (value, title) ->
+                        FilterChip(settings.theme == value, { onChange(settings.copy(theme = value)) }, label = { Text(stringResource(title)) })
                     }
                 }
             }
-            item { Text("Colour", style = MaterialTheme.typography.titleSmall) }
+            item { Text(stringResource(R.string.appearance_colour), style = MaterialTheme.typography.titleSmall) }
             items(rows.size) { row ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     rows[row].forEach { palette ->
@@ -65,7 +67,7 @@ private fun ColorThemeCard(palette: AppColorTheme, dark: Boolean, selected: Bool
         .border(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, shape)
         .clip(shape).background(scheme.background).padding(12.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Listen", Modifier.weight(1f), color = scheme.onSurface, fontFamily = EditorialFont,
+            Text(stringResource(R.string.nav_listen), Modifier.weight(1f), color = scheme.onSurface, fontFamily = EditorialFont,
                 fontSize = 22.sp, fontWeight = FontWeight.Normal)
             Spacer(Modifier.width(8.dp))
             Box(Modifier.size(18.dp).background(scheme.primary, RoundedCornerShape(50)))
@@ -80,8 +82,8 @@ private fun ColorThemeCard(palette: AppColorTheme, dark: Boolean, selected: Bool
         }
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(palette.name, Modifier.weight(1f), color = scheme.onSurface, fontFamily = InterfaceFont, fontSize = 12.sp)
-            if (selected) Icon(OpenTuneIcons.Check, "Selected", Modifier.size(16.dp), tint = scheme.primary)
+            Text(stringResource(palette.nameRes), Modifier.weight(1f), color = scheme.onSurface, fontFamily = InterfaceFont, fontSize = 12.sp)
+            if (selected) Icon(OpenTuneIcons.Check, stringResource(R.string.appearance_selected), Modifier.size(16.dp), tint = scheme.primary)
         }
     }
 }

@@ -10,8 +10,9 @@ data class PageRoute(val path: String, val query: Map<String, String> = emptyMap
         fun mix(id: String, title: String = "") = PageRoute("pages/mix", mapOf("mixId" to id), title)
         fun path(path: String, title: String = "") = PageRoute(path, emptyMap(), title)
 
-        val ForYou = path("pages/for_you", "For you")
-        val Home = path("pages/home", "Home")
-        val Explore = path("pages/explore", "Explore")
+        // The titles of these routes are shown by their screens, which translate them.
+        val ForYou = path("pages/for_you")
+        val Home = path("pages/home")
+        val Explore = path("pages/explore")
     }
 }

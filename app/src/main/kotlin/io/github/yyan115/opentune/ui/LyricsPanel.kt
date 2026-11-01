@@ -1,5 +1,7 @@
 package io.github.yyan115.opentune.ui
 
+import io.github.yyan115.opentune.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
@@ -43,11 +45,11 @@ fun LyricsPanel(state: AppState, vm: MainViewModel, modifier: Modifier = Modifie
             state.lyricsStatus == LyricsStatus.Ready && lyrics != null -> if (lyrics.synced) SyncedLyrics(lyrics, state.playback.position, vm::seek) else PlainLyrics(lyrics)
             else -> Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
                 Text(when (state.lyricsStatus) {
-                    LyricsStatus.Offline -> "Lyrics need a connection. They stay on the device once you have opened them."
-                    LyricsStatus.Error -> "The lyrics could not be loaded."
-                    else -> "There are no lyrics for this track."
+                    LyricsStatus.Offline -> stringResource(R.string.lyrics_offline)
+                    LyricsStatus.Error -> stringResource(R.string.lyrics_error)
+                    else -> stringResource(R.string.lyrics_none)
                 }, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (state.lyricsStatus == LyricsStatus.Error) TextButton(onClick = vm::retryLyrics) { Text("Retry") }
+                if (state.lyricsStatus == LyricsStatus.Error) TextButton(onClick = vm::retryLyrics) { Text(stringResource(R.string.action_retry)) }
             }
         }
     }
@@ -94,7 +96,7 @@ private fun PlainLyrics(lyrics: Lyrics) {
 
 @Composable
 private fun Attribution(lyrics: Lyrics) {
-    if (lyrics.provider.isNotBlank()) Text("Lyrics by ${lyrics.provider.lowercase().replaceFirstChar(Char::uppercase)}", Modifier.padding(top = 18.dp),
+    if (lyrics.provider.isNotBlank()) Text(stringResource(R.string.lyrics_credit, lyrics.provider.lowercase().replaceFirstChar(Char::uppercase)), Modifier.padding(top = 18.dp),
         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 

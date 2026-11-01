@@ -55,6 +55,10 @@ Turn on **Keep saved tracks offline** under **Settings**, **Privacy and data** t
 
 **Back up data** writes a file with your settings, device playlists and listening history. **Restore data** merges such a file into the current install. TIDAL data stays in your account. The file holds no tokens, downloads or imported audio files.
 
+## Language
+
+OpenTune is in English. Text that TIDAL supplies, such as section titles on Listen and Search, follows the language of the device. Contributors can add translations, see [translating.md](translating.md).
+
 ## Limits
 
 - **Dolby Atmos:** TIDAL sends this client the stereo mix of tracks that also have an Atmos mix, whatever quality or format is requested, so OpenTune cannot play Atmos. Tracks that exist only as Atmos mixes may not play at all.

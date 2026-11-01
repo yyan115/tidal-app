@@ -14,11 +14,11 @@ object JsonCodec {
         val primary = artists?.optJSONObject(0) ?: value.optJSONObject("artist")
         return Track(
             id = value.get("id").toString(),
-            title = text(value, "title").ifBlank { "Untitled" }.let { title ->
+            title = text(value, "title").ifBlank { Placeholders.untitled }.let { title ->
                 val version = text(value, "version").takeIf(String::isNotBlank)
                 if (version != null && !title.contains(version, ignoreCase = true)) "$title ($version)" else title
             },
-            artist = artist.ifBlank { text(value, "artistName").ifBlank { "Unknown artist" } },
+            artist = artist.ifBlank { text(value, "artistName").ifBlank { Placeholders.unknownArtist } },
             album = text(album, "title"),
             albumId = album?.opt("id")?.toString().orEmpty(),
             artwork = image(album?.optString("cover") ?: value.optString("cover")),
@@ -80,7 +80,7 @@ object JsonCodec {
         }
         return Release(
             id = (value.opt("uuid") ?: value.opt("id") ?: "").toString(),
-            title = text(value, "title").ifBlank { text(value, "name").ifBlank { "Untitled" } },
+            title = text(value, "title").ifBlank { text(value, "name").ifBlank { Placeholders.untitled } },
             artist = artistName,
             artwork = artwork,
             subtitle = subtitle,

@@ -37,6 +37,8 @@ class TidalClient(
     private val apiBase: String = "https://api.tidal.com/v1/",
     private val authBase: String = "https://auth.tidal.com/v1/oauth2/",
     private val apiBaseV2: String = "https://api.tidal.com/v2/",
+    /** The language and region for the text that TIDAL writes, such as `en_US`. */
+    private val locale: () -> String = { "en_US" },
 ) {
     private val refreshLock = Mutex()
     private val generation = AtomicLong()
@@ -61,25 +63,27 @@ class TidalClient(
     }
 
     suspend fun completePkce(login: PkceLogin, redirect: String) {
-        if (System.currentTimeMillis() >= login.expiresAt) throw ServiceException(401, "This sign-in expired. Start again.")
+        if (System.currentTimeMillis() >= login.expiresAt) throw ServiceException(401, "This sign-in expired. Start again.", Problem.SIGN_IN_EXPIRED)
         val expectedRedirect = login.authorizationUrl.toHttpUrl().queryParameter("redirect_uri").orEmpty()
         if (!SignInCallback.matches(redirect, expectedRedirect)) {
-            throw ServiceException(400, "This is not a TIDAL sign-in callback.")
+            throw ServiceException(400, "This is not a TIDAL sign-in callback.", Problem.SIGN_IN_WRONG_CALLBACK)
         }
         val parameters = SignInCallback.parameters(redirect)
         val returnedState = parameters["state"]?.singleOrNull().orEmpty()
-        if (!java.security.MessageDigest.isEqual(login.state.toByteArray(), returnedState.toByteArray())) throw ServiceException(400, "This response belongs to a different sign-in. Start again.")
-        if (parameters.containsKey("error")) throw ServiceException(401, "Sign-in was cancelled or declined on TIDAL. Start a new sign-in.")
-        val code = parameters["code"]?.singleOrNull()?.takeIf(String::isNotBlank) ?: throw ServiceException(400, "TIDAL did not return an authorization code.")
+        if (!java.security.MessageDigest.isEqual(login.state.toByteArray(), returnedState.toByteArray())) throw ServiceException(400, "This response belongs to a different sign-in. Start again.", Problem.SIGN_IN_OTHER_ATTEMPT)
+        if (parameters.containsKey("error")) throw ServiceException(401, "Sign-in was cancelled or declined on TIDAL. Start a new sign-in.", Problem.SIGN_IN_DECLINED)
+        val code = parameters["code"]?.singleOrNull()?.takeIf(String::isNotBlank) ?: throw ServiceException(400, "TIDAL did not return an authorization code.", Problem.SIGN_IN_NO_CODE)
         val expectedGeneration = generation.get()
         val response = try { withContext(Dispatchers.IO) {
             form("token", mapOf("code" to code, "client_id" to identity().id, "grant_type" to "authorization_code",
                 "redirect_uri" to expectedRedirect, "scope" to "r_usr w_usr", "code_verifier" to login.verifier, "client_unique_key" to login.uniqueKey))
-        } } catch (error: OAuthException) { throw ServiceException(401, when (error.code) {
-            "invalid_grant", "expired_token" -> "This sign-in expired or was already used. Start a new sign-in."
-            "invalid_client", "unauthorized_client" -> "TIDAL rejected this app's sign-in configuration. Update OpenTune and try again."
-            else -> "TIDAL could not finish sign-in. Start a new sign-in and try again."
-        }) }
+        } } catch (error: OAuthException) {
+            when (error.code) {
+                "invalid_grant", "expired_token" -> throw ServiceException(401, "This sign-in expired or was already used. Start a new sign-in.", Problem.SIGN_IN_USED)
+                "invalid_client", "unauthorized_client" -> throw ServiceException(401, "TIDAL rejected this app's sign-in configuration. Update OpenTune and try again.", Problem.SIGN_IN_CONFIG_REJECTED)
+                else -> throw ServiceException(401, "TIDAL could not finish sign-in. Start a new sign-in and try again.", Problem.SIGN_IN_FAILED)
+            }
+        }
         authenticate(response, expectedGeneration)
     }
 
@@ -152,7 +156,7 @@ class TidalClient(
             "playbackmode" to "STREAM", "assetpresentation" to "FULL")))
         if (quality in setOf(AudioQuality.LOSSLESS, AudioQuality.HI_RES_LOSSLESS) &&
             !stream.codec.equals("flac", ignoreCase = true) && !stream.codec.equals("alac", ignoreCase = true)) {
-            throw ServiceException(406, "TIDAL returned lossy audio instead of lossless. Sign in again using Sign in to TIDAL, or choose High quality to allow AAC.")
+            throw ServiceException(406, "TIDAL returned lossy audio instead of lossless. Sign in again using Sign in to TIDAL, or choose High quality to allow AAC.", Problem.LOSSY_AUDIO)
         }
         return stream
     }
@@ -168,7 +172,7 @@ class TidalClient(
     suspend fun addToPlaylist(playlistId: String, trackId: String) {
         require(!trackId.startsWith("local:")) { "Local files cannot be uploaded to TIDAL playlists." }
         val metadata = request("playlists/$playlistId")
-        val etag = etags["playlists/$playlistId"] ?: throw ServiceException(409, "Refresh this playlist before editing it.")
+        val etag = etags["playlists/$playlistId"] ?: throw ServiceException(409, "Refresh this playlist before editing it.", Problem.REFRESH_PLAYLIST)
         request("playlists/$playlistId/items", method = "POST", form = mapOf("trackIds" to trackId,
             "toIndex" to metadata.optInt("numberOfTracks").toString(), "onDupes" to "SKIP", "onArtifactNotFound" to "FAIL"),
             match = etag)
@@ -176,18 +180,18 @@ class TidalClient(
 
     suspend fun removeFromPlaylist(playlistId: String, index: Int, expectedTrackId: String) {
         request("playlists/$playlistId")
-        val etag = etags["playlists/$playlistId"] ?: throw ServiceException(409, "Refresh this playlist before editing it.")
+        val etag = etags["playlists/$playlistId"] ?: throw ServiceException(409, "Refresh this playlist before editing it.", Problem.REFRESH_PLAYLIST)
         val item = JsonCodec.items(request("playlists/$playlistId/items", mapOf("limit" to "1", "offset" to "$index"))).singleOrNull()
-        if (item == null || JsonCodec.track(item).id != expectedTrackId) throw ServiceException(409, "This playlist changed elsewhere. Refresh it before editing again.")
+        if (item == null || JsonCodec.track(item).id != expectedTrackId) throw ServiceException(409, "This playlist changed elsewhere. Refresh it before editing again.", Problem.PLAYLIST_CHANGED)
         request("playlists/$playlistId/items/$index", method = "DELETE", match = etag)
     }
 
     /** Moves the track at [from] to position [to]. The track is checked first so a playlist that changed elsewhere is not edited by mistake. */
     suspend fun moveInPlaylist(playlistId: String, from: Int, to: Int, expectedTrackId: String) {
         request("playlists/$playlistId")
-        val etag = etags["playlists/$playlistId"] ?: throw ServiceException(409, "Refresh this playlist before editing it.")
+        val etag = etags["playlists/$playlistId"] ?: throw ServiceException(409, "Refresh this playlist before editing it.", Problem.REFRESH_PLAYLIST)
         val item = JsonCodec.items(request("playlists/$playlistId/items", mapOf("limit" to "1", "offset" to "$from"))).singleOrNull()
-        if (item == null || JsonCodec.track(item).id != expectedTrackId) throw ServiceException(409, "This playlist changed elsewhere. Refresh it before editing again.")
+        if (item == null || JsonCodec.track(item).id != expectedTrackId) throw ServiceException(409, "This playlist changed elsewhere. Refresh it before editing again.", Problem.PLAYLIST_CHANGED)
         request("playlists/$playlistId/items/$from", method = "POST", form = mapOf("toIndex" to "$to"), match = etag)
     }
 
@@ -282,7 +286,7 @@ class TidalClient(
         val profile = withContext(Dispatchers.IO) {
             http.newCall(Request.Builder().url(apiBase + "sessions").header("Authorization", "Bearer ${pending.accessToken}").build()).execute().use { result ->
                 if (!result.isSuccessful) throw ServiceException(result.code, errorMessage(result.code))
-                try { JSONObject(result.body.string()) } catch (_: Exception) { throw ServiceException(502, "TIDAL returned an unreadable account response.") }
+                try { JSONObject(result.body.string()) } catch (_: Exception) { throw ServiceException(502, "TIDAL returned an unreadable account response.", Problem.UNREADABLE_RESPONSE) }
             }
         }
         currentCoroutineContext().ensureActive()
@@ -290,11 +294,11 @@ class TidalClient(
     }
 
     private fun userId() = sessions.read()?.userId?.takeIf(String::isNotBlank)
-        ?: throw ServiceException(401, "Sign in to access your TIDAL collection.")
+        ?: throw ServiceException(401, "Sign in to access your TIDAL collection.", Problem.SIGN_IN_REQUIRED)
 
     private suspend fun accessToken(force: Boolean = false): String = refreshLock.withLock {
         val (requestGeneration, session) = synchronized(accountLock) {
-            generation.get() to (sessions.read() ?: throw ServiceException(401, "Sign in to TIDAL to continue."))
+            generation.get() to (sessions.read() ?: throw ServiceException(401, "Sign in to TIDAL to continue.", Problem.SIGN_IN_REQUIRED))
         }
         if (!force && !session.needsRefresh()) return@withLock session.accessToken
         val client = identity()
@@ -302,7 +306,7 @@ class TidalClient(
             withContext(Dispatchers.IO) { form("token", mapOf("client_id" to client.id, "client_secret" to client.secret,
                 "grant_type" to "refresh_token", "refresh_token" to session.refreshToken)) }
         } catch (_: OAuthException) {
-            throw ServiceException(401, "Your TIDAL session expired. Sign in again.")
+            throw ServiceException(401, "Your TIDAL session expired. Sign in again.", Problem.SESSION_EXPIRED)
         }
         tokenSession(response, session).also { saveSession(it, requestGeneration) }.accessToken
     }
@@ -335,16 +339,16 @@ class TidalClient(
             result.third?.let { etags[path] = it }
             return if (result.second.isBlank()) JSONObject() else try {
                 if (result.second.trimStart().startsWith("[")) JSONObject().put("items", org.json.JSONArray(result.second)) else JSONObject(result.second)
-            } catch (_: Exception) { throw ServiceException(502, "TIDAL returned an unreadable response.") }
+            } catch (_: Exception) { throw ServiceException(502, "TIDAL returned an unreadable response.", Problem.UNREADABLE_RESPONSE) }
         }
-        throw ServiceException(401, "Your session could not be renewed.")
+        throw ServiceException(401, "Your session could not be renewed.", Problem.SESSION_NOT_RENEWED)
     }
 
     private fun form(path: String, values: Map<String, String>): JSONObject {
         val body = FormBody.Builder().apply { values.forEach { (k, v) -> add(k, v) } }.build()
         return http.newCall(Request.Builder().url(authBase + path).post(body).build()).execute().use { response ->
             val json = try { JSONObject(response.body.string()) } catch (_: Exception) {
-                throw ServiceException(response.code, "TIDAL rejected this sign-in request. Start a new sign-in and try again.")
+                throw ServiceException(response.code, "TIDAL rejected this sign-in request. Start a new sign-in and try again.", Problem.SIGN_IN_FAILED)
             }
             if (!response.isSuccessful) throw OAuthException(json.optString("error", "unknown"))
             json
@@ -371,6 +375,7 @@ class TidalClient(
     companion object {
         const val PKCE_REDIRECT = SignInCallback.NATIVE
         const val ROOT_FOLDER = "root"
-        private val pageParameters = mapOf("locale" to "en_US", "deviceType" to "PHONE")
     }
+
+    private val pageParameters get() = mapOf("locale" to locale(), "deviceType" to "PHONE")
 }

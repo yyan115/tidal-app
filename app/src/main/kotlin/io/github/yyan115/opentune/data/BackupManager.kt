@@ -4,8 +4,12 @@ import androidx.media3.common.util.UnstableApi
 import io.github.yyan115.opentune.OpenTuneApp
 import io.github.yyan115.opentune.core.AudioQuality
 import io.github.yyan115.opentune.core.JsonCodec
+import io.github.yyan115.opentune.core.Problem
 import org.json.JSONArray
 import org.json.JSONObject
+
+/** A backup file that cannot be restored. [problem] tells the app which sentence to show. */
+class BackupException(val problem: Problem, message: String) : IllegalArgumentException(message)
 
 /**
  * Saves and restores what lives only on the device: settings, device playlists and listening history.
@@ -42,8 +46,8 @@ class BackupManager(private val app: OpenTuneApp) {
 
     /** Merges a backup into this install. Existing playlists with the same name receive only the tracks they lack. */
     fun restore(json: JSONObject): Summary {
-        require(json.optString("format") == "opentune-backup") { "This file is not an OpenTune backup." }
-        require(json.optInt("version") in 1..1) { "This backup comes from a newer version of OpenTune." }
+        if (json.optString("format") != "opentune-backup") throw BackupException(Problem.BACKUP_INVALID, "This file is not an OpenTune backup.")
+        if (json.optInt("version") !in 1..1) throw BackupException(Problem.BACKUP_TOO_NEW, "This backup comes from a newer version of OpenTune.")
         json.optJSONObject("settings")?.let { values ->
             app.settings.update { current ->
                 fun quality(name: String, fallback: AudioQuality) = runCatching { AudioQuality.valueOf(values.getString(name)) }.getOrDefault(fallback)

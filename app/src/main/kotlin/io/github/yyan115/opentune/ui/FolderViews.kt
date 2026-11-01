@@ -1,5 +1,8 @@
 package io.github.yyan115.opentune.ui
 
+import io.github.yyan115.opentune.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -22,13 +25,13 @@ fun FolderRow(folder: Release, onOpen: () -> Unit, onRename: () -> Unit, onDelet
         }
         Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
             Text(folder.title, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-            Text("Folder · ${folder.subtitle} ${if (folder.subtitle == "1") "item" else "items"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(pluralStringResource(R.plurals.folder_summary, folder.subtitle.toIntOrNull() ?: 0, folder.subtitle.toIntOrNull() ?: 0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Box {
-            IconButton(onClick = { menu = true }) { Icon(OpenTuneIcons.MoreVert, "Options for ${folder.title}", Modifier.size(20.dp)) }
+            IconButton(onClick = { menu = true }) { Icon(OpenTuneIcons.MoreVert, stringResource(R.string.folder_options, folder.title), Modifier.size(20.dp)) }
             DropdownMenu(menu, { menu = false }) {
-                DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; onRename() })
-                DropdownMenuItem(text = { Text("Delete folder") }, onClick = { menu = false; onDelete() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.action_rename)) }, onClick = { menu = false; onRename() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.folder_delete)) }, onClick = { menu = false; onDelete() })
             }
         }
     }
@@ -43,7 +46,7 @@ fun PlaylistRow(playlist: Release, canMove: Boolean, onMove: () -> Unit, onOpen:
             Text(playlist.title, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             Text(playlist.artist.ifBlank { playlist.subtitle }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (canMove) IconButton(onClick = onMove) { Icon(OpenTuneIcons.Folder, "Move ${playlist.title} to a folder", Modifier.size(20.dp)) }
+        if (canMove) IconButton(onClick = onMove) { Icon(OpenTuneIcons.Folder, stringResource(R.string.playlist_move_description, playlist.title), Modifier.size(20.dp)) }
         else Icon(OpenTuneIcons.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -51,18 +54,18 @@ fun PlaylistRow(playlist: Release, canMove: Boolean, onMove: () -> Unit, onOpen:
 @Composable
 fun NameDialog(title: String, initial: String, confirm: String, onConfirm: (String) -> Unit, onClose: () -> Unit) {
     var name by remember { mutableStateOf(initial) }
-    AlertDialog(onDismissRequest = onClose, title = { Text(title) }, text = { OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true) },
+    AlertDialog(onDismissRequest = onClose, title = { Text(title) }, text = { OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.field_name)) }, singleLine = true) },
         confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onConfirm(name.trim()); onClose() }) { Text(confirm) } },
-        dismissButton = { TextButton(onClick = onClose) { Text("Cancel") } })
+        dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } })
 }
 
 @Composable
 fun MoveToFolderDialog(playlist: Release, folders: List<Release>, onPick: (String) -> Unit, onClose: () -> Unit) {
-    AlertDialog(onDismissRequest = onClose, title = { Text("Move ${playlist.title}") }, text = {
+    AlertDialog(onDismissRequest = onClose, title = { Text(stringResource(R.string.move_title, playlist.title)) }, text = {
         Column {
-            TextButton(onClick = { onPick(TidalClient.ROOT_FOLDER); onClose() }) { Text("Top level") }
+            TextButton(onClick = { onPick(TidalClient.ROOT_FOLDER); onClose() }) { Text(stringResource(R.string.folder_top_level)) }
             folders.filter { it.type == ReleaseType.FOLDER }.forEach { folder -> TextButton(onClick = { onPick(folder.id); onClose() }) { Text(folder.title) } }
-            if (folders.none { it.type == ReleaseType.FOLDER }) Text("Create a folder first with New folder.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (folders.none { it.type == ReleaseType.FOLDER }) Text(stringResource(R.string.folder_none_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-    }, confirmButton = { TextButton(onClick = onClose) { Text("Cancel") } })
+    }, confirmButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } })
 }

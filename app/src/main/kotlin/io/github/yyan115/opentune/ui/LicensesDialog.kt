@@ -1,5 +1,7 @@
 package io.github.yyan115.opentune.ui
 
+import io.github.yyan115.opentune.R
+import androidx.compose.ui.res.stringResource
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
@@ -37,12 +39,12 @@ fun LicensesDialog(onClose: () -> Unit) {
             }
         }
     }
-    AlertDialog(onDismissRequest = onClose, title = { Text("Open-source licenses") }, text = {
+    AlertDialog(onDismissRequest = onClose, title = { Text(stringResource(R.string.licenses_title)) }, text = {
         if (documents == null) CircularProgressIndicator()
         else Column {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Notices", "GPL 3", "Apache 2", "Inter", "Instrument Serif").forEachIndexed { index, title ->
-                    FilterChip(selected == index, { selected = index }, label = { Text(title) })
+                listOf(R.string.licenses_notices, R.string.licenses_gpl, R.string.licenses_apache, R.string.licenses_inter, R.string.licenses_serif).forEachIndexed { index, title ->
+                    FilterChip(selected == index, { selected = index }, label = { Text(stringResource(title)) })
                 }
             }
             key(selected) {
@@ -74,5 +76,5 @@ fun LicensesDialog(onClose: () -> Unit) {
                 }
             }
         }
-    }, confirmButton = { TextButton(onClick = onClose) { Text("Close") } })
+    }, confirmButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_close)) } })
 }

@@ -52,7 +52,7 @@ gh attestation verify opentune-<version>.apk --repo yyan115/tidal-app
 - See your own listening statistics, back up your device data and optionally scrobble to ListenBrainz.
 - Export downloads and local files to a folder you choose.
 
-The [usage guide](docs/usage.md) covers signing in, audio quality, downloads and export.
+The [usage guide](docs/usage.md) covers signing in, audio quality, downloads and export. All text is ready for translation, see [docs/translating.md](docs/translating.md).
 
 ## Privacy
 

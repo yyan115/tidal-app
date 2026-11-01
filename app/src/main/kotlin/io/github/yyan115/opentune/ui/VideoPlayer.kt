@@ -1,5 +1,8 @@
 package io.github.yyan115.opentune.ui
 
+import io.github.yyan115.opentune.problemText
+import io.github.yyan115.opentune.R
+import androidx.compose.ui.res.stringResource
 import android.app.Activity
 import android.app.PictureInPictureParams
 import android.content.Context
@@ -18,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -60,6 +64,7 @@ fun Activity.enterVideoPip() {
 @Composable
 fun VideoPlayerOverlay(release: Release, offline: Boolean, onClose: () -> Unit) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val app = context.applicationContext as OpenTuneApp
     val activity = remember(context) { context.findActivity() }
     var error by remember(release.id) { mutableStateOf<String?>(null) }
@@ -68,6 +73,8 @@ fun VideoPlayerOverlay(release: Release, offline: Boolean, onClose: () -> Unit) 
     var duration by remember(release.id) { mutableLongStateOf(0) }
     var controls by remember(release.id) { mutableStateOf(true) }
     var inPip by remember { mutableStateOf(activity?.isInPictureInPictureMode == true) }
+    val pauseLabel = stringResource(R.string.video_pause)
+    val playLabel = stringResource(R.string.video_play)
     val player = remember(release.id) {
         ExoPlayer.Builder(context)
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
@@ -76,7 +83,7 @@ fun VideoPlayerOverlay(release: Release, offline: Boolean, onClose: () -> Unit) 
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying }
-            override fun onPlayerError(failure: PlaybackException) { error = "The video could not be played." }
+            override fun onPlayerError(failure: PlaybackException) { error = resources.getString(R.string.video_error_play) }
         }
         player.addListener(listener)
         onDispose { player.removeListener(listener); player.release() }
@@ -87,7 +94,7 @@ fun VideoPlayerOverlay(release: Release, offline: Boolean, onClose: () -> Unit) 
         onDispose { activity?.removeOnPictureInPictureModeChangedListener(listener) }
     }
     LaunchedEffect(release.id) {
-        if (offline) { error = "Videos need a connection. Turn off offline mode to watch."; return@LaunchedEffect }
+        if (offline) { error = resources.getString(R.string.video_error_offline); return@LaunchedEffect }
         try {
             val url = app.tidal.videoUrl(release.id)
             // The player must be used on the main thread, whichever thread the network call resumed on.
@@ -97,7 +104,7 @@ fun VideoPlayerOverlay(release: Release, offline: Boolean, onClose: () -> Unit) 
         } catch (failure: Exception) {
             if (failure is CancellationException) throw failure
             android.util.Log.w("OpenTune", "The video request failed: ${failure.javaClass.simpleName}")
-            error = (failure as? io.github.yyan115.opentune.core.ServiceException)?.message ?: "The video could not be loaded."
+            error = if (failure is io.github.yyan115.opentune.core.ServiceException) context.problemText(failure) else resources.getString(R.string.video_error_load)
         }
     }
     LaunchedEffect(player) {
@@ -113,13 +120,13 @@ fun VideoPlayerOverlay(release: Release, offline: Boolean, onClose: () -> Unit) 
         if (controls && !inPip) {
             Box(Modifier.fillMaxSize().background(Color(0x66000000)).safeDrawingPadding()) {
                 Row(Modifier.fillMaxWidth().align(Alignment.TopCenter).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onClose) { Icon(OpenTuneIcons.Close, "Close video", tint = Color.White) }
+                    IconButton(onClick = onClose) { Icon(OpenTuneIcons.Close, stringResource(R.string.video_close), tint = Color.White) }
                     Text(listOf(release.title, release.artist).filter(String::isNotBlank).joinToString(" · "), Modifier.weight(1f), color = Color.White,
                         fontFamily = InterfaceFont, fontSize = 13.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                    if (Build.VERSION.SDK_INT >= 26 && activity != null) IconButton(onClick = { activity.enterVideoPip() }) { Icon(OpenTuneIcons.Fullscreen, "Picture in picture", tint = Color.White) }
+                    if (Build.VERSION.SDK_INT >= 26 && activity != null) IconButton(onClick = { activity.enterVideoPip() }) { Icon(OpenTuneIcons.Fullscreen, stringResource(R.string.video_pip), tint = Color.White) }
                 }
                 IconButton(onClick = { if (playing) player.pause() else player.play() }, modifier = Modifier.align(Alignment.Center).size(72.dp)
-                    .semantics { contentDescription = if (playing) "Pause video" else "Play video" }) {
+                    .semantics { contentDescription = if (playing) pauseLabel else playLabel }) {
                     Icon(if (playing) OpenTuneIcons.Pause else OpenTuneIcons.PlayArrow, null, Modifier.size(44.dp), tint = Color.White)
                 }
                 Column(Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 8.dp)) {

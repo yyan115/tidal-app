@@ -45,12 +45,8 @@ data class SearchResult(
     val topTrack: Track? = null,
 )
 
-enum class AudioQuality(val label: String) {
-    HI_RES_LOSSLESS("Max · up to 24-bit / 192 kHz"),
-    LOSSLESS("Lossless · CD quality"),
-    HIGH("High · AAC 320 kbps"),
-    LOW("Low · AAC 96 kbps"),
-}
+/** The levels of audio quality. The app shows a translated name for each one. */
+enum class AudioQuality { HI_RES_LOSSLESS, LOSSLESS, HIGH, LOW }
 
 data class Session(
     val accessToken: String,
@@ -92,7 +88,42 @@ data class StreamInfo(
 
 data class LocalPlaylist(val id: String, val title: String, val trackIds: List<String> = emptyList())
 
-class ServiceException(val status: Int, message: String) : Exception(message)
+/**
+ * Stable identifiers for the problems that the user can be told about. The app turns each one into a translated sentence,
+ * so the English [ServiceException.message] is for logs and tests.
+ */
+enum class Problem {
+    SIGN_IN_EXPIRED, SIGN_IN_WRONG_CALLBACK, SIGN_IN_OTHER_ATTEMPT, SIGN_IN_DECLINED, SIGN_IN_NO_CODE, SIGN_IN_USED, SIGN_IN_CONFIG_REJECTED, SIGN_IN_FAILED,
+    SIGN_IN_REQUIRED, SESSION_EXPIRED, SESSION_NOT_RENEWED,
+    LOSSY_AUDIO, PREVIEW_ONLY, STREAM_INVALID, STREAM_UNSUPPORTED, PROTECTED_STREAM,
+    REFRESH_PLAYLIST, PLAYLIST_CHANGED, UNREADABLE_RESPONSE,
+    HTTP_FORBIDDEN, HTTP_NOT_FOUND, HTTP_RATE_LIMIT, HTTP_CONFLICT, HTTP_SERVER, HTTP_OTHER,
+    SCROBBLE_TOKEN_MISSING, SCROBBLE_TOKEN_REJECTED, SCROBBLE_LISTEN_REJECTED, SCROBBLE_CHECK_FAILED, SCROBBLE_ADDRESS_INVALID,
+    NOT_AVAILABLE_OFFLINE, TRACK_MISSING, BACKUP_INVALID, BACKUP_TOO_NEW;
+
+    companion object {
+        fun forStatus(status: Int) = when (status) {
+            401 -> SESSION_EXPIRED
+            403 -> HTTP_FORBIDDEN
+            404 -> HTTP_NOT_FOUND
+            429 -> HTTP_RATE_LIMIT
+            409, 412 -> HTTP_CONFLICT
+            in 500..599 -> HTTP_SERVER
+            else -> HTTP_OTHER
+        }
+    }
+}
+
+/**
+ * Text that stands in for data that the service left out. The English defaults serve tests and logs,
+ * and the app replaces them with translated text when it starts and when the device language changes.
+ */
+object Placeholders {
+    @Volatile var untitled = "Untitled"
+    @Volatile var unknownArtist = "Unknown artist"
+}
+
+class ServiceException(val status: Int, message: String, val problem: Problem = Problem.forStatus(status)) : Exception(message)
 class ProtectedStreamException : Exception("This stream requires content protection that this client does not support.")
 
 fun formatDuration(milliseconds: Long): String {

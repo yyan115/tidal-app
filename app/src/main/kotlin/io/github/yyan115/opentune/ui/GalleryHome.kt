@@ -1,5 +1,7 @@
 package io.github.yyan115.opentune.ui
 
+import io.github.yyan115.opentune.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -43,7 +45,8 @@ fun ListenScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLog
     val pages: PagesViewModel = viewModel()
     val entries by pages.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val context = PageContext(state, vm, pages, scope, onMenu, "Listen")
+    val context = PageContext(state, vm, pages, scope, onMenu, stringResource(R.string.nav_listen))
+    val yourMixes = stringResource(R.string.home_your_mixes)
     val online = state.signedIn && !state.settings.offline
     LaunchedEffect(online) { if (online) { pages.load(PageRoute.ForYou); pages.load(PageRoute.Home) } }
     val forYou = entries[PageRoute.ForYou.key]?.takeIf { online }
@@ -54,8 +57,8 @@ fun ListenScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLog
         if (hero != null) {
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    UpperLabel("Continue listening", Modifier.weight(1f))
-                    if (available(hero)) Icon(OpenTuneIcons.DownloadDone, "Available offline", Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    UpperLabel(stringResource(R.string.home_continue), Modifier.weight(1f))
+                    if (available(hero)) Icon(OpenTuneIcons.DownloadDone, stringResource(R.string.track_available_offline), Modifier.size(15.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 val configuration = LocalConfiguration.current
                 val wide = configuration.screenWidthDp > configuration.screenHeightDp
@@ -77,28 +80,28 @@ fun ListenScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLog
             if (!state.signedIn && !state.settings.offline) item {
                 ConnectCard(onLogin)
                 TextButton(onClick = onImport, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Icon(OpenTuneIcons.Add, null, Modifier.size(17.dp)); Spacer(Modifier.width(8.dp)); Text("Import audio files")
+                    Icon(OpenTuneIcons.Add, null, Modifier.size(17.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.home_import_files))
                 }
             }
-            else if (!(state.signedIn && !state.settings.offline)) item { EmptyState(OpenTuneIcons.Album, "Nothing played yet", "Search your collection or import an audio file.", "Import audio", onImport) }
+            else if (!(state.signedIn && !state.settings.offline)) item { EmptyState(OpenTuneIcons.Album, stringResource(R.string.home_empty_title), stringResource(R.string.home_empty_text), stringResource(R.string.action_import_audio), onImport) }
         }
-        forYou?.page?.let { pageContent(it.tidied(), forYou, PageRoute.ForYou.key, context, viewAll = false) }
+        forYou?.page?.let { pageContent(it.tidied(yourMixes), forYou, PageRoute.ForYou.key, context, viewAll = false) }
         if (state.albums.isNotEmpty()) {
-            item { SectionTitle("Saved albums", "View all", { onLibrary(1) }) }
+            item { SectionTitle(stringResource(R.string.home_saved_albums), stringResource(R.string.action_view_all), { onLibrary(1) }) }
             item { LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(state.albums.take(12), key = Release::id) { release -> ReleaseCard(release) { vm.open(release) } }
             } }
         }
         val others = recent.filterNot { it.id == hero?.id }.take(4)
         if (others.isNotEmpty()) {
-            item { SectionTitle("Recently played") }
+            item { SectionTitle(stringResource(R.string.home_recently_played)) }
             items(others, key = { "recent:${it.id}" }) { track -> TrackRow(track, false,
                 { vm.play(recent, recent.indexOf(track)) }, { onMenu(track) }) }
         }
-        home?.page?.let { pageContent(it.tidied(), home, PageRoute.Home.key, context, viewAll = false) }
+        home?.page?.let { pageContent(it.tidied(yourMixes), home, PageRoute.Home.key, context, viewAll = false) }
         val local = state.local.filterNot { it.id == hero?.id }.take(3)
         if (local.isNotEmpty()) {
-            item { SectionTitle("On your device", "View all", { onLibrary(4) }) }
+            item { SectionTitle(stringResource(R.string.home_on_device), stringResource(R.string.action_view_all), { onLibrary(4) }) }
             items(local, key = { "device:${it.id}" }) { track -> TrackRow(track, false,
                 { vm.play(state.local, state.local.indexOf(track)) }, { onMenu(track) }) }
         }
@@ -112,8 +115,11 @@ fun ListenScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLog
     }
 }
 
-/** Merges adjacent carousels that share a title and renames TIDAL's generic section names. */
-private fun PageData.tidied(): PageData {
+/**
+ * Merges adjacent carousels that share a title and renames TIDAL's generic section names.
+ * The rename matches the English title. In other languages TIDAL's own translated title stays.
+ */
+private fun PageData.tidied(yourMixes: String): PageData {
     val result = mutableListOf<io.github.yyan115.opentune.core.PageModule>()
     for (module in modules) {
         val previous = result.lastOrNull()
@@ -122,7 +128,7 @@ private fun PageData.tidied(): PageData {
         } else result += module
     }
     return copy(modules = result.map { module ->
-        if (module is CarouselModule && module.title == "Custom mixes") module.copy(title = "Your mixes") else module
+        if (module is CarouselModule && module.title == "Custom mixes") module.copy(title = yourMixes) else module
     })
 }
 
@@ -130,10 +136,11 @@ private fun PageData.tidied(): PageData {
 @Composable
 private fun ListeningArtwork(track: Track, quality: String, modifier: Modifier, ratio: Float, onClick: () -> Unit) {
     Box(modifier.clickable(onClick = onClick)) {
-        Artwork(track.artwork, "Artwork for ${track.album.ifBlank { track.title }}", Modifier.fillMaxWidth().aspectRatio(ratio))
+        Artwork(track.artwork, stringResource(R.string.player_artwork, track.album.ifBlank { track.title }), Modifier.fillMaxWidth().aspectRatio(ratio))
         if (quality.isNotBlank()) Surface(Modifier.align(Alignment.TopStart).padding(12.dp),
             color = androidx.compose.ui.graphics.Color(0xE0121213), shape = RoundedCornerShape(3.dp)) {
-            Text(quality.replace("-bit", " bit"), Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            val readout = SourceReadout.from(quality)
+            Text(listOfNotNull(readout.codec.ifBlank { null }, readout.bitsText(), readout.rateText()).joinToString(" · "), Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                 fontFamily = InterfaceFont, fontSize = 9.sp, lineHeight = 14.sp, color = androidx.compose.ui.graphics.Color(0xFFF1EBDD))
         }
     }

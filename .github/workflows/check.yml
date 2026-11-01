@@ -24,6 +24,8 @@ jobs:
         with:
           persist-credentials: false
       - run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Check that all user-visible text comes from string resources
+        run: python3 scripts/check_strings.py
 
   build:
     name: Build and lint
@@ -44,7 +46,7 @@ jobs:
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;35.0.0'
       - name: Test, lint, and build both variants
-        run: ./gradlew --no-daemon :core:test :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease
+        run: ./gradlew --no-daemon :core:test :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease
       - name: Upload reports and debug APK
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
