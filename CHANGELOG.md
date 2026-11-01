@@ -16,6 +16,12 @@ OpenTune now has its own application ID, `io.github.yyan115.opentune`. It instal
 - Album pages with TIDAL's review, quality badges and full credits. Mix pages for your daily mixes.
 - Track radio and track credits in the track menu.
 - Library lists followed artists and can filter and sort saved tracks and albums. Shuffle plays all filtered tracks.
+- Sleep timer in the player: 15 to 90 minutes, or the end of the current track.
+- Volume normalization from TIDAL's ReplayGain values, by track or by album. It is off by default.
+- Equalizer with presets, using the equalizer that Android provides.
+- Audio output information in Settings, showing where music plays and which sample rates the output accepts.
+- Experimental bit-perfect output to a USB DAC on Android 14 and later. It is off by default and has not been tested with a DAC yet.
+- Listening history on the device, kept for local statistics only.
 
 ### Changed
 

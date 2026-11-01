@@ -28,7 +28,14 @@ import java.util.concurrent.ConcurrentHashMap
 @UnstableApi
 class AudioSources(private val app: OpenTuneApp) {
     private val qualities = ConcurrentHashMap<String, String>()
+    private val gains = ConcurrentHashMap<String, Gains>()
     fun quality(id: String): String? = qualities[id]
+    fun gains(id: String): Gains? = gains[id]
+    /** Called on any thread when the gain of a track becomes known. */
+    @Volatile var onGains: ((String) -> Unit)? = null
+
+    /** ReplayGain values in decibels and linear peak amplitudes, as returned by TIDAL for a track and its album. */
+    data class Gains(val track: Double?, val trackPeak: Double?, val album: Double?, val albumPeak: Double?)
     val cache by lazy { SimpleCache(File(app.filesDir, "offline_audio"), NoOpCacheEvictor(), StandaloneDatabaseProvider(app)) }
     private val streamingCache by lazy { SimpleCache(File(app.cacheDir, "streaming_audio"), LeastRecentlyUsedCacheEvictor(256L * 1024 * 1024), StandaloneDatabaseProvider(app)) }
     private val upstream: DataSource.Factory by lazy { DefaultDataSource.Factory(app, OkHttpDataSource.Factory(app.http)) }
@@ -60,6 +67,8 @@ class AudioSources(private val app: OpenTuneApp) {
 
     fun item(track: Track, stream: StreamInfo): MediaItem {
         qualities[track.id] = stream.qualityLabel
+        gains[track.id] = Gains(stream.trackGain, stream.trackPeak, stream.albumGain, stream.albumPeak)
+        onGains?.invoke(track.id)
         return metadata(track).setUri(stream.uri ?: manifestUri(stream))
             .setMimeType(stream.mimeType).setTag(stream.qualityLabel).build()
     }
@@ -90,6 +99,8 @@ class AudioSources(private val app: OpenTuneApp) {
         temp.writeText(JSONObject().apply {
             put("uri", stream.uri); put("manifest", stream.dashManifest); put("mime", stream.mimeType)
             put("codec", stream.codec); put("quality", stream.quality); put("bitDepth", stream.bitDepth); put("sampleRate", stream.sampleRate)
+            stream.trackGain?.let { put("trackGain", it) }; stream.trackPeak?.let { put("trackPeak", it) }
+            stream.albumGain?.let { put("albumGain", it) }; stream.albumPeak?.let { put("albumPeak", it) }
         }.toString())
         check(temp.renameTo(file)) { "The download record could not be saved." }
     }
@@ -98,7 +109,9 @@ class AudioSources(private val app: OpenTuneApp) {
         val json = JSONObject(offlineFile(id).readText())
         return StreamInfo(json.optString("uri").takeIf { it.isNotBlank() && it != "null" },
             json.optString("manifest").takeIf { it.isNotBlank() && it != "null" }, json.getString("mime"),
-            json.getString("codec"), json.getString("quality"), json.optInt("bitDepth"), json.optInt("sampleRate"))
+            json.getString("codec"), json.getString("quality"), json.optInt("bitDepth"), json.optInt("sampleRate"),
+            json.optDouble("trackGain", Double.NaN).takeIf { !it.isNaN() }, json.optDouble("trackPeak", Double.NaN).takeIf { !it.isNaN() },
+            json.optDouble("albumGain", Double.NaN).takeIf { !it.isNaN() }, json.optDouble("albumPeak", Double.NaN).takeIf { !it.isNaN() })
     }
 
     companion object {

@@ -22,6 +22,17 @@ Artist, album and mix pages list the music with the biography, review and credit
 
 Choose **Lyrics** in the player. Lines with timing are highlighted as they are sung. Drag to read ahead, and the view follows the song again after a few seconds. Tap a line to jump to it. Tracks without timing show the plain text, and some tracks have no lyrics. Lyrics are provided by Musixmatch through TIDAL and stay on the device after the first load.
 
+## Playback options
+
+The timer button in the player sets a **sleep timer** that pauses playback after 15 to 90 minutes or at the end of the track.
+
+Under **Settings**:
+
+- **Volume normalization** evens out the level between tracks using the ReplayGain values from TIDAL. Quiet tracks are not amplified. It is off by default so that tracks play unchanged.
+- **Equalizer** adjusts the bands of Android's built-in equalizer and offers its presets. The equalizer changes the audio, so leave it off for unaltered playback.
+- **Audio output** shows where the music plays and the sample rates that the output accepts.
+- **Bit-perfect USB output** asks Android 14 or later to send the audio to a USB DAC without mixing. It is experimental and has not been tested with a DAC yet.
+
 ## Audio quality
 
 Choose the quality for Wi-Fi and mobile data under **Settings**.

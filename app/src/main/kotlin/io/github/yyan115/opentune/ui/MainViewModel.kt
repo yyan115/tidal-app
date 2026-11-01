@@ -24,6 +24,7 @@ import io.github.yyan115.opentune.OpenTuneApp
 import io.github.yyan115.opentune.core.*
 import io.github.yyan115.opentune.data.DownloadWorker
 import io.github.yyan115.opentune.data.Settings
+import io.github.yyan115.opentune.playback.PlaybackCommands
 import io.github.yyan115.opentune.playback.PlaybackService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -73,6 +74,7 @@ data class AppState(
     val lyrics: Lyrics? = null, val lyricsStatus: LyricsStatus = LyricsStatus.Idle, val lyricsTrackId: String = "",
     val routes: List<PageRoute> = emptyList(), val artists: List<Release> = emptyList(),
     val credits: CreditsUi? = null, val recentSearches: List<String> = emptyList(), val video: Release? = null,
+    val sleepEndsAt: Long = 0, val sleepAtTrackEnd: Boolean = false,
     val hasMoreFavorites: Boolean = false,
     val exportProgress: Int? = null,
 )
@@ -91,7 +93,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val preferences = application.getSharedPreferences("playback", Application.MODE_PRIVATE)
     private var controller: MediaController? = null
     private val controllerFuture = MediaController.Builder(application,
-        SessionToken(application, ComponentName(application, PlaybackService::class.java))).buildAsync()
+        SessionToken(application, ComponentName(application, PlaybackService::class.java)))
+        .setListener(object : MediaController.Listener {
+            override fun onExtrasChanged(controller: MediaController, extras: android.os.Bundle) { updateSleepTimer(extras) }
+        }).buildAsync()
     private var loginJob: Job? = null
     private var detailJob: Job? = null
     private var syncJob: Job? = null
@@ -125,6 +130,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 })
                 restoreQueue()
                 updatePlayback()
+                updateSleepTimer(player.sessionExtras)
             } catch (_: Exception) { notify("The audio service could not start. Reopen the app to retry.") }
         }, ContextCompat.getMainExecutor(application))
         viewModelScope.launch {
@@ -352,6 +358,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+    private fun updateSleepTimer(extras: android.os.Bundle) {
+        ui.update { it.copy(sleepEndsAt = extras.getLong(PlaybackCommands.EXTRA_ENDS_AT, 0), sleepAtTrackEnd = extras.getBoolean(PlaybackCommands.EXTRA_AT_TRACK_END, false)) }
+    }
+
+    /** Pauses playback after [minutes], or at the end of the current track. Zero minutes without the flag turns the timer off. */
+    fun setSleepTimer(minutes: Int, endOfTrack: Boolean = false) {
+        controller?.sendCustomCommand(PlaybackCommands.SleepTimer, android.os.Bundle().apply {
+            putInt(PlaybackCommands.ARG_MINUTES, minutes); putBoolean(PlaybackCommands.ARG_END_OF_TRACK, endOfTrack)
+        })
+    }
+
     fun seek(position: Long) { controller?.seekTo(position.coerceAtLeast(0)) }
     fun next() { controller?.seekToNextMediaItem() }
     fun previous() { controller?.let { if (it.currentPosition > 3000) it.seekTo(0) else it.seekToPreviousMediaItem() } }

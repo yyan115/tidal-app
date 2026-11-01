@@ -26,12 +26,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.common.util.UnstableApi
 import io.github.yyan115.opentune.core.Lyrics
 
 /** How long automatic scrolling waits after the listener drags the lyrics. */
 private const val MANUAL_SCROLL_PAUSE_MS = 4_000L
 
 /** Lyrics that follow the song. Lines with timing highlight and scroll as the track plays, and a tap on a line seeks to it. */
+@UnstableApi
 @Composable
 fun LyricsPanel(state: AppState, vm: MainViewModel, modifier: Modifier = Modifier) {
     Box(modifier.testTag("lyrics-panel"), contentAlignment = Alignment.Center) {

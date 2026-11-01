@@ -36,6 +36,7 @@ data class PageUi(
 )
 
 /** Loads and caches TIDAL pages. The cache shows the last response at once while a fresh one loads. */
+@androidx.media3.common.util.UnstableApi
 class PagesViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as OpenTuneApp
     private val mutable = MutableStateFlow<Map<String, PageUi>>(emptyMap())

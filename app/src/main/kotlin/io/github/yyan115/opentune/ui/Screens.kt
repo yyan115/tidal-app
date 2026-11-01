@@ -348,6 +348,9 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit) {
     var mobile by remember { mutableStateOf(false) }
     var theme by remember { mutableStateOf(false) }
     var signOut by remember { mutableStateOf(false) }
+    var normalization by remember { mutableStateOf(false) }
+    var equalizer by remember { mutableStateOf(false) }
+    var output by remember { mutableStateOf(false) }
     var licenses by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize().testTag("settings-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { SectionTitle("Account") }
@@ -364,6 +367,12 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit) {
         item { SettingRow(OpenTuneIcons.Download, "Download over Wi-Fi only", "Downloads stay queued on mobile data", trailing = {
             Switch(state.settings.downloadOnWifi, { value -> vm.settings { it.copy(downloadOnWifi = value) } })
         }) }
+        item { SettingRow(OpenTuneIcons.GraphicEq, "Volume normalization", when (state.settings.normalization) { "track" -> "Track"; "album" -> "Album"; else -> "Off" }, { normalization = true }) }
+        item { SettingRow(OpenTuneIcons.Equalizer, "Equalizer", if (state.settings.equalizer) "On" else "Off", { equalizer = true }) }
+        item { SettingRow(OpenTuneIcons.Headphones, "Audio output", "See where the music plays", { output = true }) }
+        if (android.os.Build.VERSION.SDK_INT >= 34) item { SettingRow(OpenTuneIcons.Waves, "Bit-perfect USB output", "Experimental. Sends audio to a USB DAC unchanged when the DAC supports it. Not tested with a DAC yet.", trailing = {
+            Switch(state.settings.bitPerfect, { value -> vm.settings { it.copy(bitPerfect = value) } })
+        }) }
         item { SectionTitle("Appearance") }
         item { SettingRow(OpenTuneIcons.Contrast, "Theme", "${colorTheme(state.settings.colorTheme).name} · ${state.settings.theme.replaceFirstChar(Char::uppercase)}", { theme = true }) }
         item { SectionTitle("About") }
@@ -375,6 +384,9 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit) {
         item { SettingRow(OpenTuneIcons.Description, "Open-source licenses", "GPL-3.0-or-later and dependency notices", { licenses = true }) }
     }
     if (licenses) LicensesDialog { licenses = false }
+    if (normalization) NormalizationDialog(state.settings.normalization, { value -> vm.settings { it.copy(normalization = value) } }) { normalization = false }
+    if (equalizer) EqualizerSheet(state.settings, { next -> vm.settings { next } }) { equalizer = false }
+    if (output) AudioOutputDialog { output = false }
     if (quality || mobile) AlertDialog(onDismissRequest = { quality = false; mobile = false }, title = { Text(if (mobile) "Mobile audio quality" else "Wi-Fi audio quality") },
         text = { Column { AudioQuality.entries.forEach { value -> Row(Modifier.fillMaxWidth().clickable {
             if (mobile) vm.settings { it.copy(mobileQuality = value) } else vm.settings { it.copy(quality = value) }

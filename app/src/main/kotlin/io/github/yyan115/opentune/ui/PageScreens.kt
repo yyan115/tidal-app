@@ -29,6 +29,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /** What a page needs from the rest of the app. */
+@UnstableApi
 class PageContext(
     val state: AppState, val vm: MainViewModel, val pages: PagesViewModel,
     val scope: CoroutineScope, val onMenu: (Track) -> Unit,
@@ -82,6 +83,7 @@ fun LazyListScope.pageContent(page: PageData, entry: PageUi, routeKey: String, c
     }
 }
 
+@UnstableApi
 private fun LazyListScope.carousel(module: CarouselModule, entry: PageUi, routeKey: String, ctx: PageContext, key: String, viewAll: Boolean) {
     val items = module.items + entry.moreReleases[module.id].orEmpty()
     if (viewAll) {
@@ -105,6 +107,7 @@ private fun LazyListScope.carousel(module: CarouselModule, entry: PageUi, routeK
     }
 }
 
+@UnstableApi
 private fun LazyListScope.trackList(module: TrackListModule, entry: PageUi, routeKey: String, ctx: PageContext, key: String, viewAll: Boolean) {
     val tracks = module.tracks + entry.moreTracks[module.id].orEmpty()
     if (module.title.isNotBlank()) item(key = "$key:title") {
@@ -120,6 +123,7 @@ private fun LazyListScope.trackList(module: TrackListModule, entry: PageUi, rout
     if (viewAll && module.dataPath != null && tracks.size < module.total) item(key = "$key:more") { LoadMore(routeKey, module, entry, ctx) }
 }
 
+@UnstableApi
 @Composable
 private fun LoadMore(routeKey: String, module: PageModule, entry: PageUi, ctx: PageContext) {
     val loading = module.id in entry.loadingMore
@@ -128,6 +132,7 @@ private fun LoadMore(routeKey: String, module: PageModule, entry: PageUi, ctx: P
     }
 }
 
+@UnstableApi
 @Composable
 private fun LinksRow(module: LinksModule, ctx: PageContext) {
     Column {
@@ -206,6 +211,7 @@ private fun ExpandableText(text: String, source: String, modifier: Modifier = Mo
 
 private fun firstTracks(page: PageData): TrackListModule? = page.modules.filterIsInstance<TrackListModule>().firstOrNull()
 
+@UnstableApi
 private fun playFromPage(ctx: PageContext, routeKey: String, page: PageData, shuffle: Boolean) {
     val module = firstTracks(page) ?: return
     ctx.scope.launch { ctx.vm.playTracks(ctx.pages.allTracks(routeKey, module), shuffle) }

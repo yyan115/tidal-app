@@ -79,6 +79,7 @@ fun MiniPlayer(state: PlaybackState, onOpen: () -> Unit, onPlay: () -> Unit, onN
 fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, onQueue: () -> Unit, onMenu: (Track) -> Unit, onDownload: (Track) -> Unit) {
     val track = state.playback.track ?: return
     var lyrics by rememberSaveable { mutableStateOf(false) }
+    var timer by remember { mutableStateOf(false) }
     LaunchedEffect(track.id, lyrics) { if (lyrics) vm.loadLyrics() }
     var source by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
@@ -110,7 +111,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
                             else Artwork(track.artwork, "Artwork for ${track.album}", Modifier.size(landscapeArtworkSize))
                             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                                 PlayerHeading(track, true)
-                                GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, true)
+                                GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, true)
                             }
                         }
                     } else if (compact) {
@@ -118,7 +119,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
                             PlayerHeading(track, true)
                             if (lyrics) LyricsPanel(state, vm, Modifier.fillMaxWidth().height(if (large) 220.dp else 260.dp))
                             else Artwork(track.artwork, "Artwork for ${track.album}", Modifier.size(if (large) 104.dp else 180.dp).align(Alignment.CenterHorizontally).padding(vertical = 8.dp))
-                            GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, true)
+                            GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, true)
                         }
                     } else {
                         Column(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp)) {
@@ -127,7 +128,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
                                 if (lyrics) LyricsPanel(state, vm, Modifier.fillMaxSize())
                                 else Artwork(track.artwork, "Artwork for ${track.album}", Modifier.size(minOf(maxWidth - 20.dp, maxHeight - 8.dp)))
                             }
-                            GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, false)
+                            GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, false)
                         }
                         state.playback.queue.getOrNull(state.playback.nextIndex)?.let { next ->
                             HorizontalDivider(Modifier.padding(horizontal = 24.dp), color = MaterialTheme.colorScheme.outlineVariant)
@@ -146,6 +147,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
         }
     }
     if (source) SourceDetailsSheet(state.playback.quality) { source = false }
+    if (timer) SleepTimerSheet(state, vm) { timer = false }
 }
 
 @Composable
@@ -159,7 +161,7 @@ private fun PlayerHeading(track: Track, compact: Boolean) {
 @OptIn(ExperimentalMaterial3Api::class)
 @UnstableApi
 @Composable
-private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> Unit, onDownload: (Track) -> Unit, onSource: () -> Unit, onLyrics: () -> Unit, lyricsActive: Boolean, compact: Boolean) {
+private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> Unit, onDownload: (Track) -> Unit, onSource: () -> Unit, onLyrics: () -> Unit, lyricsActive: Boolean, onTimer: () -> Unit, compact: Boolean) {
     val player = state.playback; val track = player.track ?: return
     val largeText = LocalDensity.current.fontScale > 1.3f
     val saved = state.favorites.any { it.id == track.id }
@@ -210,6 +212,12 @@ private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> U
             modifier = Modifier.semantics { contentDescription = if (lyricsActive) "Hide lyrics" else "Show lyrics" }) {
             Icon(OpenTuneIcons.Lyrics, null, Modifier.size(17.dp)); Spacer(Modifier.width(6.dp)); Text("Lyrics", fontSize = 11.sp)
         }
+        val remaining by rememberSleepMinutes(state.sleepEndsAt)
+        val timerOn = state.sleepEndsAt > 0 || state.sleepAtTrackEnd
+        IconButton(onClick = onTimer, modifier = Modifier.semantics { contentDescription = if (timerOn) "Sleep timer is on" else "Set sleep timer" }) {
+            Icon(OpenTuneIcons.Timer, null, Modifier.size(20.dp), tint = if (timerOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (timerOn) Text(if (state.sleepAtTrackEnd) "End" else "${remaining ?: 0}m", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
         DownloadButton(state, onDownload)
         TextButton(onClick = onQueue) { Icon(OpenTuneIcons.PlaylistPlay, null, Modifier.size(20.dp)); Spacer(Modifier.width(6.dp)); Text("Queue · ${player.queue.size}", fontSize = 11.sp) }
     }

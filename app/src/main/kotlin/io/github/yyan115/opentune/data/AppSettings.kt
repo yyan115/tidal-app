@@ -12,6 +12,15 @@ data class Settings(
     val offline: Boolean = false,
     val theme: String = "dark",
     val colorTheme: String = "gallery",
+    /** Volume normalization from ReplayGain data: "off", "track" or "album". */
+    val normalization: String = "off",
+    val equalizer: Boolean = false,
+    /** Band levels in millibels, in band order. Empty until the listener changes a band. */
+    val equalizerLevels: List<Int> = emptyList(),
+    val bitPerfect: Boolean = false,
+    val keepFavoritesOffline: Boolean = false,
+    val scrobble: Boolean = false,
+    val scrobbleServer: String = "https://api.listenbrainz.org",
 )
 
 class AppSettings(context: Context) {
@@ -23,13 +32,21 @@ class AppSettings(context: Context) {
         quality("quality", AudioQuality.LOSSLESS), quality("mobileQuality", AudioQuality.LOSSLESS),
         preferences.getBoolean("downloadOnWifi", true), preferences.getBoolean("offline", false),
         preferences.getString("theme", "dark") ?: "dark",
-        preferences.getString("colorTheme", "gallery") ?: "gallery"))
+        preferences.getString("colorTheme", "gallery") ?: "gallery",
+        preferences.getString("normalization", "off") ?: "off", preferences.getBoolean("equalizer", false),
+        preferences.getString("equalizerLevels", "").orEmpty().split(',').mapNotNull { it.trim().toIntOrNull() },
+        preferences.getBoolean("bitPerfect", false), preferences.getBoolean("keepFavoritesOffline", false),
+        preferences.getBoolean("scrobble", false), preferences.getString("scrobbleServer", "https://api.listenbrainz.org") ?: "https://api.listenbrainz.org"))
     val state = mutable.asStateFlow()
     fun update(transform: (Settings) -> Settings) {
         val next = transform(mutable.value)
         preferences.edit().putString("quality", next.quality.name).putString("mobileQuality", next.mobileQuality.name)
             .putBoolean("downloadOnWifi", next.downloadOnWifi).putBoolean("offline", next.offline)
-            .putString("theme", next.theme).putString("colorTheme", next.colorTheme).apply()
+            .putString("theme", next.theme).putString("colorTheme", next.colorTheme)
+            .putString("normalization", next.normalization).putBoolean("equalizer", next.equalizer)
+            .putString("equalizerLevels", next.equalizerLevels.joinToString(",")).putBoolean("bitPerfect", next.bitPerfect)
+            .putBoolean("keepFavoritesOffline", next.keepFavoritesOffline).putBoolean("scrobble", next.scrobble)
+            .putString("scrobbleServer", next.scrobbleServer).apply()
         mutable.value = next
     }
 }
