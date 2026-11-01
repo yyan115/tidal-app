@@ -69,7 +69,7 @@ class PseudoLocaleTest {
             model.clearQueue()
             model.settings { it.copy(theme = "light", colorTheme = "studio", offline = false) }
         }
-        compose.waitUntil(10_000) { model.state.value.local.any { it.id == track.id } }
+        await("the track in the library") { model.state.value.local.any { it.id == track.id } }
         assertEquals("The test needs the pseudo-language", "en-XA", activity.resources.configuration.locales[0].toLanguageTag())
     }
 
@@ -88,7 +88,7 @@ class PseudoLocaleTest {
         compose.onNodeWithTag("nav-1").performClick()
         sweep("Search")
         compose.runOnIdle { model.search("Night") }
-        compose.waitUntil(10_000) { model.state.value.local.any { it.id == track.id } }
+        await("the search to show the track") { model.state.value.local.any { it.id == track.id } }
         sweep("Search results")
         for (tab in listOf(R.string.label_tracks, R.string.label_albums, R.string.label_artists, R.string.label_playlists, R.string.label_videos)) {
             compose.onAllNodes(hasText(s(tab)) and hasClickAction()).onFirst().performClick()
@@ -113,8 +113,8 @@ class PseudoLocaleTest {
         sweep("Downloads")
 
         compose.runOnIdle { model.play(listOf(track)) }
-        compose.waitUntil(30_000) { model.state.value.playback.playing || model.state.value.playback.error != null }
-        val screen = openWindow { compose.onNodeWithTag("mini-player").performClick() }
+        await("playback to start", 30_000) { model.state.value.playback.playing || model.state.value.playback.error != null }
+        val screen = openWindow("Player") { compose.onNodeWithTag("mini-player").performClick() }
         sweep("Player")
         inWindow("Queue") { compose.onNodeWithText(s(R.string.player_queue_count, 1)).performClick() }
         inWindow("Sleep timer") { compose.onNodeWithContentDescription(s(R.string.player_timer_set)).performClick() }
@@ -148,20 +148,30 @@ class PseudoLocaleTest {
         assertTrue("Text written in code, which cannot be translated:\n$report", offenders.isEmpty())
     }
 
+    /** Waits for [condition]. A timeout reports what is on the screen, which a bare timeout does not show. */
+    private fun await(what: String, timeoutMillis: Long = 10_000, condition: () -> Boolean) {
+        try {
+            compose.waitUntil(timeoutMillis, condition)
+        } catch (failure: ComposeTimeoutException) {
+            val screen = runCatching { visibleTexts() }.getOrNull()
+            throw AssertionError("Timed out waiting for $what. Windows: ${runCatching { windows() }.getOrNull()}. The screen shows: $screen", failure)
+        }
+    }
+
     private fun windows() = compose.onAllNodes(isRoot(), useUnmergedTree = true).fetchSemanticsNodes().size
 
     /** Opens a dialog, sheet or screen that has a window of its own, checks it and closes it again. */
     private fun inWindow(name: String, check: () -> Unit = { sweep(name) }, open: () -> Unit) {
-        val base = openWindow(open)
+        val base = openWindow(name, open)
         check()
         closeWindow(base)
     }
 
     /** Runs [open] and waits for the new window. Returns the number of windows from before, which [closeWindow] restores. */
-    private fun openWindow(open: () -> Unit): Int {
+    private fun openWindow(name: String, open: () -> Unit): Int {
         val base = windows()
         open()
-        compose.waitUntil(10_000) { windows() > base }
+        await("the window \"$name\" to open") { windows() > base }
         return base
     }
 
