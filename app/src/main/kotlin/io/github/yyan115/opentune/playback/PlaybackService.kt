@@ -228,28 +228,25 @@ class PlaybackService : MediaLibraryService() {
         if (count - current < 3) return
         val hours = app.settings.state.value.avoidRepeatHours
         val recent = if (hours > 0) app.library.playedSince(System.currentTimeMillis() - hours * 3_600_000L) else emptySet()
-        player.replaceMediaItems(current + 1, count, RepeatPolicy.deferRecent(orderBeforeShuffle.subList(current + 1, count).shuffled(), { it.mediaId }, recent))
+        val (manual, context) = orderBeforeShuffle.subList(current + 1, count).partition(ManualQueue::contains)
+        player.replaceMediaItems(current + 1, count, manual + RepeatPolicy.deferRecent(context.shuffled(), { it.mediaId }, recent))
     }
 
-    /**
-     * Puts the queue back in the order it had before shuffle turned on. The current track keeps playing.
-     * A track that was added after shuffle turned on follows the tracks that were there before.
-     */
+    /** Restore the upcoming source order without moving manually queued songs behind the playlist. */
     private fun restoreOrder() {
         val original = orderBeforeShuffle
         orderBeforeShuffle = emptyList()
         val count = player.mediaItemCount
         if (original.isEmpty() || count == 0) return
         val positions = HashMap<String, ArrayDeque<Int>>()
-        original.forEachIndexed { position, item -> positions.getOrPut(item.mediaId) { ArrayDeque() }.addLast(position) }
-        val queue = (0 until count).map(player::getMediaItemAt)
-        val ranked = queue.mapIndexed { index, item -> Triple(index, item, positions[item.mediaId]?.removeFirstOrNull() ?: (original.size + index)) }.sortedBy { it.third }
+        original.filterNot(ManualQueue::contains).forEachIndexed { position, item -> positions.getOrPut(item.mediaId) { ArrayDeque() }.addLast(position) }
         val current = player.currentMediaItemIndex
-        val at = ranked.indexOfFirst { it.first == current }
-        if (at < 0) return
-        // The part after the current track goes first, so that the index of the current track holds while it is replaced.
-        player.replaceMediaItems(current + 1, count, ranked.drop(at + 1).map { it.second })
-        if (current > 0) player.replaceMediaItems(0, current, ranked.take(at).map { it.second })
+        val queue = (0 until count).map(player::getMediaItemAt)
+        val ranked = queue.mapIndexed { index, item ->
+            Triple(index, item, if (ManualQueue.contains(item)) -1 else positions[item.mediaId]?.removeFirstOrNull() ?: (original.size + index))
+        }.drop(current + 1)
+        val (manual, context) = ranked.partition { ManualQueue.contains(it.second) }
+        player.replaceMediaItems(current + 1, count, manual.map { it.second } + context.sortedBy { it.third }.map { it.second })
     }
 
     /** Writes what the home screen widget shows. A new cover is fetched in the background. */

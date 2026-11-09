@@ -129,29 +129,33 @@ fun ErrorCard(message: String, onRetry: (() -> Unit)? = null) {
 
 @Composable
 fun TrackRow(track: Track, playing: Boolean = false, onPlay: () -> Unit, onMenu: () -> Unit, index: Int? = null) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onPlay).padding(start = 24.dp, end = 8.dp, top = 11.dp, bottom = 11.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        if (index != null) Text("%02d".format(index + 1), Modifier.width(32.dp), fontFamily = AppFonts.mono, fontSize = 10.sp,
-            color = if (playing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-        else TrackArtwork(track, null, Modifier.size(48.dp))
-        Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-            Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (playing) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (playing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-            Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (track.explicit) {
-                    Text("E", Modifier.padding(end = 6.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(2.dp)).padding(horizontal = 3.dp),
-                        style = MaterialTheme.typography.labelSmall)
+    val queueTrack = LocalQueueTrack.current
+    SwipeQueueRow(track.id, queueTrack?.let { { it(track) } }) {
+        Row(Modifier.fillMaxWidth().clickable(onClick = onPlay).padding(start = 24.dp, end = 8.dp, top = 11.dp, bottom = 11.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            if (index != null) Text("%02d".format(index + 1), Modifier.width(32.dp), fontFamily = AppFonts.mono, fontSize = 10.sp,
+                color = if (playing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            else TrackArtwork(track, null, Modifier.size(48.dp))
+            Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (playing) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (playing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (track.explicit) {
+                        Text("E", Modifier.padding(end = 6.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(2.dp)).padding(horizontal = 3.dp),
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                    if (track.isFile) LocalBadge(Modifier.padding(end = 6.dp))
+                    else if (track.onDevice) Icon(OpenTuneIcons.DownloadDone, stringResource(R.string.track_available_offline), Modifier.padding(end = 4.dp).size(13.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(track.artist, fontFamily = AppFonts.body, fontSize = 11.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                if (track.isFile) LocalBadge(Modifier.padding(end = 6.dp))
-                else if (track.onDevice) Icon(OpenTuneIcons.DownloadDone, stringResource(R.string.track_available_offline), Modifier.padding(end = 4.dp).size(13.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(track.artist, fontFamily = AppFonts.body, fontSize = 11.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            IconButton(onClick = onMenu) { Icon(OpenTuneIcons.MoreVert, stringResource(R.string.track_options, track.title), Modifier.size(20.dp)) }
         }
-        IconButton(onClick = onMenu) { Icon(OpenTuneIcons.MoreVert, stringResource(R.string.track_options, track.title), Modifier.size(20.dp)) }
     }
 }
+
 
 @Composable
 fun ReleaseCard(release: Release, onClick: () -> Unit) {

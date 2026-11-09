@@ -27,12 +27,9 @@ import kotlinx.coroutines.flow.StateFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.text.font.FontFamily
@@ -41,10 +38,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
-import androidx.core.view.WindowCompat
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import io.github.yyan115.opentune.core.Track
@@ -64,25 +57,36 @@ fun PlayControl(playing: Boolean, buffering: Boolean = false, size: Dp = 72.dp, 
 /** The playback position in milliseconds. The activity provides the position of the player and a preview provides a fixed one. */
 val LocalPlaybackPosition = staticCompositionLocalOf<StateFlow<Long>> { MutableStateFlow(0L) }
 
-/** The mini player. A swipe to either side that goes far enough stops playback and clears the queue. */
+/** Swipe up to expand; swipe left/right to navigate tracks. Stopping remains an accessibility action. */
 @Composable
-fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onDismiss: () -> Unit = {}) {
+fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onDismiss: () -> Unit = {}, modifier: Modifier = Modifier, onPrevious: () -> Unit = {}) {
     val track = state.track ?: return
     var width by remember { mutableIntStateOf(1) }
-    var offset by remember { mutableFloatStateOf(0f) }
-    var dragging by remember { mutableStateOf(false) }
+    var offset by remember(track.id) { mutableFloatStateOf(0f) }
+    var dragging by remember(track.id) { mutableStateOf(false) }
     val shown by androidx.compose.animation.core.animateFloatAsState(if (dragging) offset else 0f, label = "mini-player-swipe")
     val stop = stringResource(R.string.player_stop)
-    // Only a drag of the finger moves the bar, so that nothing but a deliberate swipe stops the music.
-    Box(Modifier.testTag("mini-player").onSizeChanged { width = it.width.coerceAtLeast(1) }
-        .graphicsLayer { translationX = shown; alpha = 1f - .7f * (kotlin.math.abs(shown) / width).coerceIn(0f, 1f) }
+    val next by rememberUpdatedState(onNext.takeIf { state.nextIndex >= 0 })
+    val previous by rememberUpdatedState(onPrevious.takeIf { state.previousIndex >= 0 })
+    Box(modifier.testTag("mini-player").onSizeChanged { width = it.width.coerceAtLeast(1) }
         .semantics { customActions = listOf(CustomAccessibilityAction(stop) { onDismiss(); true }) }
-        .pointerInput(Unit) {
+        .pointerInput(track.id) {
             detectHorizontalDragGestures(onDragStart = { dragging = true; offset = 0f },
-                onDragEnd = { dragging = false; if (kotlin.math.abs(offset) > width * .35f) onDismiss() },
-                onDragCancel = { dragging = false }) { change, amount -> change.consume(); offset += amount }
+                onDragEnd = {
+                    dragging = false
+                    if (offset <= -width * .2f) next?.invoke()
+                    else if (offset >= width * .2f) previous?.invoke()
+                },
+                onDragCancel = { dragging = false }) { change, amount ->
+                    change.consume()
+                    offset = (offset + amount).coerceIn(if (next != null) -width * .45f else 0f, if (previous != null) width * .45f else 0f)
+                }
         }) {
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
+    Surface(Modifier.fillMaxWidth().graphicsLayer {
+        val displacement = if (dragging) offset else shown
+        translationX = displacement
+        alpha = 1f - .7f * (kotlin.math.abs(displacement) / width).coerceIn(0f, 1f)
+    }.padding(horizontal = 16.dp, vertical = 5.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(7.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
         Column {
@@ -110,62 +114,56 @@ fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, 
 @UnstableApi
 @Composable
 fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, onQueue: () -> Unit, onMenu: (Track) -> Unit, onDownload: (Track) -> Unit,
-    onAlbum: (Track) -> Unit = {}, onArtist: (Track) -> Unit = {}, initialLyrics: Boolean = false) {
+    onAlbum: (Track) -> Unit = {}, onArtist: (Track) -> Unit = {}, initialLyrics: Boolean = false, modifier: Modifier = Modifier) {
     val track = state.playback.track ?: return
+    val next: (() -> Unit)? = if (state.playback.nextIndex >= 0) vm::next else null
+    val previous: (() -> Unit)? = if (state.playback.previousIndex >= 0) vm::previousTrack else null
     var lyrics by rememberSaveable { mutableStateOf(initialLyrics) }
     var timer by remember { mutableStateOf(false) }
     LaunchedEffect(track.id, lyrics) { if (lyrics) vm.loadLyrics() }
     var source by remember { mutableStateOf(false) }
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        val window = (LocalView.current.parent as DialogWindowProvider).window
-        val light = MaterialTheme.colorScheme.background.luminance() > .5f
-        LaunchedEffect(light) {
-            withFrameNanos { }
-            WindowCompat.getInsetsController(window, window.decorView).apply { isAppearanceLightStatusBars = light; isAppearanceLightNavigationBars = light }
-        }
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
-                val large = LocalDensity.current.fontScale > 1.3f
-                val landscape = maxWidth > maxHeight && maxWidth >= 480.dp && !large
-                // The controls stay at the bottom of the screen. Only a very short screen scrolls the whole page.
-                val scrolling = maxHeight < 480.dp || (large && maxHeight < 700.dp)
-                val dense = maxHeight < 700.dp || large
-                val landscapeArtworkSize = minOf(maxHeight - 100.dp, maxWidth * .35f)
-                Column(Modifier.fillMaxSize()) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = onClose) { Icon(OpenTuneIcons.KeyboardArrowDown, stringResource(R.string.player_close), Modifier.size(22.dp)) }
-                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                            UpperLabel(if (state.playback.source.isNotBlank()) stringResource(R.string.player_playing_from) else stringResource(R.string.player_from_album))
-                            Text(state.playback.source.ifBlank { track.album.ifBlank { stringResource(R.string.player_now_playing) } }, Modifier.padding(top = 3.dp), fontFamily = AppFonts.body,
-                                fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        IconButton(onClick = { onMenu(track) }) { Icon(OpenTuneIcons.MoreHoriz, stringResource(R.string.player_track_options), Modifier.size(22.dp)) }
+    Surface(modifier.fillMaxSize().testTag("now-playing"), color = MaterialTheme.colorScheme.background) {
+        BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
+            val large = LocalDensity.current.fontScale > 1.3f
+            val landscape = maxWidth > maxHeight && maxWidth >= 480.dp && !large
+            // The controls stay at the bottom of the screen. Only a very short screen scrolls the whole page.
+            val scrolling = maxHeight < 480.dp || (large && maxHeight < 700.dp)
+            val dense = maxHeight < 700.dp || large
+            val landscapeArtworkSize = minOf(maxHeight - 100.dp, maxWidth * .35f)
+            Column(Modifier.fillMaxSize()) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onClose) { Icon(OpenTuneIcons.KeyboardArrowDown, stringResource(R.string.player_close), Modifier.size(22.dp)) }
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        UpperLabel(if (state.playback.source.isNotBlank()) stringResource(R.string.player_playing_from) else stringResource(R.string.player_from_album))
+                        Text(state.playback.source.ifBlank { track.album.ifBlank { stringResource(R.string.player_now_playing) } }, Modifier.padding(top = 3.dp), fontFamily = AppFonts.body,
+                            fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    if (landscape) {
-                        Row(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                            if (lyrics) LyricsPanel(state, vm, Modifier.width(landscapeArtworkSize * 1.3f).height(landscapeArtworkSize))
-                            else PlayerArtwork(track, stringResource(R.string.player_artwork, track.album), Modifier.size(landscapeArtworkSize), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing)
-                            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                                PlayerHeading(track, true, onAlbum, onArtist)
-                                GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, true)
-                            }
-                        }
-                    } else if (scrolling) {
-                        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
+                    IconButton(onClick = { onMenu(track) }) { Icon(OpenTuneIcons.MoreHoriz, stringResource(R.string.player_track_options), Modifier.size(22.dp)) }
+                }
+                if (landscape) {
+                    Row(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                        if (lyrics) LyricsPanel(state, vm, Modifier.width(landscapeArtworkSize * 1.3f).height(landscapeArtworkSize))
+                        else PlayerArtwork(stringResource(R.string.player_artwork, track.album), Modifier.size(landscapeArtworkSize), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, next, previous, state.playback)
+                        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                             PlayerHeading(track, true, onAlbum, onArtist)
-                            if (lyrics) LyricsPanel(state, vm, Modifier.fillMaxWidth().height(if (large) 220.dp else 260.dp))
-                            else PlayerArtwork(track, stringResource(R.string.player_artwork, track.album), Modifier.size(if (large) 104.dp else 180.dp).align(Alignment.CenterHorizontally).padding(vertical = 8.dp), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing)
                             GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, true)
                         }
-                    } else {
-                        Column(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp)) {
-                            PlayerHeading(track, dense, onAlbum, onArtist)
-                            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                if (lyrics) LyricsPanel(state, vm, Modifier.fillMaxSize())
-                                else PlayerArtwork(track, stringResource(R.string.player_artwork, track.album), Modifier.size(minOf(maxWidth - 20.dp, maxHeight - 8.dp).coerceAtLeast(0.dp)), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing)
-                            }
-                            GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, dense)
+                    }
+                } else if (scrolling) {
+                    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
+                        PlayerHeading(track, true, onAlbum, onArtist)
+                        if (lyrics) LyricsPanel(state, vm, Modifier.fillMaxWidth().height(if (large) 220.dp else 260.dp))
+                        else PlayerArtwork(stringResource(R.string.player_artwork, track.album), Modifier.size(if (large) 104.dp else 180.dp).align(Alignment.CenterHorizontally).padding(vertical = 8.dp), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, next, previous, state.playback)
+                        GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, true)
+                    }
+                } else {
+                    Column(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp)) {
+                        PlayerHeading(track, dense, onAlbum, onArtist)
+                        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            if (lyrics) LyricsPanel(state, vm, Modifier.fillMaxSize())
+                            else PlayerArtwork(stringResource(R.string.player_artwork, track.album), Modifier.size(minOf(maxWidth - 20.dp, maxHeight - 8.dp).coerceAtLeast(0.dp)), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, next, previous, state.playback)
                         }
+                        GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, dense)
                     }
                 }
             }
@@ -260,10 +258,12 @@ private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> U
 
 /** The cover of the playing track. With the visualizer on, the cover dims and the spectrum of the music moves over it. */
 @Composable
-private fun PlayerArtwork(track: Track, description: String, modifier: Modifier, visualizer: Boolean, playing: Boolean) {
-    Box(modifier) {
-        TrackArtwork(track, description, Modifier.fillMaxSize().graphicsLayer { alpha = if (visualizer) .45f else 1f })
-        if (visualizer) SpectrumBars(playing, Modifier.matchParentSize().padding(12.dp).testTag("spectrum"))
+private fun PlayerArtwork(description: String, modifier: Modifier, visualizer: Boolean, playing: Boolean,
+    onNext: (() -> Unit)?, onPrevious: (() -> Unit)?, playback: PlaybackState) {
+    CoverCarousel(playback, modifier, onNext, onPrevious) { page, current ->
+        TrackArtwork(page, if (current) description else stringResource(R.string.player_artwork, page.album),
+            Modifier.fillMaxSize().graphicsLayer { alpha = if (visualizer) .45f else 1f })
+        if (current && visualizer) SpectrumBars(playing, Modifier.fillMaxSize().padding(12.dp).testTag("spectrum"))
     }
 }
 
@@ -310,8 +310,11 @@ private fun PlaybackSlider(vm: MainViewModel, trackId: String, duration: Long) {
     val sliderColors = SliderDefaults.colors(activeTrackColor = MaterialTheme.colorScheme.primary, inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant)
     Slider(value = seeking ?: position.toFloat().coerceIn(0f, duration.coerceAtLeast(1).toFloat()), onValueChange = { seeking = it },
         valueRange = 0f..duration.coerceAtLeast(1).toFloat(), enabled = duration > 0,
-        onValueChangeFinished = { seeking?.let { vm.seek(it.toLong()) }; seeking = null }, modifier = Modifier.fillMaxWidth().height(38.dp),
-        thumb = { Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)) },
+        onValueChangeFinished = { seeking?.let { vm.seek(it.toLong()) }; seeking = null }, modifier = Modifier.fillMaxWidth().height(38.dp).testTag("playback-slider"),
+        // Slider measures its thumb slot at the full control height. Center the dot inside that slot.
+        thumb = { Box(Modifier.width(8.dp).fillMaxHeight(), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+        } },
         track = { SliderDefaults.Track(it, Modifier.height(2.dp), colors = sliderColors, thumbTrackGapSize = 0.dp, drawStopIndicator = null) }, colors = sliderColors)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(formatDuration(seeking?.toLong() ?: position), fontFamily = AppFonts.mono, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

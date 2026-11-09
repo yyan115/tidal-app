@@ -1,7 +1,22 @@
 package io.github.yyan115.opentune
 
 import android.net.Uri
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import io.github.yyan115.opentune.ui.LocalPlaybackPosition
+import io.github.yyan115.opentune.ui.OpenTuneRoot
+import io.github.yyan115.opentune.ui.OpenTuneTheme
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
@@ -9,6 +24,8 @@ import androidx.media3.common.util.UnstableApi
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.yyan115.opentune.core.Track
+import io.github.yyan115.opentune.data.QueueSwipeAction
+import io.github.yyan115.opentune.data.AppSettings
 import io.github.yyan115.opentune.ui.MainViewModel
 import org.junit.Assert.*
 import org.junit.Before
@@ -263,12 +280,12 @@ class LocalPlaybackTest {
         compose.onNodeWithTag("settings-list").assertIsDisplayed()
     }
 
-    private fun screenshot(name: String) {
+    private fun screenshot(name: String, node: SemanticsNodeInteraction? = null) {
         compose.waitForIdle()
         InstrumentationRegistry.getInstrumentation().uiAutomation.waitForIdle(250, 5_000)
         val output = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
         val directory = (output?.let(::File) ?: File(app.getExternalFilesDir(null), "screenshots")).apply { mkdirs() }
-        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        val bitmap = node?.captureToImage()?.asAndroidBitmap() ?: InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         File(directory, "$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
     }
@@ -307,20 +324,255 @@ class LocalPlaybackTest {
         compose.waitUntil(5_000) { model.state.value.playback.queue.size == 13 }
         assertEquals("Next Up", model.state.value.playback.queue[model.state.value.playback.index + 1].title)
         compose.runOnIdle { model.toggleShuffle() }
-        compose.waitUntil(5_000) { !model.state.value.playback.shuffle && model.state.value.playback.queue.take(12).map(Track::id) == tracks.map(Track::id) }
-        assertEquals("Next Up", model.state.value.playback.queue.last().title)
+        compose.waitUntil(5_000) { !model.state.value.playback.shuffle && model.state.value.playback.queue.filterNot { it.id == "local:next-up" }.map(Track::id) == tracks.map(Track::id) }
+        assertEquals("Next Up", model.state.value.playback.queue[1].title)
     }
 
-    @Test fun aSwipeOnTheMiniPlayerStopsPlaybackAndATapOnlyOpensIt() {
+    @Test fun swipingTheMiniPlayerNavigatesWithoutClearingTheQueue() {
         compose.runOnIdle { model.play(listOf(track, track.copy(id = "local:swipe-2", title = "Second Track"))) }
         compose.waitUntil(10_000) { model.state.value.playback.queue.size == 2 }
         compose.onNodeWithTag("mini-player").performClick()
         compose.onNodeWithText("Queue · 2").assertIsDisplayed()
         compose.onNodeWithContentDescription("Close player").performClick()
+        compose.onNodeWithTag("now-playing").assertDoesNotExist()
         assertEquals("A tap leaves the queue alone", 2, model.state.value.playback.queue.size)
         compose.onNodeWithTag("mini-player").performTouchInput { swipeRight() }
-        compose.waitUntil(5_000) { model.state.value.playback.queue.isEmpty() }
-        compose.onNodeWithTag("mini-player").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(track.id, model.state.value.playback.track?.id) }
+        compose.onNodeWithTag("mini-player").performTouchInput { swipeLeft() }
+        compose.waitUntil(5_000) { model.state.value.playback.track?.id == "local:swipe-2" }
+        compose.onNodeWithTag("mini-player").performTouchInput { swipeRight() }
+        compose.waitUntil(5_000) { model.state.value.playback.track?.id == track.id }
+        compose.runOnIdle { assertEquals(2, model.state.value.playback.queue.size) }
+    }
+
+    @Test fun seekThumbIsCenteredOnThePaintedTrack() {
+        compose.runOnIdle { model.play(listOf(track)) }
+        compose.waitUntil(10_000) { model.state.value.playback.duration > 0 }
+        compose.runOnIdle { model.togglePlay(); model.seek(model.state.value.playback.duration / 2) }
+        compose.waitUntil(5_000) { kotlin.math.abs(model.position.value - model.state.value.playback.duration / 2) < 1000 }
+        compose.onNodeWithTag("mini-player").performClick()
+        compose.waitUntil(5_000) { compose.onNodeWithTag("now-playing").fetchSemanticsNode().boundsInRoot.top < 1f }
+        val image = compose.onNodeWithTag("playback-slider").captureToImage()
+        File(app.getExternalFilesDir(null), "seek-bar.png").outputStream().use { image.asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        val pixels = image.toPixelMap()
+        val background = pixels[pixels.width / 2, 0]
+        fun paintedRows(x: Int) = (0 until pixels.height).filter { y ->
+            val c = pixels[x, y]
+            kotlin.math.abs(c.red - background.red) + kotlin.math.abs(c.green - background.green) + kotlin.math.abs(c.blue - background.blue) > .15f
+        }
+        val columns = (0 until pixels.width).map(::paintedRows)
+        val dot = columns.maxBy { it.size }
+        val line = columns.filter { it.isNotEmpty() }.minBy { it.size }
+        assertTrue("The capture must contain a dot, not only the line", dot.size > line.size * 2)
+        assertEquals("The dot and line must share their vertical center", (line.first() + line.last()) / 2f, (dot.first() + dot.last()) / 2f, 1f)
+    }
+
+    @Test fun adjacentCoversFollowTheFingerAndShortDragsSnapBack() {
+        val songs = (1..3).map { track.copy(id = "local:carousel-$it", title = "Carousel $it", album = "Cover $it") }
+        compose.runOnIdle { model.play(songs, index = 1, shuffle = false) }
+        compose.waitUntil(10_000) { model.state.value.playback.track?.id == songs[1].id }
+        compose.onNodeWithTag("mini-player").performClick()
+        compose.waitUntil(5_000) { compose.onNodeWithTag("now-playing").fetchSemanticsNode().boundsInRoot.top < 1f }
+        val cover = compose.onNodeWithTag("player-artwork")
+        cover.performTouchInput { down(center); moveBy(Offset(-width * .45f, 0f), 400) }
+        compose.onNodeWithTag("cover-current").assertIsDisplayed()
+        compose.onNodeWithTag("cover-next").assertIsDisplayed()
+        val nextLeft = compose.onNodeWithTag("cover-next").fetchSemanticsNode().boundsInRoot.left
+        compose.runOnIdle { assertEquals(songs[1].id, model.state.value.playback.track?.id) }
+        cover.performTouchInput { moveBy(Offset(-width * .1f, 0f), 150) }
+        assertTrue(compose.onNodeWithTag("cover-next").fetchSemanticsNode().boundsInRoot.left < nextLeft - 10f)
+        cover.performTouchInput { up() }
+        compose.waitUntil(5_000) { model.state.value.playback.track?.id == songs[2].id }
+        cover.performTouchInput { down(center); moveBy(Offset(width * .4f, 0f), 400) }
+        compose.onNodeWithTag("cover-previous").assertIsDisplayed()
+        cover.performTouchInput { moveBy(Offset(-width * .3f, 0f), 500); advanceEventTime(200); up() }
+        compose.onNodeWithTag("cover-previous").assertIsNotDisplayed()
+        compose.runOnIdle { assertEquals(songs[2].id, model.state.value.playback.track?.id) }
+        cover.performTouchInput { swipeRight() }
+        compose.waitUntil(5_000) { model.state.value.playback.track?.id == songs[1].id }
+    }
+
+    @Test fun swipingTheCoverChangesTracksButScrubbingDoesNot() {
+        val songs = (1..3).map { track.copy(id = "local:cover-$it", title = "Cover $it") }
+        compose.runOnIdle { model.play(songs, shuffle = false) }
+        compose.waitUntil(10_000) { model.state.value.playback.queue.size == 3 }
+        compose.onNodeWithTag("mini-player").performClick()
+        compose.onNodeWithTag("player-artwork").performTouchInput { swipeLeft() }
+        compose.waitUntil(5_000) { model.state.value.playback.track?.id == songs[1].id }
+        compose.runOnIdle { model.seek(10_000) }
+        compose.onNodeWithTag("player-artwork").performTouchInput { swipeRight() }
+        compose.waitUntil(5_000) { model.state.value.playback.track?.id == songs[0].id }
+        compose.onNodeWithTag("playback-slider").performTouchInput {
+            swipe(Offset(width * .2f, center.y), Offset(width * .6f, center.y))
+        }
+        compose.runOnIdle { assertEquals(songs[0].id, model.state.value.playback.track?.id) }
+        compose.onNodeWithTag("player-artwork").performTouchInput { swipeRight() }
+        compose.runOnIdle { assertEquals(songs[0].id, model.state.value.playback.track?.id) }
+        compose.runOnIdle { model.jumpTo(2) }
+        compose.waitUntil(5_000) { model.state.value.playback.track?.id == songs[2].id }
+        compose.onNodeWithTag("player-artwork").performTouchInput { swipeLeft() }
+        compose.runOnIdle { assertEquals(songs[2].id, model.state.value.playback.track?.id) }
+        compose.onNodeWithTag("now-playing").assertIsDisplayed()
+    }
+
+    @Test fun playerFollowsTheFingerBeforeItIsReleased() {
+        compose.runOnIdle { model.play(listOf(track)) }
+        compose.waitUntil(10_000) { model.state.value.playback.track != null }
+        val mini = compose.onNodeWithTag("mini-player")
+        mini.performTouchInput {
+            down(center)
+            moveBy(Offset(0f, -height * 4f), 300)
+        }
+        compose.onNodeWithTag("now-playing").assertIsDisplayed()
+        val firstTop = compose.onNodeWithTag("now-playing").fetchSemanticsNode().boundsInRoot.top
+        mini.performTouchInput { moveBy(Offset(0f, -height * 2f), 200) }
+        val secondTop = compose.onNodeWithTag("now-playing").fetchSemanticsNode().boundsInRoot.top
+        assertTrue("The player must continue following the finger", secondTop < firstTop - 10f)
+        mini.performTouchInput { up() }
+    }
+
+    @Test fun reversingThePlayerDragReturnsToTheMiniPlayer() {
+        compose.runOnIdle { model.play(listOf(track)) }
+        compose.waitUntil(10_000) { model.state.value.playback.track != null }
+        val mini = compose.onNodeWithTag("mini-player")
+        mini.performTouchInput { down(center); moveBy(Offset(0f, -height * 4f), 300) }
+        compose.onNodeWithTag("now-playing").assertIsDisplayed()
+        mini.performTouchInput { moveBy(Offset(0f, height * 3.8f), 600); up() }
+        compose.onNodeWithTag("now-playing").assertDoesNotExist()
+        mini.assertIsDisplayed()
+    }
+
+    /** Exercise a 360 x 640 dp viewport with large text without changing the device display. */
+    @Test fun playerAndSwipeSettingsRemainUsableWithLargeText() {
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                val state by model.state.collectAsState()
+                val density = LocalDensity.current
+                CompositionLocalProvider(LocalDensity provides Density(density.density, 1.5f), LocalPlaybackPosition provides model.position) {
+                    OpenTuneTheme("light") {
+                        Box(Modifier.size(360.dp, 640.dp)) { OpenTuneRoot(model, state) }
+                    }
+                }
+            }
+        }
+        compose.runOnIdle { model.play(listOf(track, track.copy(id = "local:layout-second", title = "Second Track"))) }
+        compose.waitUntil(10_000) { model.state.value.playback.queue.size == 2 }
+        compose.onNodeWithTag("mini-player").performClick()
+        compose.waitUntil(5_000) { compose.onNodeWithTag("now-playing").fetchSemanticsNode().boundsInRoot.top < 1f }
+        screenshot("swipe-player-layout", compose.onNodeWithTag("now-playing"))
+        val next = compose.onAllNodesWithContentDescription(app.getString(R.string.player_next))
+            .filter(hasAnyAncestor(hasTestTag("now-playing")))[0]
+        if (!next.isDisplayed()) next.performScrollTo()
+        next.assertIsDisplayed().performClick()
+        compose.waitUntil(5_000) { model.state.value.playback.index == 1 }
+        compose.onNodeWithContentDescription(app.getString(R.string.player_close)).performClick()
+        compose.onNodeWithTag("now-playing").assertDoesNotExist()
+        compose.onNodeWithContentDescription(app.getString(R.string.nav_settings)).performClick()
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasText(app.getString(R.string.settings_swipe_action)))
+        compose.onNodeWithText(app.getString(R.string.settings_swipe_action)).performClick()
+        compose.onNodeWithText(app.getString(R.string.settings_swipe_ask)).assertIsDisplayed()
+        compose.onNodeWithText(app.getString(R.string.track_play_next)).assertIsDisplayed()
+        compose.onNode(hasText(app.getString(R.string.track_add_queue)) and hasAnyAncestor(isDialog())).assertIsDisplayed()
+        screenshot("swipe-action-settings", compose.onNode(isDialog()))
+        compose.onNode(hasText(app.getString(R.string.track_add_queue)) and hasAnyAncestor(isDialog())).performClick()
+    }
+
+    @Test fun askModeOffersAChoiceForEverySong() {
+        val playlist = (1..100).map { track.copy(id = "local:choice-$it", title = "Source $it") }
+        compose.runOnIdle { model.settings { it.copy(queueSwipeAction = QueueSwipeAction.Ask) }; model.play(playlist, shuffle = false) }
+        compose.waitUntil(10_000) { model.state.value.playback.queue.size == 100 }
+        if (model.state.value.signedIn) compose.onNodeWithTag("nav-device").performClick()
+        compose.onNodeWithTag("device-list").performScrollToNode(hasText(track.title))
+        compose.onNodeWithText(track.title).performTouchInput { swipeRight() }
+        compose.onNodeWithTag("queue-choice").assertIsDisplayed()
+        compose.onNodeWithText(app.getString(R.string.track_play_next)).performClick()
+        compose.waitUntil(5_000) { model.state.value.playback.manualQueuedCount == 1 }
+        compose.onNodeWithTag("queue-choice").assertDoesNotExist()
+        assertEquals(track.id, model.state.value.playback.queue[1].id)
+        compose.onNodeWithText(track.title).performTouchInput { swipeRight() }
+        compose.onNodeWithTag("queue-choice").assertIsDisplayed()
+        compose.onNodeWithText(app.getString(R.string.track_play_next)).assertIsDisplayed()
+        compose.onNodeWithText(app.getString(R.string.track_add_queue)).performClick()
+        compose.waitUntil(5_000) { model.state.value.playback.manualQueuedCount == 2 }
+        compose.onNodeWithText(track.title).performTouchInput { swipeRight() }
+        compose.onNodeWithText(app.getString(R.string.track_play_next)).performClick()
+        compose.waitUntil(5_000) { model.state.value.playback.manualQueuedCount == 3 }
+        assertEquals(listOf(track.id, track.id, track.id, playlist[1].id), model.state.value.playback.queue.drop(1).take(4).map(Track::id))
+        compose.runOnIdle { model.settings { it.copy(queueSwipeAction = QueueSwipeAction.AddToQueue) } }
+    }
+
+    @Test fun swipeSettingPersistsAndFixedModesDoNotAsk() {
+        val first = track.copy(id = "local:setting-source", title = "Source")
+        val pending = track.copy(id = "local:setting-pending", title = "Pending")
+        compose.runOnIdle {
+            model.settings { it.copy(queueSwipeAction = QueueSwipeAction.AddToQueue) }
+            model.play(listOf(first, first.copy(id = "local:setting-source-2")), shuffle = false)
+        }
+        compose.waitUntil(10_000) { model.state.value.playback.queue.size == 2 }
+        compose.runOnIdle { model.queue(pending) }
+        compose.waitUntil(5_000) { model.state.value.playback.manualQueuedCount == 1 }
+        if (model.state.value.signedIn) compose.onNodeWithTag("nav-device").performClick()
+        compose.onNodeWithTag("device-list").performScrollToNode(hasText(track.title))
+        compose.onNodeWithText(track.title).performTouchInput { swipeRight() }
+        compose.waitUntil(5_000) { model.state.value.playback.manualQueuedCount == 2 }
+        compose.onNodeWithTag("queue-choice").assertDoesNotExist()
+        assertEquals(listOf(first.id, pending.id, track.id), model.state.value.playback.queue.take(3).map(Track::id))
+        compose.onNodeWithContentDescription(app.getString(R.string.nav_settings)).performClick()
+        compose.onNodeWithTag("settings-list").performScrollToNode(hasText(app.getString(R.string.settings_swipe_action)))
+        compose.onNodeWithText(app.getString(R.string.settings_swipe_action)).performClick()
+        compose.onNodeWithText(app.getString(R.string.track_play_next)).performClick()
+        compose.waitUntil(5_000) { model.state.value.settings.queueSwipeAction == QueueSwipeAction.PlayNext }
+        assertEquals(QueueSwipeAction.PlayNext, AppSettings(app).state.value.queueSwipeAction)
+        compose.onNodeWithContentDescription(app.getString(R.string.action_back)).performClick()
+        compose.onNodeWithText(track.title).performTouchInput { swipeRight() }
+        compose.waitUntil(5_000) { model.state.value.playback.manualQueuedCount == 3 }
+        compose.onNodeWithTag("queue-choice").assertDoesNotExist()
+        assertEquals(listOf(first.id, track.id, pending.id, track.id), model.state.value.playback.queue.take(4).map(Track::id))
+        compose.runOnIdle { model.settings { it.copy(queueSwipeAction = QueueSwipeAction.AddToQueue) } }
+    }
+
+    @Test fun manualQueuePlaysBeforeTheRestOfALongPlaylist() {
+        val playlist = (1..100).map { track.copy(id = "local:playlist-$it", title = "Playlist $it") }
+        val a = track.copy(id = "local:manual-a", title = "Manual A")
+        val b = track.copy(id = "local:manual-b", title = "Manual B")
+        val c = track.copy(id = "local:manual-c", title = "Manual C")
+        compose.runOnIdle { model.play(playlist, shuffle = false) }
+        compose.waitUntil(10_000) { model.state.value.playback.queue.size == 100 }
+        compose.runOnIdle { model.queue(a) }
+        compose.waitUntil(5_000) { model.state.value.playback.queue.size == 101 }
+        assertEquals(a.id, model.state.value.playback.queue[1].id)
+        compose.runOnIdle { model.queue(b); model.queue(c, next = true) }
+        compose.waitUntil(5_000) { model.state.value.playback.queue.size == 103 }
+        assertEquals(listOf(playlist[0].id, c.id, a.id, b.id, playlist[1].id), model.state.value.playback.queue.take(5).map(Track::id))
+        compose.runOnIdle { model.next() }
+        compose.waitUntil(5_000) { model.state.value.playback.track?.id == c.id }
+        compose.runOnIdle { model.queue(a) }
+        compose.waitUntil(5_000) { model.state.value.playback.queue.size == 104 }
+        assertEquals(listOf(a.id, b.id, a.id, playlist[1].id), model.state.value.playback.queue.drop(model.state.value.playback.index + 1).take(4).map(Track::id))
+        compose.runOnIdle { model.jumpTo(5) }
+        compose.waitUntil(5_000) { model.state.value.playback.track?.id == playlist[1].id && model.state.value.playback.manualQueuedCount == 0 }
+        compose.runOnIdle { model.queue(c) }
+        compose.waitUntil(5_000) { model.state.value.playback.manualQueuedCount == 1 }
+        assertEquals(c.id, model.state.value.playback.queue[6].id)
+    }
+
+    @Test fun verticalPlayerSwipesOpenAndCloseWithoutChangingPlayback() {
+        compose.runOnIdle { model.play(listOf(track, track.copy(id = "local:vertical-2", title = "Second Track"))) }
+        compose.waitUntil(10_000) { model.state.value.playback.queue.size == 2 }
+        compose.onNodeWithTag("mini-player").performTouchInput {
+            swipe(center, Offset(center.x, center.y - height * 3f))
+        }
+        compose.onNodeWithTag("now-playing").assertIsDisplayed()
+        compose.waitUntil(5_000) { compose.onNodeWithTag("now-playing").fetchSemanticsNode().boundsInRoot.top < 1f }
+        compose.onNodeWithTag("now-playing").performTouchInput {
+            swipe(Offset(center.x, height * .12f), Offset(center.x, height * .75f))
+        }
+        compose.onNodeWithTag("now-playing").assertDoesNotExist()
+        compose.onNodeWithTag("mini-player").assertIsDisplayed()
+        compose.runOnIdle {
+            assertEquals(2, model.state.value.playback.queue.size)
+            assertEquals(track.id, model.state.value.playback.track?.id)
+        }
     }
 
     @Test fun openingAnArtistFromThePlayerLeavesTheSettingsBehindIt() {

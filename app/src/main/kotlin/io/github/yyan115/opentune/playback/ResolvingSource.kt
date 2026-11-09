@@ -51,7 +51,9 @@ class ResolvingSource(private val app: OpenTuneApp, private val original: MediaI
                             val factory = DefaultMediaSourceFactory(app.sources.dataSource(app.settings.state.value.offline || offlineCopy || track.localUri?.startsWith("opentune-offline:") == true))
                             drmProvider?.let(factory::setDrmSessionManagerProvider)
                             factory.setLoadErrorHandlingPolicy(loadPolicy ?: androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy(LOAD_RETRIES))
-                            val source = factory.createMediaSource(resolved)
+                            // Keep occurrence metadata (including manual-queue membership) in the
+                            // resolved timeline; resolving the URL must not turn it into a source-list item.
+                            val source = factory.createMediaSource(resolved.buildUpon().setMediaMetadata(original.mediaMetadata).build())
                             // Preparation may immediately publish a timeline and request a period.
                             child = source
                             prepareChildSource(Unit, source)

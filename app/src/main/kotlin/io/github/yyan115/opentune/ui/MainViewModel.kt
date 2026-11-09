@@ -26,6 +26,7 @@ import io.github.yyan115.opentune.data.DownloadRequests
 import io.github.yyan115.opentune.data.DownloadWorker
 import io.github.yyan115.opentune.data.MigrateDownloadsWorker
 import io.github.yyan115.opentune.data.Settings
+import io.github.yyan115.opentune.playback.ManualQueue
 import io.github.yyan115.opentune.playback.PlaybackCommands
 import io.github.yyan115.opentune.playback.PlaybackService
 import kotlinx.coroutines.CancellationException
@@ -53,7 +54,7 @@ data class PlaybackState(
     val duration: Long = 0,
     val shuffle: Boolean = false, val repeat: Int = Player.REPEAT_MODE_OFF,
     val quality: String = "", val error: String? = null,
-    val nextIndex: Int = -1, val source: String = "",
+    val nextIndex: Int = -1, val previousIndex: Int = -1, val source: String = "", val manualQueuedCount: Int = 0,
 ) { val track: Track? get() = queue.getOrNull(index) }
 
 enum class LyricsStatus { Idle, Loading, Ready, None, Offline, Error }
@@ -429,14 +430,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun seek(position: Long) { controller?.seekTo(position.coerceAtLeast(0)) }
     fun next() { controller?.seekToNextMediaItem() }
+    fun previousTrack() { controller?.seekToPreviousMediaItem() }
     fun previous() { controller?.let { if (it.currentPosition > 3000) it.seekTo(0) else it.seekToPreviousMediaItem() } }
     fun toggleShuffle() { controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled } }
     fun toggleRepeat() { controller?.let { it.repeatMode = (it.repeatMode + 1) % 3 } }
     fun queue(track: Track, next: Boolean = false) {
         val player = controller ?: return
         if (player.mediaItemCount == 0) { play(listOf(track)); return }
-        player.addMediaItem(if (next) player.currentMediaItemIndex + 1 else player.mediaItemCount, app.sources.unresolved(track))
-        notify(app.getString(if (next) R.string.notify_plays_next else R.string.notify_added_queue))
+        val playsNext = next || ManualQueue.upcomingIndices(player).isEmpty()
+        player.addMediaItem(ManualQueue.insertionIndex(player, next), ManualQueue.mark(app.sources.unresolved(track)))
+        notify(app.getString(if (playsNext) R.string.notify_plays_next else R.string.notify_added_queue))
     }
     fun removeQueue(index: Int) { controller?.removeMediaItem(index) }
     fun moveQueue(from: Int, to: Int) { controller?.let { if (to in 0 until it.mediaItemCount) it.moveMediaItem(from, to) } }
@@ -809,7 +812,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val quality = player.currentMediaItem?.localConfiguration?.tag as? String ?: queue.getOrNull(player.currentMediaItemIndex)?.quality.orEmpty()
         ui.update { it.copy(playback = it.playback.copy(queue = queue, index = player.currentMediaItemIndex.coerceAtLeast(0),
             playing = player.isPlaying, buffering = player.playbackState == Player.STATE_BUFFERING,
-            shuffle = player.shuffleModeEnabled, repeat = player.repeatMode, quality = quality, nextIndex = player.nextMediaItemIndex,
+            shuffle = player.shuffleModeEnabled, repeat = player.repeatMode, quality = quality, nextIndex = player.nextMediaItemIndex, previousIndex = player.previousMediaItemIndex, manualQueuedCount = ManualQueue.upcomingIndices(player).size,
             error = if (player.playerError == null) null else it.playback.error)) }
     }
 
@@ -817,6 +820,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val player = controller ?: return
         preferences.edit().putString("queue", JsonCodec.encodeTracks(ui.value.playback.queue))
             .putInt("index", player.currentMediaItemIndex.coerceAtLeast(0)).putLong("position", player.currentPosition.coerceAtLeast(0))
+            .putStringSet("manualQueue", (0 until player.mediaItemCount).filter { ManualQueue.contains(player.getMediaItemAt(it)) }.map(Int::toString).toSet())
             .putBoolean("shuffle", player.shuffleModeEnabled).putInt("repeat", player.repeatMode).apply()
     }
     private fun restoreQueue() {
@@ -831,7 +835,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         controller?.let {
             // The saved queue is in the order it was shuffled to, so shuffle is set before the tracks and does not shuffle them again.
             it.shuffleModeEnabled = shuffle
-            it.setMediaItems(tracks.map(app.sources::unresolved), index, position)
+            val manual = preferences.getStringSet("manualQueue", emptySet()).orEmpty()
+            it.setMediaItems(tracks.mapIndexed { position, track -> app.sources.unresolved(track).let { item -> if (position.toString() in manual) ManualQueue.mark(item) else item } }, index, position)
             it.repeatMode = repeat
             ui.update { state -> state.copy(playback = state.playback.copy(source = preferences.getString("source", "").orEmpty())) }
         }

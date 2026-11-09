@@ -581,4 +581,6 @@
     <string name="error_playback_stopped">Playback stopped. Check the connection or choose another track.</string>
     <string name="error_file_unreadable">This file cannot be read. It may have been moved, renamed or deleted.</string>
     <string name="error_track_unavailable">This track is not available</string>
+    <string name="settings_swipe_action">Song swipe action</string>
+    <string name="settings_swipe_ask">Ask each time</string>
 </resources>

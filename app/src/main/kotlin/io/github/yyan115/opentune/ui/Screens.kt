@@ -3,6 +3,10 @@ package io.github.yyan115.opentune.ui
 import io.github.yyan115.opentune.downloadErrorText
 import androidx.compose.ui.res.pluralStringResource
 import io.github.yyan115.opentune.R
+import io.github.yyan115.opentune.data.QueueSwipeAction
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
 import android.content.Intent
 import android.net.Uri
@@ -377,6 +381,7 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
     var theme by remember { mutableStateOf(false) }
     var signOut by remember { mutableStateOf(false) }
     var normalization by remember { mutableStateOf(false) }
+    var swipeAction by remember { mutableStateOf(false) }
     var equalizer by remember { mutableStateOf(false) }
     var scrobbling by remember { mutableStateOf(false) }
     var clearHistory by remember { mutableStateOf(false) }
@@ -392,6 +397,8 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
             onClick = if (state.signedIn) ({ signOut = true }) else onLogin,
             trailing = { Icon(if (state.signedIn) OpenTuneIcons.CheckCircle else OpenTuneIcons.ChevronRight, null) }) }
         item { SectionTitle(stringResource(R.string.settings_playback)) }
+        item { SettingRow(OpenTuneIcons.QueueMusic, stringResource(R.string.settings_swipe_action), stringResource(settings.queueSwipeAction.labelRes()),
+            { swipeAction = true }, trailing = { Icon(OpenTuneIcons.ChevronRight, null) }) }
         item { SettingRow(OpenTuneIcons.Shuffle, stringResource(R.string.settings_repeats), if (settings.avoidRepeatHours == 0) stringResource(R.string.settings_off) else repeatWindowText(settings.avoidRepeatHours),
             { onOpenPage(SettingsPage.Repeats) }, trailing = { Icon(OpenTuneIcons.ChevronRight, null) }) }
         // These settings change how TIDAL is streamed and downloaded, so they appear once an account is connected.
@@ -436,6 +443,18 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
         item { SettingRow(OpenTuneIcons.PrivacyTip, stringResource(R.string.settings_privacy), stringResource(R.string.settings_privacy_text)) }
         item { SettingRow(OpenTuneIcons.Description, stringResource(R.string.settings_licenses), onClick = { onOpenPage(SettingsPage.Licenses) }, trailing = { Icon(OpenTuneIcons.ChevronRight, null) }) }
     }
+    if (swipeAction) AlertDialog(onDismissRequest = { swipeAction = false },
+        title = { Text(stringResource(R.string.settings_swipe_action)) },
+        text = { Column(Modifier.selectableGroup()) {
+            QueueSwipeAction.entries.forEach { action ->
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(settings.queueSwipeAction == action, role = Role.RadioButton) {
+                    vm.settings { it.copy(queueSwipeAction = action) }; swipeAction = false
+                }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(settings.queueSwipeAction == action, onClick = null)
+                    Text(stringResource(action.labelRes()), Modifier.padding(start = 12.dp))
+                }
+            }
+        } }, confirmButton = {}, dismissButton = { TextButton(onClick = { swipeAction = false }) { Text(stringResource(R.string.action_cancel)) } })
     if (normalization) NormalizationDialog(settings.normalization, { value -> vm.settings { it.copy(normalization = value) } }) { normalization = false }
     if (equalizer) EqualizerSheet(settings, { next -> vm.settings { next } }) { equalizer = false }
     if (scrobbling) ScrobbleDialog(settings, vm) { scrobbling = false }

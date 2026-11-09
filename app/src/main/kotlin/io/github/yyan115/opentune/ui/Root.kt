@@ -1,6 +1,7 @@
 package io.github.yyan115.opentune.ui
 
 import io.github.yyan115.opentune.R
+import io.github.yyan115.opentune.data.QueueSwipeAction
 import androidx.compose.ui.res.stringResource
 import android.Manifest
 import android.content.Intent
@@ -10,6 +11,12 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -35,6 +42,34 @@ import io.github.yyan115.opentune.core.*
 @UnstableApi
 @Composable
 fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destination = Destination.Home, initialPlayer: Boolean = false, initialSettings: Boolean = false, initialLyrics: Boolean = false) {
+    var queueChoice by remember { mutableStateOf<Track?>(null) }
+    CompositionLocalProvider(
+        LocalQueueTrack provides { track ->
+            when (state.settings.queueSwipeAction) {
+                QueueSwipeAction.Ask -> queueChoice = track
+                QueueSwipeAction.PlayNext -> vm.queue(track, true)
+                QueueSwipeAction.AddToQueue -> vm.queue(track)
+            }
+        },
+        LocalQueueActionLabel provides state.settings.queueSwipeAction.labelRes(),
+    ) {
+        OpenTuneContent(vm, state, initialDestination, initialPlayer, initialSettings, initialLyrics)
+    }
+    queueChoice?.let { track ->
+        ModalBottomSheet(onDismissRequest = { queueChoice = null }, modifier = Modifier.testTag("queue-choice")) {
+            Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
+                Text(track.title, Modifier.padding(horizontal = 24.dp, vertical = 12.dp), style = MaterialTheme.typography.titleMedium)
+                SettingRow(OpenTuneIcons.PlaylistPlay, stringResource(R.string.track_play_next), onClick = { vm.queue(track, true); queueChoice = null })
+                SettingRow(OpenTuneIcons.QueueMusic, stringResource(R.string.track_add_queue), onClick = { vm.queue(track); queueChoice = null })
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@UnstableApi
+@Composable
+private fun OpenTuneContent(vm: MainViewModel, state: AppState, initialDestination: Destination, initialPlayer: Boolean, initialSettings: Boolean, initialLyrics: Boolean) {
     // The position changes twice a second. Only the mini player reads it, so the rest of the screen does not recompose.
     val position = LocalPlaybackPosition.current.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -44,7 +79,10 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     var libraryFilter by rememberSaveable { mutableIntStateOf(0) }
     var settings by rememberSaveable { mutableStateOf(initialSettings) }
     var settingsPage by rememberSaveable { mutableStateOf<String?>(null) }
-    var nowPlaying by rememberSaveable { mutableStateOf(initialPlayer) }
+    val playerExpansion = rememberPlayerExpansion(initialPlayer)
+    val flingThreshold = with(LocalDensity.current) { 800.dp.toPx() }
+    SideEffect { playerExpansion.flingThreshold = flingThreshold }
+    LaunchedEffect(state.playback.track == null) { if (state.playback.track == null) playerExpansion.close() }
     var queue by rememberSaveable { mutableStateOf(false) }
     var trackMenu by remember { mutableStateOf<Track?>(null) }
     var addToPlaylist by remember { mutableStateOf<Track?>(null) }
@@ -83,7 +121,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     val openLogin = { startLogin(context, vm) }
     val openTrackMenu: (Track) -> Unit = { trackMenu = it; playlistPosition = null }
     // A page opens over everything else, so the player, the settings and the lists behind it make way.
-    val openRelease: (Release) -> Unit = { release -> closeSettings(); nowPlaying = false; queue = false; vm.open(release) }
+    val openRelease: (Release) -> Unit = { release -> closeSettings(); playerExpansion.close(); queue = false; vm.open(release) }
     LaunchedEffect(state.message) { state.message?.let { snackbar.showSnackbar(it); vm.messageShown() } }
     LaunchedEffect(state.signedIn) { if (state.signedIn) vm.finishWelcome() }
     BackHandler(enabled = state.detail != null || settings || state.routes.isNotEmpty()) {
@@ -94,6 +132,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     val setupPending = state.settings.setupPending
     val setup by rememberSaveable(setupPending) { mutableStateOf(setupPending && Permissions.missing(context).isNotEmpty()) }
     LaunchedEffect(setupPending, setup) { if (setupPending && !setup) vm.finishSetup() }
+    Box(Modifier.fillMaxSize()) {
     if (welcome) WelcomeScreen(onSignIn = openLogin, onLocalOnly = vm::finishWelcome)
     else if (setup) SetupScreen(onContinue = vm::finishSetup)
     else Row(Modifier.fillMaxSize().then(if (landscape) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Start)) else Modifier)) {
@@ -141,7 +180,9 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
         },
         bottomBar = {
             Column {
-                if (state.playback.track != null) MiniPlayer(state.playback, position, onOpen = { nowPlaying = true }, onPlay = vm::togglePlay, onNext = vm::next, onDismiss = vm::stopPlayback)
+                if (state.playback.track != null) MiniPlayer(state.playback, position, onOpen = { playerExpansion.open() }, onPlay = vm::togglePlay, onNext = vm::next, onDismiss = vm::stopPlayback, onPrevious = vm::previousTrack,
+                    modifier = Modifier.playerDrag(playerExpansion).onGloballyPositioned { playerExpansion.travel = it.positionInRoot().y.coerceAtLeast(1f) }
+                        .graphicsLayer { alpha = (1f - playerExpansion.fraction * 5f).coerceIn(0f, 1f) })
                 if (!settings && !landscape && !largeText && navigation) OpenTuneNavigation(destinations, destination, select)
                 else Spacer(Modifier.navigationBarsPadding())
             }
@@ -160,7 +201,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
                 state.routes.isNotEmpty() -> PageScreen(state.routes.last(), state, vm, pagesVm, openTrackMenu)
                 state.detail != null -> DetailScreen(state, vm, { track, index -> trackMenu = track; playlistPosition = index }, onAddSongs = { addSongs = true })
                 destination == Destination.Home -> ListenScreen(state, vm, importAudio, openLogin, { filter -> libraryFilter = filter; destinationName = Destination.Library.name },
-                    { destinationName = Destination.Device.name }, openTrackMenu, { nowPlaying = true })
+                    { destinationName = Destination.Device.name }, openTrackMenu, { playerExpansion.open() })
                 destination == Destination.Search -> SearchScreen(state, vm, openLogin, openTrackMenu)
                 destination == Destination.Library -> LibraryScreen(state, vm, openLogin, { newPlaylistTrack = null; playlistTitle = ""; newPlaylist = true }, openTrackMenu,
                     libraryFilter, { libraryFilter = it })
@@ -180,11 +221,15 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
 
     // The sign-in finishes in the browser, so a bar shows while the app exchanges the answer.
     if (state.signingIn) LinearProgressIndicator(Modifier.fillMaxWidth().statusBarsPadding())
-    if (nowPlaying && state.playback.track != null) NowPlayingScreen(state, vm, onClose = { nowPlaying = false }, onQueue = { queue = true }, onMenu = openTrackMenu, onDownload = { track ->
+    BackHandler(enabled = playerExpansion.visible) { playerExpansion.close() }
+    if (playerExpansion.visible && state.playback.track != null) Box(Modifier.fillMaxSize().playerDrag(playerExpansion)) {
+        Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = playerExpansion.fraction * .25f)).clickable { playerExpansion.close() })
+        NowPlayingScreen(state, vm, onClose = { playerExpansion.close() }, onQueue = { queue = true }, onMenu = openTrackMenu, onDownload = { track ->
         askPermissions()
         vm.download(track)
     }, onAlbum = { track -> openRelease(Release(track.albumId, track.album, track.artist, track.artwork)) },
-        onArtist = { track -> openRelease(Release(track.artistId, track.artist.substringBefore(","), "", type = ReleaseType.ARTIST)) }, initialLyrics = initialLyrics)
+        onArtist = { track -> openRelease(Release(track.artistId, track.artist.substringBefore(","), "", type = ReleaseType.ARTIST)) }, initialLyrics = initialLyrics, modifier = Modifier.graphicsLayer { translationY = playerExpansion.offset })
+    }
     if (queue) QueueSheet(state, vm) { queue = false }
     trackMenu?.let { track ->
         ModalBottomSheet(onDismissRequest = { trackMenu = null; playlistPosition = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -201,7 +246,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
                 val saved = state.favorites.any { it.id == track.id }
                 SettingRow(if (saved) OpenTuneIcons.Favorite else OpenTuneIcons.FavoriteBorder, if (saved) stringResource(R.string.track_unsave) else stringResource(R.string.track_save), onClick = { vm.favorite(track); trackMenu = null })
                 SettingRow(OpenTuneIcons.PlaylistPlay, stringResource(R.string.track_play_next), onClick = { vm.queue(track, true); trackMenu = null })
-                SettingRow(OpenTuneIcons.QueueMusic, stringResource(R.string.track_add_queue), onClick = { vm.queue(track); trackMenu = null })
+                if (state.playback.manualQueuedCount > 0) SettingRow(OpenTuneIcons.QueueMusic, stringResource(R.string.track_add_queue), onClick = { vm.queue(track); trackMenu = null })
                 SettingRow(OpenTuneIcons.PlaylistAdd, stringResource(R.string.playlist_add), onClick = { addToPlaylist = track; trackMenu = null })
                 state.detail?.takeIf { vm.canEdit(it) }?.let { release ->
                     playlistPosition?.let { position ->
@@ -272,4 +317,5 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
         text = { Text(if (track.isFile) stringResource(R.string.track_remove_local_text) else stringResource(R.string.track_remove_download_text)) },
         confirmButton = { TextButton(onClick = { vm.removeLocal(track); removeTrack = null }) { Text(stringResource(R.string.action_remove)) } },
         dismissButton = { TextButton(onClick = { removeTrack = null }) { Text(stringResource(R.string.action_cancel)) } }) }
+}
 }

@@ -4,6 +4,16 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- Drag the mini player up and the full player down, with animations that follow the finger.
+- Swipe between tracks with sliding cover previews, and swipe a song to queue it. Choose whether song swipes ask, play next or add to the queue (the default).
+
+### Fixed
+
+- Manually queued songs play before the remaining playlist, in insertion order; Play next takes priority. Preserve this order when shuffling or restoring playback.
+- Keep the incoming cover visible when a swipe changes tracks, and center the seek thumb on the progress bar.
+
 ## [0.7.0] - 2026-11-08
 
 ### Added

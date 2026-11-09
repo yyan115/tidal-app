@@ -56,7 +56,8 @@ class BrowseTree(private val app: OpenTuneApp) {
     /** Replaces a bare request from a controller by the full queue item. */
     fun resolve(item: MediaItem): MediaItem {
         if (item.localConfiguration != null) return item
-        return app.library.get(item.mediaId)?.let(app.sources::unresolved) ?: item
+        val resolved = app.library.get(item.mediaId)?.let(app.sources::unresolved) ?: item
+        return if (ManualQueue.contains(item)) ManualQueue.mark(resolved) else resolved
     }
 
     private fun topTitle(id: String): String = app.getString(when (id) {

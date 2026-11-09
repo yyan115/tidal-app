@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -102,8 +103,10 @@ private fun ThemePreview(id: String, systemDark: Boolean, selected: Boolean) {
                 Column(Modifier.fillMaxSize().padding(top = 18.dp)) {
                     Text(stringResource(R.string.nav_home), Modifier.padding(horizontal = 20.dp), style = AppFonts.title(40, 46))
                     SectionTitle(stringResource(R.string.home_recently_played), stringResource(R.string.action_view_all))
-                    TrackRow(SampleTracks[0], true, {}, {})
-                    TrackRow(SampleTracks[1], false, {}, {})
+                    CompositionLocalProvider(LocalQueueTrack provides null) {
+                        TrackRow(SampleTracks[0], true, {}, {})
+                        TrackRow(SampleTracks[1], false, {}, {})
+                    }
                     Row(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         TuneButton(onClick = {}, modifier = Modifier.weight(1f)) { Icon(OpenTuneIcons.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.action_play)) }
                         TuneOutlinedButton(onClick = {}, modifier = Modifier.weight(1f)) { Icon(OpenTuneIcons.Shuffle, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.action_shuffle)) }

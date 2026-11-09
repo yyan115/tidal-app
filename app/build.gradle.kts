@@ -84,6 +84,8 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.test.rules)
+    // Avoid Compose's older transitive Espresso, which uses InputManager APIs removed on Android 17.
+    androidTestImplementation(libs.androidx.test.espresso)
     debugImplementation(libs.compose.test.manifest)
     debugImplementation(libs.compose.tooling)
 }

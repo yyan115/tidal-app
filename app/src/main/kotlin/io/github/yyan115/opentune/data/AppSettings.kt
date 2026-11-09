@@ -5,6 +5,12 @@ import io.github.yyan115.opentune.core.AudioQuality
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+enum class QueueSwipeAction { Ask, PlayNext, AddToQueue;
+    companion object {
+        fun fromStored(value: String?) = entries.firstOrNull { it.name == value } ?: AddToQueue
+    }
+}
+
 data class Settings(
     val quality: AudioQuality = AudioQuality.LOSSLESS,
     val mobileQuality: AudioQuality = AudioQuality.LOSSLESS,
@@ -40,6 +46,7 @@ data class Settings(
     val checkUpdates: Boolean = true,
     /** The permissions page has to be shown, because the first screen was answered and the page was not. */
     val setupPending: Boolean = false,
+    val queueSwipeAction: QueueSwipeAction = QueueSwipeAction.AddToQueue,
 ) {
     /** Turns the download of saved tracks on or off. Turning it on turns the download of played tracks off. */
     fun withDownloadSaved(on: Boolean) = copy(downloadSaved = on, downloadPlayed = downloadPlayed && !on)
@@ -68,11 +75,13 @@ class AppSettings(context: Context) {
         scrobble = preferences.getBoolean("scrobble", false), scrobbleServer = preferences.getString("scrobbleServer", "https://api.listenbrainz.org") ?: "https://api.listenbrainz.org",
         welcomeDone = preferences.getBoolean("welcomeDone", false), autoplay = preferences.getBoolean("autoplay", true),
         avoidRepeatHours = preferences.getInt("avoidRepeatHours", 0), visualizer = preferences.getBoolean("visualizer", false),
-        checkUpdates = preferences.getBoolean("checkUpdates", true), setupPending = preferences.getBoolean("setupPending", false)).exclusive())
+        checkUpdates = preferences.getBoolean("checkUpdates", true), setupPending = preferences.getBoolean("setupPending", false),
+        queueSwipeAction = QueueSwipeAction.fromStored(preferences.getString("queueSwipeAction", null))).exclusive())
     val state = mutable.asStateFlow()
     fun update(transform: (Settings) -> Settings) {
         val next = transform(mutable.value).exclusive()
         preferences.edit().putString("quality", next.quality.name).putString("mobileQuality", next.mobileQuality.name)
+            .putString("queueSwipeAction", next.queueSwipeAction.name)
             .putBoolean("downloadOnWifi", next.downloadOnWifi).putBoolean("offline", next.offline)
             .putString("theme", next.theme).remove("colorTheme")
             .putString("normalization", next.normalization).putBoolean("equalizer", next.equalizer)
