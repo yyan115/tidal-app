@@ -61,6 +61,8 @@ class DownloadMigrationTest {
         DashDownloader.Factory(app.sources.downloadSource()).setExecutor { it.run() }.create(item).download(null)
         app.sources.saveOffline(track.id, stream)
         app.library.save(track)
+        // The player reads file addresses without the cache. A real download has web addresses, so the files go and only the cache stays.
+        directory.listFiles()?.forEach { it.delete() }
     }
 
     @After fun cleanUp() {
