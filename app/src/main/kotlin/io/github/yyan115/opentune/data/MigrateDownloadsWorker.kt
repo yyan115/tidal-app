@@ -22,20 +22,12 @@ import java.io.IOException
  * The segments stay until the file is written and can be read, so a track that fails to move keeps playing as before.
  */
 @UnstableApi
-class MigrateDownloadsWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
-    private val app get() = applicationContext as OpenTuneApp
+class DownloadMigration(private val app: OpenTuneApp) {
+    /** The downloads that are still kept as segments. */
+    fun pending(): List<Track> = app.library.localTracks().filter { it.localUri?.startsWith("opentune-offline:") == true }
 
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        if (!app.downloadFiles.canWrite()) return@withContext Result.success()
-        val pending = app.library.localTracks().filter { it.localUri?.startsWith("opentune-offline:") == true }
-        pending.forEachIndexed { index, track ->
-            setForeground(notification(index + 1, pending.size))
-            try { move(track) } catch (error: Exception) { if (error is CancellationException) throw error }
-        }
-        Result.success()
-    }
-
-    private suspend fun move(track: Track) {
+    /** Moves one download. A failure leaves the download, its segments and the library as they were. */
+    suspend fun move(track: Track) {
         val stream = app.sources.readOffline(track.id)
         val spec = app.exporter.spec(track, stream)
         val cover = if (spec.mimeType == "audio/flac") app.exporter.cover(track) else null
@@ -47,6 +39,29 @@ class MigrateDownloadsWorker(context: Context, parameters: WorkerParameters) : C
         app.library.save((app.library.get(track.id) ?: track).copy(localUri = stored.uri.toString()))
         app.library.recordDownloadFile(stored.key, track.id)
         runCatching { app.sources.removeOffline(track.id) }
+    }
+
+    /** Moves every pending download and returns how many moved. [onProgress] gets the number of the download in work and the total. */
+    suspend fun moveAll(onProgress: suspend (Int, Int) -> Unit = { _, _ -> }): Int {
+        val pending = pending()
+        var moved = 0
+        pending.forEachIndexed { index, track ->
+            onProgress(index + 1, pending.size)
+            try { move(track); moved++ } catch (error: Exception) { if (error is CancellationException) throw error }
+        }
+        return moved
+    }
+}
+
+/** Runs [DownloadMigration] in the background with a notification that shows its progress. */
+@UnstableApi
+class MigrateDownloadsWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
+    private val app get() = applicationContext as OpenTuneApp
+
+    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        if (!app.downloadFiles.canWrite()) return@withContext Result.success()
+        DownloadMigration(app).moveAll { position, total -> setForeground(notification(position, total)) }
+        Result.success()
     }
 
     override suspend fun getForegroundInfo(): ForegroundInfo = notification(0, 0)
