@@ -53,6 +53,21 @@ class TidalClientTest {
         assertEquals("123", store.read()!!.userId)
     }
 
+    @Test fun aRefusedAppDuringRenewalIsReportedAsSuchAndKeepsTheSession() = runBlocking {
+        store.value = store.value!!.copy(expiresAt = 0)
+        server.enqueue(MockResponse().setResponseCode(401).setBody("""{"error":"invalid_client"}"""))
+        val error = try { client.search("song"); null } catch (error: ServiceException) { error }
+        assertEquals(Problem.SIGN_IN_CONFIG_REJECTED, error!!.problem)
+        assertEquals("The listener stays signed in", "refresh-before", store.read()!!.refreshToken)
+    }
+
+    @Test fun anExpiredRefreshTokenStillMeansSignInAgain() = runBlocking {
+        store.value = store.value!!.copy(expiresAt = 0)
+        server.enqueue(MockResponse().setResponseCode(400).setBody("""{"error":"invalid_grant"}"""))
+        val error = try { client.search("song"); null } catch (error: ServiceException) { error }
+        assertEquals(Problem.SESSION_EXPIRED, error!!.problem)
+    }
+
     @Test fun preservesRefreshTokenWhenServerDoesNotRotateIt() = runBlocking {
         store.value = store.value!!.copy(expiresAt = 0)
         server.enqueue(MockResponse().setBody("""{"access_token":"new","expires_in":3600}"""))

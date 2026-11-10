@@ -315,7 +315,9 @@ class TidalClient(
         val response = try {
             withContext(Dispatchers.IO) { form("token", mapOf("client_id" to client.id, "client_secret" to client.secret,
                 "grant_type" to "refresh_token", "refresh_token" to session.refreshToken)) }
-        } catch (_: OAuthException) {
+        } catch (error: OAuthException) {
+            // TIDAL refused the app and not the session. The listener stays signed in, so that a new version can restore access.
+            if (error.code in setOf("invalid_client", "unauthorized_client")) throw ServiceException(401, "TIDAL no longer accepts this version of OpenTune. Update the app and try again.", Problem.SIGN_IN_CONFIG_REJECTED)
             throw ServiceException(401, "Your TIDAL session expired. Sign in again.", Problem.SESSION_EXPIRED)
         }
         tokenSession(response, session).also { saveSession(it, requestGeneration) }.accessToken
