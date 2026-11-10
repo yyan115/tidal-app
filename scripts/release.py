@@ -2,6 +2,7 @@
 """Release helpers used by the Release workflow.
 
     release.py prepare VERSION   Update VERSION, CHANGELOG.md and the F-Droid changelog.
+    release.py verify VERSION    Check that a merged release pull request prepared VERSION.
     release.py notes VERSION     Print the changelog entry for VERSION.
 """
 
@@ -90,16 +91,30 @@ def prepare(root: pathlib.Path, version: str, today: datetime.date) -> None:
     (changelogs / f"{version_code(version)}.txt").write_text(plain_text(entry(updated, version)))
 
 
+def verify(root: pathlib.Path, version: str) -> None:
+    """Check that the repository is prepared for releasing [version]. The release pull request does the preparing."""
+    parse_version(version)
+    recorded = (root / "VERSION").read_text().strip()
+    if recorded != version:
+        raise ReleaseError(f"VERSION says {recorded}, not {version}. Merge the release pull request first.")
+    entry((root / "CHANGELOG.md").read_text(), version)
+    changelog = root / "fastlane" / "metadata" / "android" / "en-US" / "changelogs" / f"{version_code(version)}.txt"
+    if not changelog.is_file():
+        raise ReleaseError(f"The F-Droid changelog {changelog.name} is missing.")
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("prepare", "notes"):
+    for name in ("prepare", "verify", "notes"):
         commands.add_parser(name).add_argument("version")
     args = parser.parse_args(argv)
     root = pathlib.Path(__file__).resolve().parent.parent
     try:
         if args.command == "prepare":
             prepare(root, args.version, datetime.date.today())
+        elif args.command == "verify":
+            verify(root, args.version)
         else:
             sys.stdout.write(entry((root / "CHANGELOG.md").read_text(), args.version))
     except ReleaseError as error:

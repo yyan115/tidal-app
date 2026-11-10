@@ -13,26 +13,31 @@ Add two repository secrets under **Settings**, **Secrets and variables**, **Acti
 
 The SHA-256 of the signing certificate is stored in `.github/signing-certificate.sha256`. The workflow refuses to publish an APK signed with any other certificate. Update that file and the fingerprint in the README only when you rotate the key on purpose.
 
-The workflow pushes the version commit and tag to `main`. If you protect `main`, allow GitHub Actions to bypass the pull request requirement.
-
 ## Cutting a release
 
+`main` is protected, so a release has three parts: a pull request that prepares the version, a workflow run that builds a draft, and your decision to publish it.
+
 1. Make sure the `Unreleased` section of `CHANGELOG.md` lists every change that users can see.
-2. Open **Actions**, choose **Release**, select **Run workflow** on `main` and enter the version, for example `1.1.0`.
+2. On a branch, run `python3 scripts/release.py prepare 1.1.0`, commit the changes of `VERSION`, `CHANGELOG.md` and `fastlane`, and open a pull request titled `Release 1.1.0`. Merge it when the checks pass.
+3. Open **Actions**, choose **Release**, select **Run workflow** on `main` and enter the same version. Select **dry run** to build and test without creating a release.
 
 The workflow then:
 
 1. Runs the full check workflow on the commit.
-2. Rejects a version that is not newer than `VERSION` or that already has a tag.
-3. Moves the `Unreleased` entries to the new version in `CHANGELOG.md`, updates `VERSION` and writes the F-Droid changelog.
-4. Builds the release APK, signs it and checks its certificate and signature.
-5. Creates a build provenance attestation.
-6. Commits the version change, tags it `v<version>` and pushes both to `main`.
-7. Publishes the GitHub release with the APK and `SHA256SUMS`. Versions below 1.0.0 are marked as prereleases.
+2. Checks that `VERSION`, the changelog entry and the F-Droid changelog match the version, and that the tag does not exist.
+3. Builds the release APK, signs it and checks its certificate and signature.
+4. Creates a build provenance attestation.
+5. Installs the previous release on emulators with Android 8 and Android 16, starts it, installs the new APK over it and starts that. The run fails when the app stops or logs a crash.
+6. Creates a **draft** release with the APK and `SHA256SUMS`. Versions below 1.0.0 are marked as prereleases.
 
-Nothing is pushed or published if an earlier step fails.
+A draft is invisible to downloaders and to the update check in the app. Nothing reaches users until you publish it.
 
-After the release is published, install the downloaded APK on a device and check sign-in and playback.
+4. Download the APK from the draft, install it over your current version on a phone, and check sign-in, playback and a download.
+5. Publish the draft on GitHub, or run `gh release edit v1.1.0 --draft=false`.
+
+## Local upgrade test
+
+With an emulator or a device connected, `scripts/smoke_upgrade.sh NEW.apk PREVIOUS.apk` runs the same check as the workflow.
 
 ## Local signed build
 

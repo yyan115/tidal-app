@@ -4,6 +4,10 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Changed
+
+- The update check ignores test versions, such as 0.7.1-rc1, so only a published release is offered.
+
 ## [0.7.0] - 2026-11-08
 
 ### Added

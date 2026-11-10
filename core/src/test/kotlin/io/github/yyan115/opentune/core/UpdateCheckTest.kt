@@ -27,6 +27,15 @@ class UpdateCheckTest {
         assertFalse(UpdateCheck.isNewer("0.6.1", ""))
     }
 
+    @Test fun aTestVersionIsNeverOffered() {
+        assertFalse(UpdateCheck.isNewer("0.7.0", "0.7.1-rc1"))
+        assertFalse(UpdateCheck.isNewer("0.7.0", "0.8.0+build5"))
+        val json = """[
+            {"tag_name":"v0.7.1-rc1","html_url":"https://example.com/rc","draft":false,"prerelease":true},
+            {"tag_name":"v0.7.0","html_url":"https://example.com/0.7.0","draft":false,"prerelease":true}]"""
+        assertEquals("0.7.0", UpdateCheck.newest(json)?.version)
+    }
+
     @Test fun theNewestReleaseWinsWhateverTheOrderOfTheList() {
         val json = """[
             {"tag_name":"v0.6.0","html_url":"https://example.com/0.6.0","draft":false,"prerelease":true},

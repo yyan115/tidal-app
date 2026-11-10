@@ -57,6 +57,25 @@ class ReleaseTest(unittest.TestCase):
             with self.assertRaises(release.ReleaseError, msg=text):
                 release.prepare(self.root, text, datetime.date(2026, 11, 2))
 
+    def test_verify_accepts_a_version_that_the_release_pull_request_prepared(self):
+        release.prepare(self.root, "0.3.0", datetime.date(2026, 11, 2))
+        release.verify(self.root, "0.3.0")
+
+    def test_verify_refuses_a_version_that_was_not_prepared(self):
+        release.prepare(self.root, "0.3.0", datetime.date(2026, 11, 2))
+        for text in ("0.4.0", "0.2.0"):
+            with self.assertRaises(release.ReleaseError, msg=text):
+                release.verify(self.root, text)
+
+    def test_verify_refuses_a_version_without_a_changelog_entry_or_f_droid_text(self):
+        (self.root / "VERSION").write_text("0.3.0\n")
+        with self.assertRaises(release.ReleaseError):
+            release.verify(self.root, "0.3.0")
+        release.prepare(self.root, "0.4.0", datetime.date(2026, 11, 2))
+        (self.root / "fastlane/metadata/android/en-US/changelogs/4000.txt").unlink()
+        with self.assertRaises(release.ReleaseError):
+            release.verify(self.root, "0.4.0")
+
     def test_entry_returns_only_the_requested_section(self):
         self.assertEqual("### Changed\n- Redesign.\n", release.entry(CHANGELOG, "0.2.0"))
         with self.assertRaises(release.ReleaseError):

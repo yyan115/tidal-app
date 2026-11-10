@@ -1,12 +1,21 @@
 name: Release
 
+# A release starts from a merged release pull request, which set VERSION, CHANGELOG.md and the F-Droid changelog.
+# The workflow builds and signs the APK, tests the upgrade from the previous release and creates a draft release.
+# Nothing becomes visible to users until the draft is published.
+
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version to release, for example 1.0.0
+        description: Version to release, for example 1.0.0. It must be the version of VERSION on main.
         required: true
         type: string
+      dry_run:
+        description: Build, sign and test, but create no release
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -19,32 +28,32 @@ jobs:
   check:
     uses: ./.github/workflows/check.yml
 
-  release:
-    name: Build, sign and publish
+  build:
+    name: Build and sign
     needs: check
-    if: github.ref == 'refs/heads/main' && !github.event.repository.fork
+    if: ${{ !github.event.repository.fork && (github.ref == 'refs/heads/main' || inputs.dry_run) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
-      contents: write
+      contents: read
       id-token: write
       attestations: write
     env:
       VERSION: ${{ inputs.version }}
-      GH_TOKEN: ${{ github.token }}
+      DRY_RUN: ${{ inputs.dry_run }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Prepare version and changelog
+      - name: Check the version
         run: |
-          if git rev-parse --quiet --verify "refs/tags/v$VERSION" > /dev/null; then
+          python3 scripts/release.py verify "$VERSION"
+          if [ "$DRY_RUN" != "true" ] && git rev-parse --quiet --verify "refs/tags/v$VERSION" > /dev/null; then
             echo "Tag v$VERSION already exists." >&2
             exit 1
           fi
-          python3 scripts/release.py prepare "$VERSION"
-          python3 scripts/release.py notes "$VERSION" > "$RUNNER_TEMP/notes.md"
+          python3 scripts/release.py notes "$VERSION" > notes.md
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
@@ -88,21 +97,86 @@ jobs:
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: dist/*.apk
-      - name: Commit version and tag
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add VERSION CHANGELOG.md fastlane
-          git commit -m "Release $VERSION"
-          git tag -a "v$VERSION" -m "OpenTune $VERSION"
-          header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 --wrap=0)"
-          git -c "http.https://github.com/.extraheader=$header" push origin HEAD:refs/heads/main "refs/tags/v$VERSION"
-      - name: Publish release
-        run: |
-          flags=()
-          case "$VERSION" in 0.*) flags+=(--prerelease) ;; esac
-          gh release create "v$VERSION" dist/* --verify-tag --title "OpenTune $VERSION" \
-            --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-files
+          retention-days: 7
+          path: |
+            dist
+            notes.md
       - name: Remove restored signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/opentune-release.p12"
+
+  upgrade:
+    name: Upgrade test on Android ${{ matrix.api }}
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [26, 36]
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-files
+          path: release
+      - name: Download the previous release
+        run: |
+          tag=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName // empty')
+          mkdir previous
+          if [ -n "$tag" ]; then gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern '*.apk' --dir previous; fi
+          ls previous
+      - name: Allow KVM access
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: google_apis
+          ram-size: 2048M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: SMOKE_SCREENSHOT=upgrade-${{ matrix.api }}.png bash scripts/smoke_upgrade.sh "release/dist/opentune-$VERSION.apk" "$(ls previous/*.apk 2>/dev/null | head -1)"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: upgrade-${{ matrix.api }}
+          retention-days: 7
+          path: upgrade-${{ matrix.api }}.png
+          if-no-files-found: ignore
+
+  publish:
+    name: Create the draft release
+    needs: upgrade
+    if: ${{ !inputs.dry_run && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-files
+          path: release
+      - name: Create the draft
+        run: |
+          flags=()
+          case "$VERSION" in 0.*) flags+=(--prerelease) ;; esac
+          gh release create "v$VERSION" release/dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft \
+            --title "OpenTune $VERSION" --notes-file release/notes.md "${flags[@]}"

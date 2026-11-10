@@ -24,8 +24,9 @@ object UpdateCheck {
         return compare(b, a) > 0
     }
 
+    /** The numbers of a version. A test version such as 0.7.1-rc1 has none, so it is never offered. */
     private fun parts(version: String): List<Int>? =
-        version.removePrefix("v").substringBefore('-').split('.').map { it.toIntOrNull() ?: return null }.takeIf { it.isNotEmpty() }
+        version.removePrefix("v").takeIf { '-' !in it && '+' !in it }?.split('.')?.map { it.toIntOrNull() ?: return null }?.takeIf { it.isNotEmpty() }
 
     private fun compare(a: List<Int>, b: List<Int>): Int {
         for (i in 0 until maxOf(a.size, b.size)) {
