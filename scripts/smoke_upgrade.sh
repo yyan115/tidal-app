@@ -28,7 +28,8 @@ check() {
   fi
 }
 
-adb logcat -c
+# Older emulators refuse to clear a log. The check below reads the crash log of this run only, so a leftover does no harm.
+adb logcat -b all -c || true
 if [ -n "$previous" ]; then
   adb install -r "$previous" > /dev/null
   start
