@@ -121,7 +121,6 @@
     <!-- On device -->
     <string name="device_add_files">Add files</string>
     <string name="device_add_folder">Add folder</string>
-    <string name="device_downloading">Downloading</string>
     <string name="device_folders">Folders</string>
     <string name="device_folder_scanning">Scanning · %1$d found</string>
     <string name="device_folder_unavailable">Unavailable. Its files are kept.</string>
@@ -335,7 +334,17 @@
     <string name="source_added">Added</string>
 
     <!-- Downloads -->
-    <string name="downloads_clear">Clear download history</string>
+    <string name="downloads_clear">Clear failed downloads</string>
+    <string name="downloads_queue_title">Download queue</string>
+    <string name="downloads_queue_empty">The queue is empty</string>
+    <plurals name="downloads_in_progress">
+        <item quantity="one">%d in progress</item>
+        <item quantity="other">%d in progress</item>
+    </plurals>
+    <plurals name="downloads_failed">
+        <item quantity="one">%d failed</item>
+        <item quantity="other">%d failed</item>
+    </plurals>
     <string name="downloads_unnamed">Download</string>
     <string name="download_progress">%1$d%%</string>
     <string name="download_failed">Download failed</string>
