@@ -30,12 +30,29 @@ android {
         keyAlias = signingValue("KEY_ALIAS").getOrElse("opentune")
         keyPassword = signingValue("KEY_PASSWORD").get()
     }
+    // A preview app is built like the release app, but it has its own application ID, name and signing key,
+    // so that it installs next to the real app and never touches its data.
+    val previewKeyPath = signingValue("PREVIEW_KEYSTORE").orNull
+    if (previewKeyPath != null) signingConfigs.create("preview") {
+        storeFile = file(previewKeyPath)
+        storePassword = signingValue("PREVIEW_STORE_PASSWORD").get()
+        keyAlias = signingValue("PREVIEW_KEY_ALIAS").getOrElse("preview")
+        keyPassword = signingValue("PREVIEW_STORE_PASSWORD").get()
+    }
     buildTypes {
         release {
             if (releaseKeyPath != null) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+        create("preview") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".preview"
+            // A version with a suffix is never offered as an update, and About shows that this is a preview.
+            versionNameSuffix = "-preview"
+            signingConfig = signingConfigs.getByName(if (previewKeyPath != null) "preview" else "debug")
+            matchingFallbacks += "release"
         }
         debug {
             applicationIdSuffix = ".debug"
