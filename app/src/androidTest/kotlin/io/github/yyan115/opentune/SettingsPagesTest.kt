@@ -44,7 +44,7 @@ class SettingsPagesTest {
         scrollTo("Data")
         compose.onAllNodesWithText("Listening").assertCountEquals(0)
         assertTrue("Listening statistics sits in Data", top("Data") < top("Listening statistics"))
-        assertTrue(top("Listening statistics") < top("Backup"))
+        assertTrue(top("Listening statistics") < top("Back up data"))
     }
 
     @Test fun theVersionLineSaysPrereleaseUntilTheFirstFullRelease() {
