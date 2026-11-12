@@ -178,8 +178,8 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
         }
     }
 
-    // The sign-in finishes in the browser, so a bar shows while the app exchanges the answer.
-    if (state.signingIn) LinearProgressIndicator(Modifier.fillMaxWidth().statusBarsPadding())
+    // The sign-in finishes in the browser, so a spinner covers the screen while the app exchanges the answer.
+    if (state.signingIn) SigningIn()
     if (nowPlaying && state.playback.track != null) NowPlayingScreen(state, vm, onClose = { nowPlaying = false }, onQueue = { queue = true }, onMenu = openTrackMenu, onDownload = { track ->
         askPermissions()
         vm.download(track)
