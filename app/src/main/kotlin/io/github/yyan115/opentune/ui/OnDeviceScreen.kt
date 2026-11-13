@@ -23,7 +23,6 @@ import io.github.yyan115.opentune.core.ReleaseType
 import io.github.yyan115.opentune.core.Release
 import io.github.yyan115.opentune.core.Track
 import io.github.yyan115.opentune.data.LocalFolder
-import io.github.yyan115.opentune.downloadErrorText
 
 private enum class DeviceSort(@androidx.annotation.StringRes val label: Int) {
     Recent(R.string.sort_recent), Title(R.string.sort_title), Artist(R.string.sort_artist), Album(R.string.sort_album)
@@ -35,13 +34,13 @@ private enum class DeviceSort(@androidx.annotation.StringRes val label: Int) {
  */
 @UnstableApi
 @Composable
-fun OnDeviceScreen(state: AppState, vm: MainViewModel, onAddFiles: () -> Unit, onAddFolder: () -> Unit, onLogin: () -> Unit, onNewPlaylist: () -> Unit, onMenu: (Track) -> Unit) {
+fun OnDeviceScreen(state: AppState, vm: MainViewModel, onAddFiles: () -> Unit, onAddFolder: () -> Unit, onLogin: () -> Unit, onNewPlaylist: () -> Unit, onOpenQueue: () -> Unit, onMenu: (Track) -> Unit) {
     var filter by rememberSaveable { mutableIntStateOf(0) }
     var sort by rememberSaveable { mutableStateOf(DeviceSort.Recent) }
     var text by rememberSaveable { mutableStateOf("") }
     var sortMenu by remember { mutableStateOf(false) }
     var removing by remember { mutableStateOf<LocalFolder?>(null) }
-    val active = state.downloads.filter { !it.state.isFinished || it.state == WorkInfo.State.FAILED }
+    val active = queuedDownloads(state)
     val shown = remember(state.local, filter, sort, text) {
         val source = when (filter) { 1 -> state.local.filter { it.isDownload }; 2 -> state.local.filter { it.isFile }; else -> state.local }
         val matching = source.filter { text.isBlank() || it.title.contains(text.trim(), true) || it.artist.contains(text.trim(), true) || it.album.contains(text.trim(), true) }
@@ -54,7 +53,6 @@ fun OnDeviceScreen(state: AppState, vm: MainViewModel, onAddFiles: () -> Unit, o
     }
     val sourceLabel = stringResource(R.string.nav_device)
     val filters = listOf(R.string.device_filter_all, R.string.device_filter_downloads, R.string.device_filter_files).map { stringResource(it) }
-    val context = LocalContext.current
     LazyColumn(Modifier.fillMaxSize().testTag("device-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -63,29 +61,16 @@ fun OnDeviceScreen(state: AppState, vm: MainViewModel, onAddFiles: () -> Unit, o
             }
         }
         if (!state.signedIn) item { ConnectCard(onLogin) }
-        if (active.isNotEmpty()) item { SectionTitle(stringResource(R.string.device_downloading)) }
-        items(active, key = { it.id }) { work ->
-            val trackId = work.tags.firstOrNull { it.startsWith("track:") }?.removePrefix("track:")
-            val track = state.downloadTracks[trackId]
-            Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(OpenTuneIcons.Download, null, tint = MaterialTheme.colorScheme.primary)
-                    Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-                        Text(track?.title ?: stringResource(R.string.downloads_unnamed), style = MaterialTheme.typography.titleSmall)
-                        Text(when (work.state) {
-                            WorkInfo.State.RUNNING -> stringResource(R.string.download_progress, work.progress.getInt("progress", 0))
-                            WorkInfo.State.FAILED -> context.downloadErrorText(work.outputData.getString("error"))
-                            WorkInfo.State.BLOCKED -> stringResource(R.string.download_waiting)
-                            else -> if (state.settings.downloadOnWifi) stringResource(R.string.download_queued_wifi) else stringResource(R.string.download_queued)
-                        }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    if (!work.state.isFinished) IconButton(onClick = { vm.cancelDownload(work) }) { Icon(OpenTuneIcons.Close, stringResource(R.string.download_cancel)) }
-                    else if (track != null) TextButton(onClick = { vm.download(track) }) { Text(stringResource(R.string.action_retry)) }
-                }
-                if (work.state == WorkInfo.State.RUNNING) LinearProgressIndicator(progress = { work.progress.getInt("progress", 0) / 100f }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
-            }
+        // The downloads in the queue have their own page. A row opens it and shows how many downloads run, wait or failed.
+        if (active.isNotEmpty()) item {
+            val running = active.count { !it.state.isFinished }
+            val failed = active.size - running
+            val summary = listOfNotNull(
+                running.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.downloads_in_progress, it, it) },
+                failed.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.downloads_failed, it, it) },
+            ).joinToString(" · ")
+            SettingRow(OpenTuneIcons.Download, stringResource(R.string.downloads_queue_title), summary, onOpenQueue, trailing = { Icon(OpenTuneIcons.ChevronRight, null) })
         }
-        if (state.downloads.any { it.state.isFinished }) item { TextButton(onClick = vm::clearDownloadHistory, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.downloads_clear)) } }
 
         if (state.deviceFolders.isNotEmpty()) {
             item { SectionTitle(stringResource(R.string.device_folders)) }

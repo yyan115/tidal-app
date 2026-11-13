@@ -44,6 +44,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     var libraryFilter by rememberSaveable { mutableIntStateOf(0) }
     var settings by rememberSaveable { mutableStateOf(initialSettings) }
     var settingsPage by rememberSaveable { mutableStateOf<String?>(null) }
+    var downloadQueue by rememberSaveable { mutableStateOf(false) }
     var nowPlaying by rememberSaveable { mutableStateOf(initialPlayer) }
     var queue by rememberSaveable { mutableStateOf(false) }
     var trackMenu by remember { mutableStateOf<Track?>(null) }
@@ -67,7 +68,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     val destinations = if (state.signedIn) listOf(Destination.Home, Destination.Search, Destination.Library, Destination.Device) else listOf(Destination.Device)
     val destination = Destination.entries.firstOrNull { it.name == destinationName }?.takeIf { it in destinations } ?: destinations.first()
     val settingsPageOpen = SettingsPage.entries.firstOrNull { it.name == settingsPage }
-    val closeSettings = { settings = false; settingsPage = null }
+    val closeSettings = { settings = false; settingsPage = null; downloadQueue = false }
     val select: (Destination) -> Unit = { destinationName = it.name; closeSettings(); vm.closeAll() }
     val navigation = destinations.size > 1
     val welcome = !state.settings.welcomeDone && !state.signedIn
@@ -86,8 +87,8 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     val openRelease: (Release) -> Unit = { release -> closeSettings(); nowPlaying = false; queue = false; vm.open(release) }
     LaunchedEffect(state.message) { state.message?.let { snackbar.showSnackbar(it); vm.messageShown() } }
     LaunchedEffect(state.signedIn) { if (state.signedIn) vm.finishWelcome() }
-    BackHandler(enabled = state.detail != null || settings || state.routes.isNotEmpty()) {
-        if (settingsPageOpen != null) settingsPage = settingsPageOpen.parent?.name else if (settings) closeSettings() else vm.closeDetail()
+    BackHandler(enabled = state.detail != null || settings || downloadQueue || state.routes.isNotEmpty()) {
+        if (downloadQueue) downloadQueue = false else if (settingsPageOpen != null) settingsPage = settingsPageOpen.parent?.name else if (settings) closeSettings() else vm.closeDetail()
     }
 
     // The permissions page follows the first screen when there is anything to ask. It stays until the listener continues.
@@ -100,20 +101,20 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     if (rail && navigation) OpenTuneRail(destinations, destination, select)
     Scaffold(modifier = Modifier.weight(1f),
         topBar = {
-            val title = if (settings) stringResource(settingsPageOpen?.title ?: R.string.nav_settings) else state.detail?.let {
+            val title = if (downloadQueue) stringResource(R.string.downloads_queue_title) else if (settings) stringResource(settingsPageOpen?.title ?: R.string.nav_settings) else state.detail?.let {
                 when (it.type) { ReleaseType.ALBUM -> stringResource(R.string.type_album); ReleaseType.ARTIST -> stringResource(R.string.type_artist); ReleaseType.PLAYLIST -> stringResource(R.string.type_playlist); ReleaseType.MIX -> stringResource(R.string.type_mix); ReleaseType.VIDEO -> stringResource(R.string.type_video); ReleaseType.FOLDER -> stringResource(R.string.type_folder) }
             } ?: stringResource(destination.title)
             Column(Modifier.statusBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(start = if (settings || inDetail || largeText) 8.dp else 24.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (settings || inDetail) IconButton(onClick = { if (settingsPageOpen != null) settingsPage = settingsPageOpen.parent?.name else if (settings) closeSettings() else vm.closeDetail() }) { Icon(OpenTuneIcons.ArrowBack, stringResource(R.string.action_back)) }
+                    if (settings || inDetail || downloadQueue) IconButton(onClick = { if (downloadQueue) downloadQueue = false else if (settingsPageOpen != null) settingsPage = settingsPageOpen.parent?.name else if (settings) closeSettings() else vm.closeDetail() }) { Icon(OpenTuneIcons.ArrowBack, stringResource(R.string.action_back)) }
                     else if (largeText && navigation) IconButton(onClick = { navigationMenu = true }) { Icon(OpenTuneIcons.Menu, stringResource(R.string.nav_open)) }
-                    if (!settings && !inDetail && !largeText) {
+                    if (!settings && !inDetail && !largeText && !downloadQueue) {
                         Icon(OpenTuneIcons.Brand, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(9.dp))
                     }
                     Text(stringResource(R.string.brand_name), Modifier.weight(1f), fontFamily = AppFonts.body, fontSize = 11.sp, lineHeight = 16.sp,
                         letterSpacing = 2.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                    if (!settings) {
+                    if (!settings && !downloadQueue) {
                         if (destination == Destination.Library && !inDetail && state.signedIn && !state.settings.offline) IconButton(onClick = vm::sync, enabled = !state.syncing) { Icon(OpenTuneIcons.Refresh, stringResource(R.string.library_refresh)) }
                         state.detail?.takeIf { state.routes.isEmpty() }?.let { release ->
                             if (vm.canEdit(release)) IconButton(onClick = { playlistTitle = release.title; editPlaylist = true }) { Icon(OpenTuneIcons.Edit, stringResource(R.string.playlist_edit)) }
@@ -130,10 +131,10 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
                         IconButton(onClick = { settings = true }) { Icon(OpenTuneIcons.Settings, stringResource(R.string.nav_settings), Modifier.size(22.dp)) }
                     }
                 }
-                if (!inDetail || settings) Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = if (settingsPageOpen == SettingsPage.Statistics) 8.dp else 24.dp, top = if (largeText) 2.dp else 6.dp, bottom = 14.dp),
+                if (!inDetail || settings || downloadQueue) Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = if (settingsPageOpen == SettingsPage.Statistics) 8.dp else 24.dp, top = if (largeText) 2.dp else 6.dp, bottom = 14.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(title, Modifier.weight(1f),
-                        style = if (largeText || settingsPageOpen != null) AppFonts.title(30, 38) else if (destination == Destination.Home && !settings) AppFonts.title(52, 58) else AppFonts.title(44, 50))
+                        style = if (largeText || settingsPageOpen != null || downloadQueue) AppFonts.title(30, 38) else if (destination == Destination.Home && !settings) AppFonts.title(52, 58) else AppFonts.title(44, 50))
                     // The explanation of the statistics sits on the line of the title.
                     if (settingsPageOpen == SettingsPage.Statistics) IconButton(onClick = { statsInfo = true }) { Icon(OpenTuneIcons.Info, stringResource(R.string.stats_info_label)) }
                 }
@@ -142,7 +143,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
         bottomBar = {
             Column {
                 if (state.playback.track != null) MiniPlayer(state.playback, position, onOpen = { nowPlaying = true }, onPlay = vm::togglePlay, onNext = vm::next, onDismiss = vm::stopPlayback)
-                if (!settings && !landscape && !largeText && navigation) OpenTuneNavigation(destinations, destination, select)
+                if (!settings && !downloadQueue && !landscape && !largeText && navigation) OpenTuneNavigation(destinations, destination, select)
                 else Spacer(Modifier.navigationBarsPadding())
             }
         },
@@ -150,6 +151,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when {
+                downloadQueue -> DownloadQueuePage(state, vm)
                 settings -> when (settingsPageOpen) {
                     SettingsPage.Repeats -> AvoidRepeatsPage(state, vm)
                     SettingsPage.Statistics -> StatisticsPage(vm)
@@ -164,7 +166,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
                 destination == Destination.Search -> SearchScreen(state, vm, openLogin, openTrackMenu)
                 destination == Destination.Library -> LibraryScreen(state, vm, openLogin, { newPlaylistTrack = null; playlistTitle = ""; newPlaylist = true }, openTrackMenu,
                     libraryFilter, { libraryFilter = it })
-                else -> OnDeviceScreen(state, vm, importAudio, addFolder, openLogin, { newPlaylistTrack = null; playlistTitle = ""; newPlaylist = true }, openTrackMenu)
+                else -> OnDeviceScreen(state, vm, importAudio, addFolder, openLogin, { newPlaylistTrack = null; playlistTitle = ""; newPlaylist = true }, { downloadQueue = true }, openTrackMenu)
             }
         }
     }
@@ -178,8 +180,8 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
         }
     }
 
-    // The sign-in finishes in the browser, so a bar shows while the app exchanges the answer.
-    if (state.signingIn) LinearProgressIndicator(Modifier.fillMaxWidth().statusBarsPadding())
+    // The sign-in finishes in the browser, so a spinner covers the screen while the app exchanges the answer.
+    if (state.signingIn) SigningIn()
     if (nowPlaying && state.playback.track != null) NowPlayingScreen(state, vm, onClose = { nowPlaying = false }, onQueue = { queue = true }, onMenu = openTrackMenu, onDownload = { track ->
         askPermissions()
         vm.download(track)

@@ -72,11 +72,11 @@ fun EqualizerSheet(settings: Settings, onChange: (Settings) -> Unit, onClose: ()
             val customName = stringResource(R.string.eq_custom)
             val chosen = if (settings.equalizerUsesCustom) customName else presets.firstOrNull { it.second == levels }?.first ?: customName
             var presetMenu by remember { mutableStateOf(false) }
-            // The field is as inactive as the bands while the equalizer is off, and the list shows four entries at a time so that it opens below the field.
+            // The field is as inactive as the bands while the equalizer is off, and the list shows four and a half entries at a time, so that it opens below the field and the half entry shows that the list scrolls.
             ExposedDropdownMenuBox(presetMenu && settings.equalizer, { presetMenu = it && settings.equalizer }, Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 OutlinedTextField(chosen, {}, Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable), enabled = settings.equalizer,
                     readOnly = true, singleLine = true, label = { Text(stringResource(R.string.eq_preset)) }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(presetMenu && settings.equalizer) })
-                ExposedDropdownMenu(presetMenu && settings.equalizer, { presetMenu = false }, Modifier.heightIn(max = 192.dp)) {
+                ExposedDropdownMenu(presetMenu && settings.equalizer, { presetMenu = false }, Modifier.heightIn(max = 216.dp)) {
                     presets.forEach { (name, preset) -> DropdownMenuItem(text = { Text(name) }, onClick = { onChange(settings.copy(equalizerLevels = preset, equalizerUsesCustom = false)); presetMenu = false }) }
                     DropdownMenuItem(text = { Text(customName) }, onClick = {
                         val custom = List(info.bands) { settings.equalizerCustom.getOrNull(it) ?: levels[it] }

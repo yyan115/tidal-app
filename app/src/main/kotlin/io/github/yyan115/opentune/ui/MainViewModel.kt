@@ -117,6 +117,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val favoriteSyncLock = Mutex()
     private var collectionReady = false
     private var updateChecked = false
+    private var wifiOnly = app.settings.state.value.downloadOnWifi
     private val themePreview = MutableStateFlow<String?>(null)
     /** The theme that the picker shows while the listener swipes. It replaces the saved theme until the picker closes. */
     val previewTheme = themePreview.asStateFlow()
@@ -181,6 +182,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ui.update { it.copy(settings = settings) }
             if (!wasOffline && settings.offline) app.http.dispatcher.cancelAll()
             if (wasOffline && !settings.offline && collectionReady) sync()
+            // Downloads that wait follow the switch for mobile data.
+            if (settings.downloadOnWifi != wifiOnly) {
+                wifiOnly = settings.downloadOnWifi
+                viewModelScope.launch(Dispatchers.IO) { DownloadRequests.applyNetworkRule(app, settings.downloadOnWifi) }
+            }
             // The check waits for the first screen to be answered, so a dialog never covers it.
             if (!updateChecked && settings.checkUpdates && !settings.offline && (settings.welcomeDone || ui.value.signedIn)) {
                 updateChecked = true

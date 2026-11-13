@@ -3,6 +3,7 @@ package io.github.yyan115.opentune.ui
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -14,10 +15,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
+import io.github.yyan115.opentune.data.RepeatWindow
 import io.github.yyan115.opentune.R
 import kotlinx.coroutines.delay
 import java.text.DateFormat
@@ -32,9 +35,6 @@ enum class SettingsPage(@StringRes val title: Int) {
     /** The page that the back button returns to, or null for the Settings list. */
     val parent: SettingsPage? get() = if (this in LicenceDocuments) Licenses else null
 }
-
-/** How long a track stays out of shuffle, radio and autoplay after it played, in hours. Zero turns the setting off. */
-private val RepeatWindows = listOf(0, 1, 6, 24, 168)
 
 @Composable
 fun repeatWindowText(hours: Int): String = when {
@@ -53,14 +53,54 @@ fun durationText(milliseconds: Long): String {
     }
 }
 
+/** The number field and the unit of a custom time window. A valid number applies at once, and an invalid one leaves the window as it was. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CustomWindow(hours: Int, onChange: (Int) -> Unit) {
+    var days by rememberSaveable { mutableStateOf(RepeatWindow.inDays(hours)) }
+    var text by rememberSaveable { mutableStateOf(if (hours > 0) RepeatWindow.number(hours, days).toString() else "") }
+    val valid = RepeatWindow.hours(text.toIntOrNull(), days) != null
+    Column(Modifier.fillMaxWidth().padding(start = 64.dp, end = 24.dp, top = 4.dp, bottom = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(text, { input ->
+                text = input.filter(Char::isDigit).take(4)
+                RepeatWindow.hours(text.toIntOrNull(), days)?.let(onChange)
+            }, Modifier.weight(1f).testTag("repeats-custom"), label = { Text(stringResource(R.string.repeats_duration)) }, singleLine = true, isError = !valid,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            val units = listOf(false to stringResource(R.string.repeats_unit_hours), true to stringResource(R.string.repeats_unit_days))
+            SingleChoiceSegmentedButtonRow(Modifier.padding(start = 12.dp).testTag("repeats-unit")) {
+                units.forEachIndexed { index, (inDays, label) ->
+                    SegmentedButton(days == inDays, {
+                        if (days != inDays) {
+                            days = inDays
+                            text.toIntOrNull()?.let { value ->
+                                text = RepeatWindow.convert(value, inDays).toString()
+                                RepeatWindow.hours(text.toIntOrNull(), inDays)?.let(onChange)
+                            }
+                        }
+                    }, SegmentedButtonDefaults.itemShape(index, units.size), icon = {},
+                        colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primary, activeContentColor = MaterialTheme.colorScheme.onPrimary,
+                            activeBorderColor = MaterialTheme.colorScheme.primary),
+                        contentPadding = PaddingValues(horizontal = 12.dp)) { Text(label, maxLines = 1) }
+                }
+            }
+        }
+        Text(stringResource(R.string.repeats_range), Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodySmall,
+            color = if (valid) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
+    }
+}
+
 /**
  * The time window of the avoid-repeats setting and the tracks that the window excludes now.
  * Each excluded track shows when it played and how long it stays excluded, and can be included at once.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @UnstableApi
 @Composable
 fun AvoidRepeatsPage(state: AppState, vm: MainViewModel) {
     val hours = state.settings.avoidRepeatHours
+    // A window that is not one of the presets opens in the custom entry, and a preset opens as itself.
+    var custom by rememberSaveable { mutableStateOf(hours > 0 && hours !in RepeatWindow.presets) }
     val revision by vm.app.library.changes.collectAsStateWithLifecycle()
     val now by produceState(System.currentTimeMillis()) { while (true) { delay(30_000); value = System.currentTimeMillis() } }
     val excluded by produceState<List<MainViewModel.ExcludedTrack>?>(null, hours, revision, now) { value = vm.excludedTracks(hours) }
@@ -68,14 +108,23 @@ fun AvoidRepeatsPage(state: AppState, vm: MainViewModel) {
     androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxSize().testTag("repeats-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Text(stringResource(if (state.signedIn) R.string.settings_repeats_text_tidal else R.string.settings_repeats_text), Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         item { UpperLabel(stringResource(R.string.repeats_window), Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) }
-        items(RepeatWindows.size) { index ->
-            val window = RepeatWindows[index]
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(hours == window, role = Role.RadioButton) { vm.settings { it.copy(avoidRepeatHours = window) } }
+        items(RepeatWindow.presets.size) { index ->
+            val window = RepeatWindow.presets[index]
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(!custom && hours == window, role = Role.RadioButton) { custom = false; vm.settings { it.copy(avoidRepeatHours = window) } }
                 .padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-                RadioButton(hours == window, onClick = null)
+                RadioButton(!custom && hours == window, onClick = null)
                 Text(if (window == 0) stringResource(R.string.settings_off) else repeatWindowText(window), Modifier.padding(start = 16.dp), style = MaterialTheme.typography.bodyLarge)
             }
         }
+        item {
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(custom, role = Role.RadioButton) {
+                if (!custom) { custom = true; if (hours == 0) vm.settings { it.copy(avoidRepeatHours = 48) } }
+            }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(custom, onClick = null)
+                Text(stringResource(R.string.repeats_custom), Modifier.padding(start = 16.dp), style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+        if (custom) item { CustomWindow(if (hours > 0) hours else 48) { next -> vm.settings { it.copy(avoidRepeatHours = next) } } }
         if (hours > 0) {
             item { UpperLabel(stringResource(R.string.repeats_excluded), Modifier.padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 8.dp)) }
             val tracks = excluded
