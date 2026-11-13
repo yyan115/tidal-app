@@ -23,6 +23,13 @@ name: Release
 #   3. Download the APK from the draft, install it over the current version on a phone, check sign-in, playback and a download,
 #      and publish the draft on GitHub or with "gh release edit vX.Y.Z --draft=false".
 #
+# Testing a change before it is merged
+#   Every pull request builds a preview app. Open the run of the Check workflow, download the artifact "preview-app" and
+#   install the APK. It installs next to the real app as "OpenTune Preview" with its own data, and it is built like the release
+#   app. A preview is signed with its own key (secrets PREVIEW_KEYSTORE_BASE64 and PREVIEW_KEYSTORE_PASSWORD), not with the
+#   release key. Without these secrets, as on a pull request from a fork, it is signed with the debug key and cannot be updated
+#   in place. Its version has the suffix -preview, so the update check never offers it.
+#
 # Local checks
 #   scripts/smoke_upgrade.sh NEW.apk PREVIOUS.apk runs the upgrade check with an emulator or a device connected.
 #   For a local signed build set OPENTUNE_KEYSTORE, OPENTUNE_STORE_PASSWORD, OPENTUNE_KEY_PASSWORD and, when the alias differs,
@@ -83,7 +90,7 @@ jobs:
             exit 1
           fi
           python3 scripts/release.py notes "$VERSION" > notes.md
-      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: '21'
