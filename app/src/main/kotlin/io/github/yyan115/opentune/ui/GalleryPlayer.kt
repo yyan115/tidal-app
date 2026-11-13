@@ -15,6 +15,10 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.yyan115.opentune.playback.AudioSpectrum
+import androidx.compose.ui.graphics.Brush
+import io.github.yyan115.opentune.core.Spectrum
+import io.github.yyan115.opentune.core.SpectrumAnalyzer
+import io.github.yyan115.opentune.core.SpectrumSmoother
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -258,44 +262,84 @@ private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> U
     }
 }
 
-/** The cover of the playing track. With the visualizer on, the cover dims and the spectrum of the music moves over it. */
+/** The cover of the playing track. With the visualizer on, the cover dims and the bars of the music move over it. */
 @Composable
 private fun PlayerArtwork(track: Track, description: String, modifier: Modifier, visualizer: Boolean, playing: Boolean) {
     Box(modifier) {
-        TrackArtwork(track, description, Modifier.fillMaxSize().graphicsLayer { alpha = if (visualizer) .45f else 1f })
+        TrackArtwork(track, description, Modifier.fillMaxSize().graphicsLayer { alpha = if (visualizer) VISUALIZER_COVER_ALPHA else 1f })
         if (visualizer) SpectrumBars(playing, Modifier.matchParentSize().padding(12.dp).testTag("spectrum"))
     }
 }
 
-/** Bars that follow the levels of the music, about thirty times a second. They sink when the music pauses. */
+/** The number of frequency bands. Each one is drawn twice, so that the bars mirror around the middle of the cover. */
+private const val SPECTRUM_BANDS = 32
+
+/** How much of the cover shows behind the bars. The rest is the background of the theme, so that the bars stay readable. */
+const val VISUALIZER_COVER_ALPHA = .4f
+
+/** How opaque the bars are at their tips. The centre line is fully opaque. */
+const val VISUALIZER_TIP_ALPHA = .6f
+
+/** How opaque the markers are. They use the text colour of the theme, which is dark on a light theme and light on a dark one. */
+const val VISUALIZER_MARKER_ALPHA = .85f
+
+/** The analysis runs at most this often, which is the rate of a 60 Hz screen. */
+private const val SPECTRUM_FRAME_NANOS = 16_000_000L
+
+/**
+ * Bars that grow up and down from the middle line and follow the levels of the music, up to sixty times a second.
+ * The lowest pitches are in the middle and the highest at both edges. A marker above each bar shows its recent peak.
+ * The bars sink when the music pauses, and then nothing redraws until it plays again.
+ */
 @Composable
 private fun SpectrumBars(playing: Boolean, modifier: Modifier) {
-    val bands = 32
-    val levels = remember { FloatArray(bands) }
+    val smoother = remember { SpectrumSmoother(SPECTRUM_BANDS) }
+    val analyzer = remember { SpectrumAnalyzer() }
     var frame by remember { mutableIntStateOf(0) }
     val color = MaterialTheme.colorScheme.primary
+    val markerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = VISUALIZER_MARKER_ALPHA)
     LaunchedEffect(playing) {
-        val samples = FloatArray(io.github.yyan115.opentune.core.Spectrum.SIZE)
+        val samples = FloatArray(Spectrum.SIZE)
+        val fresh = FloatArray(SPECTRUM_BANDS)
         var last = 0L
-        while (true) {
-            androidx.compose.runtime.withFrameNanos { now ->
-                if (now - last >= 33_000_000L) {
+        var running = true
+        while (running) {
+            withFrameNanos { now ->
+                if (now - last >= SPECTRUM_FRAME_NANOS) {
+                    val seconds = if (last == 0L) 1f / 60f else (now - last) / 1_000_000_000f
                     last = now
-                    val fresh = if (playing && AudioSpectrum.latest(samples)) io.github.yyan115.opentune.core.Spectrum.bands(samples, AudioSpectrum.sampleRate, bands) else null
-                    for (i in 0 until bands) levels[i] = if (fresh != null) maxOf(fresh[i], levels[i] * .82f) else levels[i] * .88f
+                    val heard = playing && AudioSpectrum.latest(samples)
+                    if (heard) analyzer.bands(samples, AudioSpectrum.sampleRate, SPECTRUM_BANDS, into = fresh)
+                    smoother.update(if (heard) fresh else null, seconds)
                     frame++
+                    if (!playing && smoother.idle) running = false
                 }
             }
         }
     }
     androidx.compose.foundation.Canvas(modifier) {
         frame.let { }
-        val gap = size.width / bands * .28f
-        val width = size.width / bands - gap
-        for (i in 0 until bands) {
-            val height = (size.height * levels[i].coerceIn(0f, 1f)).coerceAtLeast(2.dp.toPx())
-            drawRoundRect(color, androidx.compose.ui.geometry.Offset(i * (width + gap) + gap / 2, size.height - height), androidx.compose.ui.geometry.Size(width, height),
-                androidx.compose.ui.geometry.CornerRadius(width / 2))
+        val middle = size.height / 2
+        val slots = SPECTRUM_BANDS * 2
+        val slot = size.width / slots
+        val barWidth = slot * .62f
+        val markerHeight = 2.dp.toPx()
+        val markerGap = 3.dp.toPx()
+        val reach = middle - markerGap - markerHeight
+        val brush = Brush.verticalGradient(0f to color.copy(alpha = VISUALIZER_TIP_ALPHA), .5f to color, 1f to color.copy(alpha = VISUALIZER_TIP_ALPHA), startY = 0f, endY = size.height)
+        for (slotIndex in 0 until slots) {
+            val band = if (slotIndex < SPECTRUM_BANDS) SPECTRUM_BANDS - 1 - slotIndex else slotIndex - SPECTRUM_BANDS
+            val x = slotIndex * slot + (slot - barWidth) / 2
+            val height = (reach * smoother.levels[band].coerceIn(0f, 1f)).coerceAtLeast(1.5.dp.toPx())
+            drawRoundRect(brush, androidx.compose.ui.geometry.Offset(x, middle - height), androidx.compose.ui.geometry.Size(barWidth, height * 2),
+                androidx.compose.ui.geometry.CornerRadius(barWidth / 2))
+            val peak = maxOf(height, reach * smoother.peaks[band].coerceIn(0f, 1f))
+            if (smoother.peaks[band] > .02f) {
+                val markerSize = androidx.compose.ui.geometry.Size(barWidth, markerHeight)
+                val corner = androidx.compose.ui.geometry.CornerRadius(markerHeight / 2)
+                drawRoundRect(markerColor, androidx.compose.ui.geometry.Offset(x, middle - peak - markerGap - markerHeight), markerSize, corner)
+                drawRoundRect(markerColor, androidx.compose.ui.geometry.Offset(x, middle + peak + markerGap), markerSize, corner)
+            }
         }
     }
 }
