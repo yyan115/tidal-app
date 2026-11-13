@@ -47,6 +47,30 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;35.0.0'
       - name: Test, lint, and build both variants
         run: ./gradlew --no-daemon :core:test :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease
+      - name: Build the preview app
+        # The preview app installs next to the real app and is built like the release app. A pull request from a fork or from
+        # Dependabot has no secrets, so its preview is signed with the debug key. The release workflow does not need a preview.
+        if: github.workflow == 'Check'
+        env:
+          PREVIEW_KEYSTORE_BASE64: ${{ secrets.PREVIEW_KEYSTORE_BASE64 }}
+          OPENTUNE_PREVIEW_STORE_PASSWORD: ${{ secrets.PREVIEW_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$PREVIEW_KEYSTORE_BASE64" ]; then
+            umask 077
+            printf '%s' "$PREVIEW_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/preview.p12"
+            export OPENTUNE_PREVIEW_KEYSTORE="$RUNNER_TEMP/preview.p12"
+          fi
+          ./gradlew --no-daemon :app:assemblePreview
+          mkdir preview
+          cp app/build/outputs/apk/preview/app-preview.apk "preview/opentune-preview-${GITHUB_SHA::7}.apk"
+          rm -f "$RUNNER_TEMP/preview.p12"
+      - name: Upload the preview app
+        if: github.workflow == 'Check'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: preview-app
+          retention-days: 14
+          path: preview/*.apk
       - name: Upload reports and debug APK
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
