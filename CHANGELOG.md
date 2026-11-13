@@ -11,12 +11,18 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Changed
 
+- The downloads that run, wait or failed have their own page, Download queue, which opens from a row on On device. The row shows how many downloads run and how many failed.
 - The update check ignores test versions, such as 0.7.1-rc1, so only a published release is offered.
 - When TIDAL stops accepting the app, a listener who is signed in sees that message at once and stays signed in, in place of a message about an expired session.
 - Avoid repeats is in Experimental and Listening statistics is in Data, so no section of Settings holds a single row.
 - A spinner with the text Signing in covers the screen while the sign-in finishes, in place of the bar at the top.
 - Version in About reads prerelease for every version below 1.0.0.
 - The list of equalizer presets shows part of the fifth entry, so it is clear that the list scrolls.
+
+### Fixed
+
+- Turning on Download over mobile data starts the downloads that were waiting for Wi-Fi.
+- Clear failed downloads shows only when a download has failed.
 
 ## [0.7.0] - 2026-11-08
 
