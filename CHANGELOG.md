@@ -21,6 +21,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - The visualizer draws bars that grow up and down from the middle line. The lowest pitches are in the centre, the bars fade toward their tips, and a marker shows the recent peak of each bar. It updates up to 60 times a second, and the cover behind it is a little dimmer.
 
 ### Fixed
+
 - Turning on Download over mobile data starts the downloads that were waiting for Wi-Fi.
 - Clear failed downloads shows only when a download has failed.
 - The lowest bars of the visualizer showed the same height, and the treble showed lower than the bass at the same loudness. The analysis now reads 85 ms of audio and raises the treble to match how music is spread over the pitches.
