@@ -30,6 +30,8 @@ import coil3.request.ImageRequest
 import coil3.request.CachePolicy
 import coil3.request.crossfade
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.input.pointer.pointerInput
 import io.github.yyan115.opentune.core.Release
 import io.github.yyan115.opentune.core.Track
 import kotlinx.coroutines.delay
@@ -211,4 +213,17 @@ fun TuneTonalButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled:
 fun TuneOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
     contentPadding: PaddingValues = PaddingValues(horizontal = 18.dp, vertical = 13.dp), content: @Composable RowScope.() -> Unit) {
     OutlinedButton(onClick, modifier, enabled, shape = RoundedCornerShape(6.dp), contentPadding = contentPadding, content = content)
+}
+
+/** A spinner in the centre of the screen that covers it while the sign-in finishes. */
+@Composable
+fun SigningIn() {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = .92f)).testTag("signing-in")
+        // The cover takes every touch, so nothing below it changes while the sign-in runs.
+        .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }, contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator()
+            Text(stringResource(R.string.login_progress), Modifier.padding(top = 16.dp), style = MaterialTheme.typography.bodyLarge)
+        }
+    }
 }

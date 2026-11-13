@@ -391,9 +391,6 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
             if (state.signedIn) null else stringResource(R.string.settings_connect_text),
             onClick = if (state.signedIn) ({ signOut = true }) else onLogin,
             trailing = { Icon(if (state.signedIn) OpenTuneIcons.CheckCircle else OpenTuneIcons.ChevronRight, null) }) }
-        item { SectionTitle(stringResource(R.string.settings_playback)) }
-        item { SettingRow(OpenTuneIcons.Shuffle, stringResource(R.string.settings_repeats), if (settings.avoidRepeatHours == 0) stringResource(R.string.settings_off) else repeatWindowText(settings.avoidRepeatHours),
-            { onOpenPage(SettingsPage.Repeats) }, trailing = { Icon(OpenTuneIcons.ChevronRight, null) }) }
         // These settings change how TIDAL is streamed and downloaded, so they appear once an account is connected.
         if (state.signedIn) {
             item { SectionTitle(stringResource(R.string.settings_tidal)) }
@@ -409,13 +406,15 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
         }
         item { SectionTitle(stringResource(R.string.settings_appearance)) }
         item { SettingRow(OpenTuneIcons.Contrast, stringResource(R.string.settings_theme), stringResource(if (settings.theme == SYSTEM_THEME) R.string.theme_system else themeFor(settings.theme, false).nameRes), { theme = true }) }
-        item { SectionTitle(stringResource(R.string.settings_listening)) }
-        item { SettingRow(OpenTuneIcons.LibraryMusic, stringResource(R.string.stats_title), onClick = { onOpenPage(SettingsPage.Statistics) }, trailing = { Icon(OpenTuneIcons.ChevronRight, null) }) }
         item { SectionTitle(stringResource(R.string.settings_data)) }
+        item { SettingRow(OpenTuneIcons.LibraryMusic, stringResource(R.string.stats_title), onClick = { onOpenPage(SettingsPage.Statistics) }, trailing = { Icon(OpenTuneIcons.ChevronRight, null) }) }
         item { SettingRow(OpenTuneIcons.SaveAlt, stringResource(R.string.settings_backup), stringResource(R.string.settings_backup_text), { backup.launch("opentune-backup.json") }) }
         item { SettingRow(OpenTuneIcons.Refresh, stringResource(R.string.settings_restore), onClick = { restore.launch(arrayOf("application/json", "*/*")) }) }
         item { SettingRow(OpenTuneIcons.RemoveCircleOutline, stringResource(R.string.settings_clear_history), stringResource(R.string.settings_clear_history_text), { clearHistory = true }) }
         item { SectionTitle(stringResource(R.string.settings_experimental)) }
+        item { Text(stringResource(R.string.settings_experimental_text), Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { SettingRow(OpenTuneIcons.Shuffle, stringResource(R.string.settings_repeats), if (settings.avoidRepeatHours == 0) stringResource(R.string.settings_off) else repeatWindowText(settings.avoidRepeatHours),
+            { onOpenPage(SettingsPage.Repeats) }, trailing = { Icon(OpenTuneIcons.ChevronRight, null) }) }
         item { SettingRow(OpenTuneIcons.Equalizer, stringResource(R.string.eq_title), stringResource(if (settings.equalizer) R.string.settings_on else R.string.settings_off), { equalizer = true }) }
         item { SettingRow(OpenTuneIcons.Lyrics, stringResource(R.string.scrobble_title), if (settings.scrobble) stringResource(R.string.settings_scrobble_on, settings.scrobbleServer.removePrefix("https://")) else stringResource(R.string.settings_off), { scrobbling = true }) }
         if (android.os.Build.VERSION.SDK_INT >= VISUALIZER_API) item { SwitchRow(OpenTuneIcons.GraphicEq, stringResource(R.string.settings_visualizer), settings.visualizer, { value -> vm.settings { it.copy(visualizer = value) } }, stringResource(R.string.settings_visualizer_text)) }
@@ -429,7 +428,8 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
         }
         item { SectionTitle(stringResource(R.string.settings_about)) }
         item { SwitchRow(OpenTuneIcons.Refresh, stringResource(R.string.settings_updates), settings.checkUpdates, { value -> vm.settings { it.copy(checkUpdates = value) } }, stringResource(R.string.settings_updates_text)) }
-        item { SettingRow(OpenTuneIcons.Info, stringResource(R.string.settings_version), BuildConfig.VERSION_NAME) }
+        item { SettingRow(OpenTuneIcons.Info, stringResource(R.string.settings_version),
+            if (AppVersion.isPrerelease(BuildConfig.VERSION_NAME)) stringResource(R.string.settings_version_prerelease, BuildConfig.VERSION_NAME) else BuildConfig.VERSION_NAME) }
         item { SettingRow(OpenTuneIcons.Code, stringResource(R.string.settings_source), "github.com/yyan115/tidal-app", {
             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/yyan115/tidal-app"))) }
         }) }
