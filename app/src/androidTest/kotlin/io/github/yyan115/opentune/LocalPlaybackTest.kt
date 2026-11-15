@@ -331,6 +331,8 @@ class LocalPlaybackTest {
         assertEquals(0, model.state.value.playback.index)
         assertEquals("A swipe never clears the queue", 3, model.state.value.playback.queue.size)
         compose.onNodeWithTag("mini-player").assertIsDisplayed()
+        // The tests that follow expect a screen without a small player.
+        compose.runOnIdle { model.stopPlayback() }
     }
 
     @Test fun openingAnArtistFromThePlayerLeavesTheSettingsBehindIt() {
