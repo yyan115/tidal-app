@@ -7,6 +7,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.media3.common.util.UnstableApi
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
+import io.github.yyan115.opentune.core.JsonCodec
+import io.github.yyan115.opentune.data.DownloadWorker
 import io.github.yyan115.opentune.core.Track
 import io.github.yyan115.opentune.ui.MainViewModel
 import org.junit.Assume.assumeTrue
@@ -17,7 +24,7 @@ import org.junit.runner.RunWith
 import java.io.File
 
 /**
- * Walks the screens that a listener without an account sees and saves a picture of each one.
+ * Walks the screens that a listener without an account sees and saves a picture of each one, in the folder of the test output.
  * It is a tool for reviewing the interface and runs only with the instrumentation argument `screenTour` set to `true`.
  */
 @UnstableApi
@@ -32,7 +39,17 @@ class ScreenTourTest {
     private fun picture(name: String) {
         compose.waitForIdle(); Thread.sleep(600); compose.waitForIdle()
         InstrumentationRegistry.getInstrumentation().uiAutomation.waitForIdle(250, 5_000)
-        val directory = File(compose.activity.getExternalFilesDir(null), "tour").apply { mkdirs() }
+        save(name)
+    }
+
+    /** A picture of a screen that never rests, such as the visualizer, which cannot wait for the screen to be idle. */
+    private fun movingPicture(name: String) { Thread.sleep(80); save(name) }
+
+    private fun stepFrame() { compose.mainClock.advanceTimeBy(16); Thread.sleep(16) }
+
+    private fun save(name: String) {
+        val output = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+        val directory = (output?.let(::File) ?: File(compose.activity.getExternalFilesDir(null), "tour")).apply { mkdirs() }
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         File(directory, "$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
@@ -125,6 +142,65 @@ class ScreenTourTest {
             picture("28-equalizer")
             compose.onNodeWithText("Preset").performClick()
             picture("29-equalizer-presets")
+        }
+    }
+
+    @Test fun downloadQueueAndCustomRepeatTime() {
+        val track = Track("2200002", "Queued Song", "Queue Artist")
+        compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false, downloadOnWifi = true, avoidRepeatHours = 0) } }
+        app.library.save(track)
+        val manager = WorkManager.getInstance(app)
+        // The download waits for a device that is idle, which a device in a test is not, so that the queue has an entry to show.
+        val request = OneTimeWorkRequestBuilder<DownloadWorker>().setInputData(workDataOf("track" to JsonCodec.encodeTrack(track).toString()))
+            .setConstraints(Constraints.Builder().setRequiresDeviceIdle(true).build()).addTag("audio-download").addTag("track:${track.id}").build()
+        manager.enqueueUniqueWork("download:${track.id}", ExistingWorkPolicy.REPLACE, request).result.get()
+        try {
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("Download queue").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("device-list").performScrollToNode(hasText("Download queue"))
+            picture("40-on-device-queue-row")
+            compose.onNode(hasText("Download queue") and hasClickAction()).performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("Queued Song").fetchSemanticsNodes().isNotEmpty() }
+            picture("41-download-queue")
+            compose.onNodeWithContentDescription("Back").performClick()
+            compose.runOnIdle { model.settings { it.copy(avoidRepeatHours = 36) } }
+            compose.onNodeWithContentDescription("Settings").performClick()
+            compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Avoid repeats"))
+            compose.onNode(hasText("Avoid repeats") and hasClickAction()).performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("repeats-custom").fetchSemanticsNodes().isNotEmpty() }
+            picture("42-avoid-repeats-custom-time")
+        } finally {
+            manager.cancelAllWorkByTag("audio-download").result.get()
+            manager.pruneWork().result.get()
+            app.library.removeLocal(track.id)
+            compose.runOnIdle { model.settings { it.copy(avoidRepeatHours = 0) } }
+        }
+    }
+
+    @Test fun visualizerOverMusic() {
+        assumeTrue(android.os.Build.VERSION.SDK_INT >= io.github.yyan115.opentune.ui.VISUALIZER_API)
+        val file = File(app.filesDir, "music-clip.flac")
+        InstrumentationRegistry.getInstrumentation().context.assets.open("music-clip.flac").use { input -> file.outputStream().use(input::copyTo) }
+        val track = Track("local:music-clip", "Harbour Lights", "Maren Vale", "Salt and Glass", durationMs = 16_000, localUri = Uri.fromFile(file).toString(), quality = "FLAC · 16-bit · 44.1 kHz")
+        app.library.save(track)
+        compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false, visualizer = false) } }
+        try {
+            compose.runOnIdle { model.play(listOf(track)) }
+            compose.waitUntil(15_000) { model.state.value.playback.playing }
+            compose.onNodeWithTag("mini-player").performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("player-artist").fetchSemanticsNodes().isNotEmpty() }
+            // The visualizer redraws at every frame, so the screen is never idle after this. It is turned on last,
+            // and the frames are stepped by hand, because a test only draws a frame when its clock moves.
+            InstrumentationRegistry.getInstrumentation().runOnMainSync { model.settings { it.copy(visualizer = true) } }
+            compose.mainClock.autoAdvance = false
+            repeat(60) { stepFrame() }
+            for (index in 1..4) {
+                repeat(22) { stepFrame() }
+                movingPicture("5$index-visualizer")
+            }
+        } finally {
+            compose.mainClock.autoAdvance = true
+            InstrumentationRegistry.getInstrumentation().runOnMainSync { model.settings { it.copy(visualizer = false) }; model.stopPlayback() }
+            app.library.removeLocal(track.id)
         }
     }
 
