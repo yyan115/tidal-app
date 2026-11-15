@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.mutableStateOf
@@ -24,6 +25,7 @@ import io.github.yyan115.opentune.ui.enterVideoPip
 import io.github.yyan115.opentune.ui.LocalNetworkEpoch
 import io.github.yyan115.opentune.ui.LocalOfflineMode
 import io.github.yyan115.opentune.ui.LocalPlaybackPosition
+import io.github.yyan115.opentune.ui.LocalQueueTrack
 import io.github.yyan115.opentune.core.SignInCallback
 
 @UnstableApi
@@ -53,7 +55,8 @@ class MainActivity : ComponentActivity() {
                     isAppearanceLightNavigationBars = !dark
                 }
             }
-            OpenTuneTheme(themeId) { CompositionLocalProvider(LocalOfflineMode provides state.settings.offline, LocalNetworkEpoch provides networkEpoch, LocalPlaybackPosition provides model.position) { OpenTuneRoot(model, state) } }
+            val queueTrack = remember(model) { { track: io.github.yyan115.opentune.core.Track, next: Boolean -> model.queue(track, next) } }
+            OpenTuneTheme(themeId) { CompositionLocalProvider(LocalOfflineMode provides state.settings.offline, LocalNetworkEpoch provides networkEpoch, LocalPlaybackPosition provides model.position, LocalQueueTrack provides queueTrack) { OpenTuneRoot(model, state) } }
         }
     }
 

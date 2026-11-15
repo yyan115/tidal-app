@@ -129,8 +129,16 @@ fun ErrorCard(message: String, onRetry: (() -> Unit)? = null) {
     }
 }
 
+/** A track in a list. Swiping the row to the right queues the track, unless [swipeToQueue] is false or the app gives no queue action. */
 @Composable
-fun TrackRow(track: Track, playing: Boolean = false, onPlay: () -> Unit, onMenu: () -> Unit, index: Int? = null) {
+fun TrackRow(track: Track, playing: Boolean = false, onPlay: () -> Unit, onMenu: () -> Unit, index: Int? = null, swipeToQueue: Boolean = true) {
+    val queue = LocalQueueTrack.current
+    if (!swipeToQueue || queue == null) { TrackRowContent(track, playing, onPlay, onMenu, index); return }
+    SwipeToQueueBox(onPlayNext = { queue(track, true) }, onAddToQueue = { queue(track, false) }) { guard -> TrackRowContent(track, playing, guard(onPlay), onMenu, index) }
+}
+
+@Composable
+private fun TrackRowContent(track: Track, playing: Boolean, onPlay: () -> Unit, onMenu: () -> Unit, index: Int?) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onPlay).padding(start = 24.dp, end = 8.dp, top = 11.dp, bottom = 11.dp),
         verticalAlignment = Alignment.CenterVertically) {
         if (index != null) Text("%02d".format(index + 1), Modifier.width(32.dp), fontFamily = AppFonts.mono, fontSize = 10.sp,

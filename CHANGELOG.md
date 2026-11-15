@@ -6,6 +6,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Added
 
+- Swiping a track to the right shows two buttons, Play next and Add to queue. A longer swipe plays the track next at once.
 - Avoid repeats accepts a custom time from 1 hour to 365 days, entered in hours or days.
 - Experimental has a short description of what its features are.
 
