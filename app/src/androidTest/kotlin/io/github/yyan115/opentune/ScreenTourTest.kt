@@ -204,6 +204,22 @@ class ScreenTourTest {
         }
     }
 
+    @Test fun dialogsInEveryTheme() {
+        compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false) } }
+        for (theme in io.github.yyan115.opentune.ui.appThemes) {
+            compose.runOnIdle { model.settings { it.copy(theme = theme.id) } }
+            compose.waitForIdle()
+            if (compose.onAllNodesWithTag("settings-list").fetchSemanticsNodes().isEmpty()) compose.onNodeWithContentDescription("Settings").performClick()
+            compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Clear listening history"))
+            compose.onNode(hasText("Clear listening history") and hasClickAction()).performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("app-dialog").fetchSemanticsNodes().isNotEmpty() }
+            picture("60-dialog-${theme.id}")
+            compose.onNode(hasText("Cancel") and hasClickAction()).performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("app-dialog").fetchSemanticsNodes().isEmpty() }
+        }
+        compose.runOnIdle { model.settings { it.copy(theme = "dark") } }
+    }
+
     @Test fun emptyDeviceList() {
         compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", welcomeDone = true) } }
         app.library.localTracks().forEach { app.library.removeLocal(it.id) }

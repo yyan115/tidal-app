@@ -26,7 +26,7 @@ fun ScrobbleDialog(settings: Settings, vm: MainViewModel, onClose: () -> Unit) {
     var result by remember { mutableStateOf<String?>(null) }
     var checking by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    AlertDialog(onDismissRequest = onClose, title = { Text(stringResource(R.string.scrobble_title)) }, text = {
+    AppDialog(onDismissRequest = onClose, title = { Text(stringResource(R.string.scrobble_title)) }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.scrobble_note),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -43,8 +43,8 @@ fun ScrobbleDialog(settings: Settings, vm: MainViewModel, onClose: () -> Unit) {
             }
             result?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         }
-    }, confirmButton = { TextButton(onClick = { vm.saveScrobbling(enabled && token.isNotBlank(), server, token); onClose() }) { Text(stringResource(R.string.action_save)) } },
-        dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } })
+    }, confirmButton = { DialogConfirm(onClick = { vm.saveScrobbling(enabled && token.isNotBlank(), server, token); onClose() }) { Text(stringResource(R.string.action_save)) } },
+        dismissButton = { DialogDismiss(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } })
 }
 
 data class ListeningStats(val plays: Int, val hours: Long, val minutes: Long, val tracks: List<io.github.yyan115.opentune.data.LibraryStore.PlayCount>, val artists: List<Pair<String, Int>>)

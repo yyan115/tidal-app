@@ -11,6 +11,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Changed
 
+- Dialogs share one style that follows the theme: its colours, corner shape and title typeface. The main action is a filled button, and an action that deletes something is red.
 - The downloads that run, wait or failed have their own page, Download queue, which opens from a row on On device. The row shows how many downloads run and how many failed.
 - The update check ignores test versions, such as 0.7.1-rc1, so only a published release is offered.
 - When TIDAL stops accepting the app, a listener who is signed in sees that message at once and stays signed in, in place of a message about an expired session.

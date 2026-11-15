@@ -87,6 +87,8 @@ private fun scheme(dark: Boolean, background: Long, text: Long, secondary: Long,
     return base.copy(
         primary = primary, onPrimary = c(onAccent), primaryContainer = lerp(bg, primary, .2f), onPrimaryContainer = primary,
         secondary = c(secondary), onSecondary = bg, secondaryContainer = tone(.12f), onSecondaryContainer = fg,
+        // A deleting action is red in every theme. The default of Material for a dark scheme is a pale pink that does not read as a warning.
+        error = if (dark) c(0xFF6B63) else c(0xB3261E), onError = if (dark) c(0x2B0A08) else c(0xFFFFFF),
         tertiary = c(tertiary), onTertiary = c(onAccent), tertiaryContainer = lerp(bg, c(tertiary), .14f), onTertiaryContainer = c(tertiary),
         background = bg, onBackground = fg, surface = bg, onSurface = fg, surfaceVariant = tone(.09f), onSurfaceVariant = c(secondary),
         surfaceContainerLowest = bg, surfaceContainerLow = tone(.03f), surfaceContainer = tone(.05f),
