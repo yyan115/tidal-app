@@ -1,5 +1,6 @@
 package io.github.yyan115.opentune
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
@@ -35,20 +36,32 @@ class SettingsPagesTest {
     private fun top(text: String) = compose.onNodeWithText(text).fetchSemanticsNode().boundsInRoot.top
     private fun scrollTo(text: String) = compose.onNodeWithTag("settings-list").performScrollToNode(hasText(text))
 
+    /**
+     * Scrolls so that the row of [text] is at the top of the list. A lazy list does not scroll to a row that is already on the screen,
+     * even when only part of it shows, and the rows below it may then be off the screen. So the list moves on by the distance that is left.
+     */
+    private fun bringToTop(text: String) {
+        scrollTo(text)
+        val list = compose.onNodeWithTag("settings-list")
+        val distance = compose.onNode(hasText(text)).fetchSemanticsNode().boundsInRoot.top - list.fetchSemanticsNode().boundsInRoot.top
+        list.performSemanticsAction(SemanticsActions.ScrollBy) { scroll -> scroll(0f, distance) }
+        compose.waitForIdle()
+    }
+
     @Test fun avoidRepeatsIsAnExperimentalFeatureAndNoSectionHoldsOnlyOneRow() {
         compose.onAllNodesWithText("Playback").assertCountEquals(0)
-        scrollTo("Experimental")
+        bringToTop("Experimental")
         compose.onNodeWithText("Features that are still in development and may change or not work correctly").assertIsDisplayed()
         assertTrue(top("Experimental") < top("Avoid repeats"))
         assertTrue(top("Avoid repeats") < top("Equalizer"))
-        scrollTo("Data")
+        bringToTop("Data")
         compose.onAllNodesWithText("Listening").assertCountEquals(0)
         assertTrue("Listening statistics sits in Data", top("Data") < top("Listening statistics"))
         assertTrue(top("Listening statistics") < top("Back up data"))
     }
 
     @Test fun theVersionLineSaysPrereleaseUntilTheFirstFullRelease() {
-        scrollTo("Version")
+        scrollTo("Licenses")
         val shown = if (AppVersion.isPrerelease(BuildConfig.VERSION_NAME)) "${BuildConfig.VERSION_NAME} (prerelease)" else BuildConfig.VERSION_NAME
         compose.onNodeWithText(shown).assertIsDisplayed()
     }
