@@ -6,12 +6,14 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Added
 
+- Dragging the small player up opens the full player, which follows the finger. Dragging the full player down closes it.
 - Swiping a track to the right shows two buttons, Play next and Add to queue. A longer swipe plays the track next at once.
 - Avoid repeats accepts a custom time from 1 hour to 365 days, entered in hours or days.
 - Experimental has a short description of what its features are.
 
 ### Changed
 
+- A swipe to the left on the small player or on the cover plays the next track, and a swipe to the right plays the previous one. A swipe on the small player no longer stops playback. Stop playback is in the menu of the full player.
 - A track that you add to the queue plays before the rest of the album or playlist, in the order you added it. Play next goes ahead of those tracks, and shuffle leaves them in place.
 - Dialogs share one style that follows the theme: its colours, corner shape and title typeface. The main action is a filled button, and an action that deletes something is red.
 - The downloads that run, wait or failed have their own page, Download queue, which opens from a row on On device. The row shows how many downloads run and how many failed.

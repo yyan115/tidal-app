@@ -313,16 +313,24 @@ class LocalPlaybackTest {
         assertEquals("Next Up", model.state.value.playback.queue[1].title)
     }
 
-    @Test fun aSwipeOnTheMiniPlayerStopsPlaybackAndATapOnlyOpensIt() {
-        compose.runOnIdle { model.play(listOf(track, track.copy(id = "local:swipe-2", title = "Second Track"))) }
-        compose.waitUntil(10_000) { model.state.value.playback.queue.size == 2 }
+    @Test fun aSwipeOnTheMiniPlayerChangesTheTrackAndATapOnlyOpensIt() {
+        compose.runOnIdle { model.play(listOf(track, track.copy(id = "local:swipe-2", title = "Second Track"), track.copy(id = "local:swipe-3", title = "Third Track"))) }
+        compose.waitUntil(10_000) { model.state.value.playback.queue.size == 3 }
         compose.onNodeWithTag("mini-player").performClick()
-        compose.onNodeWithText("Queue · 2").assertIsDisplayed()
+        compose.onNodeWithText("Queue · 3").assertIsDisplayed()
         compose.onNodeWithContentDescription("Close player").performClick()
-        assertEquals("A tap leaves the queue alone", 2, model.state.value.playback.queue.size)
+        assertEquals("A tap leaves the queue alone", 3, model.state.value.playback.queue.size)
+        assertEquals("A tap leaves the track alone", 0, model.state.value.playback.index)
+        compose.onNodeWithTag("mini-player").performTouchInput { swipeLeft() }
+        compose.waitUntil(5_000) { model.state.value.playback.index == 1 }
         compose.onNodeWithTag("mini-player").performTouchInput { swipeRight() }
-        compose.waitUntil(5_000) { model.state.value.playback.queue.isEmpty() }
-        compose.onNodeWithTag("mini-player").assertDoesNotExist()
+        compose.waitUntil(5_000) { model.state.value.playback.index == 0 }
+        // There is no track before the first one, so the bar resists and the track stays.
+        compose.onNodeWithTag("mini-player").performTouchInput { swipeRight() }
+        compose.waitForIdle()
+        assertEquals(0, model.state.value.playback.index)
+        assertEquals("A swipe never clears the queue", 3, model.state.value.playback.queue.size)
+        compose.onNodeWithTag("mini-player").assertIsDisplayed()
     }
 
     @Test fun openingAnArtistFromThePlayerLeavesTheSettingsBehindIt() {
