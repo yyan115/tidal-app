@@ -28,6 +28,7 @@ import io.github.yyan115.opentune.data.MigrateDownloadsWorker
 import io.github.yyan115.opentune.data.Settings
 import io.github.yyan115.opentune.playback.PlaybackCommands
 import io.github.yyan115.opentune.playback.PlaybackService
+import io.github.yyan115.opentune.playback.manualMarks
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -441,7 +442,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun queue(track: Track, next: Boolean = false) {
         val player = controller ?: return
         if (player.mediaItemCount == 0) { play(listOf(track)); return }
-        player.addMediaItem(if (next) player.currentMediaItemIndex + 1 else player.mediaItemCount, app.sources.unresolved(track))
+        // A track added by hand plays ahead of the rest of the queue, so "Add to queue" goes after the tracks that were added before it.
+        player.addMediaItem(QueueOrder.insertIndex(player.manualMarks(), player.currentMediaItemIndex, next), app.sources.unresolved(track, manual = true))
         notify(app.getString(if (next) R.string.notify_plays_next else R.string.notify_added_queue))
     }
     fun removeQueue(index: Int) { controller?.removeMediaItem(index) }
@@ -822,6 +824,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun persistQueue() {
         val player = controller ?: return
         preferences.edit().putString("queue", JsonCodec.encodeTracks(ui.value.playback.queue))
+            .putString("manual", QueueOrder.encode(player.manualMarks()))
             .putInt("index", player.currentMediaItemIndex.coerceAtLeast(0)).putLong("position", player.currentPosition.coerceAtLeast(0))
             .putBoolean("shuffle", player.shuffleModeEnabled).putInt("repeat", player.repeatMode).apply()
     }
@@ -837,7 +840,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         controller?.let {
             // The saved queue is in the order it was shuffled to, so shuffle is set before the tracks and does not shuffle them again.
             it.shuffleModeEnabled = shuffle
-            it.setMediaItems(tracks.map(app.sources::unresolved), index, position)
+            val manual = QueueOrder.decode(preferences.getString("manual", null), tracks.size)
+            it.setMediaItems(tracks.mapIndexed { place, track -> app.sources.unresolved(track, manual[place]) }, index, position)
             it.repeatMode = repeat
             ui.update { state -> state.copy(playback = state.playback.copy(source = preferences.getString("source", "").orEmpty())) }
         }

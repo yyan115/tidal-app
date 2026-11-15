@@ -44,7 +44,10 @@ class ResolvingSource(private val app: OpenTuneApp, private val original: MediaI
                     val encoded = original.mediaMetadata.extras?.getString("track")
                     val track = encoded?.let { JsonCodec.decodeTrack(JSONObject(it)) } ?: app.library.get(original.mediaId)
                         ?: throw ServiceException(0, "This track is no longer in the library.", Problem.TRACK_MISSING)
-                    val resolved = app.sources.resolve(track)
+                    // The listener's marks on the queue item, such as a track added by hand, stay on the item that the player holds once it is resolved.
+                    val resolved = app.sources.resolve(track).let { item ->
+                        original.mediaMetadata.extras?.let { extras -> item.buildUpon().setMediaMetadata(item.mediaMetadata.buildUpon().setExtras(extras).build()).build() } ?: item
+                    }
                     val offlineCopy = app.library.get(track.id)?.localUri?.startsWith("opentune-offline:") == true
                     handler.post {
                         if (scope === owner) {
