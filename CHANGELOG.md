@@ -27,6 +27,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Fixed
 
+- A list keeps its place when you open an album, an artist or a playlist from it and go back. This applies to Home, Search, Library and On device. Before, the list returned to the top.
 - Turning on Download over mobile data starts the downloads that were waiting for Wi-Fi.
 - Clear failed downloads shows only when a download has failed.
 - The lowest bars of the visualizer showed the same height, and the treble showed lower than the bass at the same loudness. The analysis now reads 85 ms of audio and raises the treble to match how music is spread over the pitches.
