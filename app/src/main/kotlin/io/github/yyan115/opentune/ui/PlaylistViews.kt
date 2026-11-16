@@ -63,7 +63,7 @@ enum class PlaylistHome { Account, Device }
 fun NewPlaylistDialog(accountAvailable: Boolean, onCreate: (String, PlaylistHome) -> Unit, onClose: () -> Unit, initialName: String = "") {
     var name by remember { mutableStateOf(initialName) }
     var home by remember { mutableStateOf(if (accountAvailable) PlaylistHome.Account else PlaylistHome.Device) }
-    AlertDialog(onDismissRequest = onClose, title = { Text(stringResource(R.string.playlist_new)) }, text = {
+    AppDialog(onDismissRequest = onClose, title = { Text(stringResource(R.string.playlist_new)) }, text = {
         Column {
             OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.field_name)) }, singleLine = true)
             if (accountAvailable) {
@@ -74,8 +74,8 @@ fun NewPlaylistDialog(accountAvailable: Boolean, onCreate: (String, PlaylistHome
                 if (home == PlaylistHome.Device) Text(stringResource(R.string.playlist_home_device_text), Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-    }, confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onCreate(name.trim(), home) }) { Text(stringResource(R.string.action_create)) } },
-        dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } })
+    }, confirmButton = { DialogConfirm(enabled = name.isNotBlank(), onClick = { onCreate(name.trim(), home) }) { Text(stringResource(R.string.action_create)) } },
+        dismissButton = { DialogDismiss(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } })
 }
 
 /** Lists the playlists that a track can join. A file on the device can join playlists made on the device only. */

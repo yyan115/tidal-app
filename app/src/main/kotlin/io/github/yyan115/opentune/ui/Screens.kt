@@ -211,10 +211,10 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onNew
     if (newFolder) NameDialog(stringResource(R.string.folder_new), "", stringResource(R.string.action_create), vm::createFolder) { newFolder = false }
     renaming?.let { folder -> NameDialog(stringResource(R.string.folder_rename), folder.title, stringResource(R.string.action_save), { vm.renameFolder(folder, it) }) { renaming = null } }
     moving?.let { playlist -> MoveToFolderDialog(playlist, state.folders[TidalClient.ROOT_FOLDER].orEmpty(), { vm.moveToFolder(playlist, it) }) { moving = null } }
-    deleting?.let { folder -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text(stringResource(R.string.folder_delete_title, folder.title)) },
+    deleting?.let { folder -> AppDialog(onDismissRequest = { deleting = null }, title = { Text(stringResource(R.string.folder_delete_title, folder.title)) },
         text = { Text(stringResource(R.string.folder_delete_text)) },
-        confirmButton = { TextButton(onClick = { vm.deleteFolder(folder); deleting = null; if (openFolder?.first == folder.id) folderStack = emptyList() }) { Text(stringResource(R.string.action_delete)) } },
-        dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.action_cancel)) } }) }
+        confirmButton = { DialogConfirm(destructive = true, onClick = { vm.deleteFolder(folder); deleting = null; if (openFolder?.first == folder.id) folderStack = emptyList() }) { Text(stringResource(R.string.action_delete)) } },
+        dismissButton = { DialogDismiss(onClick = { deleting = null }) { Text(stringResource(R.string.action_cancel)) } }) }
     fun matches(vararg fields: String) = text.isBlank() || fields.any { it.contains(text.trim(), ignoreCase = true) }
     fun <T> List<T>.ordered(title: (T) -> String, artist: (T) -> String): List<T> = when (sort) {
         LibrarySort.Recent -> this
@@ -439,27 +439,27 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
     if (normalization) NormalizationDialog(settings.normalization, { value -> vm.settings { it.copy(normalization = value) } }) { normalization = false }
     if (equalizer) EqualizerSheet(settings, { next -> vm.settings { next } }) { equalizer = false }
     if (scrobbling) ScrobbleDialog(settings, vm) { scrobbling = false }
-    if (playedWarning) AlertDialog(onDismissRequest = { playedWarning = false }, title = { Text(stringResource(R.string.download_played_title)) },
+    if (playedWarning) AppDialog(onDismissRequest = { playedWarning = false }, title = { Text(stringResource(R.string.download_played_title)) },
         text = { Text(stringResource(R.string.download_played_text)) },
-        confirmButton = { TextButton(onClick = { vm.settings { it.withDownloadPlayed(true) }; playedWarning = false }) { Text(stringResource(R.string.download_played_enable)) } },
-        dismissButton = { TextButton(onClick = { playedWarning = false }) { Text(stringResource(R.string.action_cancel)) } })
-    if (mobileDataWarning) AlertDialog(onDismissRequest = { mobileDataWarning = false }, title = { Text(stringResource(R.string.mobile_downloads_title)) },
+        confirmButton = { DialogConfirm(onClick = { vm.settings { it.withDownloadPlayed(true) }; playedWarning = false }) { Text(stringResource(R.string.download_played_enable)) } },
+        dismissButton = { DialogDismiss(onClick = { playedWarning = false }) { Text(stringResource(R.string.action_cancel)) } })
+    if (mobileDataWarning) AppDialog(onDismissRequest = { mobileDataWarning = false }, title = { Text(stringResource(R.string.mobile_downloads_title)) },
         text = { Text(stringResource(R.string.mobile_downloads_text)) },
-        confirmButton = { TextButton(onClick = { vm.settings { it.copy(downloadOnWifi = false) }; mobileDataWarning = false }) { Text(stringResource(R.string.mobile_downloads_allow)) } },
-        dismissButton = { TextButton(onClick = { mobileDataWarning = false }) { Text(stringResource(R.string.action_cancel)) } })
-    if (clearHistory) AlertDialog(onDismissRequest = { clearHistory = false }, title = { Text(stringResource(R.string.history_clear_title)) },
+        confirmButton = { DialogConfirm(onClick = { vm.settings { it.copy(downloadOnWifi = false) }; mobileDataWarning = false }) { Text(stringResource(R.string.mobile_downloads_allow)) } },
+        dismissButton = { DialogDismiss(onClick = { mobileDataWarning = false }) { Text(stringResource(R.string.action_cancel)) } })
+    if (clearHistory) AppDialog(onDismissRequest = { clearHistory = false }, title = { Text(stringResource(R.string.history_clear_title)) },
         text = { Text(stringResource(R.string.history_clear_text)) },
-        confirmButton = { TextButton(onClick = { vm.clearListeningHistory(); clearHistory = false }) { Text(stringResource(R.string.action_clear)) } },
-        dismissButton = { TextButton(onClick = { clearHistory = false }) { Text(stringResource(R.string.action_cancel)) } })
-    if (quality || mobile) AlertDialog(onDismissRequest = { quality = false; mobile = false }, title = { Text(if (mobile) stringResource(R.string.settings_quality_mobile) else stringResource(R.string.settings_quality_wifi)) },
+        confirmButton = { DialogConfirm(destructive = true, onClick = { vm.clearListeningHistory(); clearHistory = false }) { Text(stringResource(R.string.action_clear)) } },
+        dismissButton = { DialogDismiss(onClick = { clearHistory = false }) { Text(stringResource(R.string.action_cancel)) } })
+    if (quality || mobile) AppDialog(onDismissRequest = { quality = false; mobile = false }, title = { Text(if (mobile) stringResource(R.string.settings_quality_mobile) else stringResource(R.string.settings_quality_wifi)) },
         text = { Column { AudioQuality.entries.forEach { value -> Row(Modifier.fillMaxWidth().clickable {
             if (mobile) vm.settings { it.copy(mobileQuality = value) } else vm.settings { it.copy(quality = value) }
             quality = false; mobile = false
         }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             RadioButton(if (mobile) settings.mobileQuality == value else settings.quality == value, onClick = null)
             Text(stringResource(value.labelRes()), Modifier.padding(start = 12.dp), style = MaterialTheme.typography.bodyMedium)
-        } } } }, confirmButton = {})
+        } } } })
     if (theme) AppearanceSheet(settings, { next -> vm.settings { next } }, onPreview = vm::previewTheme) { theme = false }
-    if (signOut) AlertDialog(onDismissRequest = { signOut = false }, title = { Text(stringResource(R.string.signout_title)) }, text = { Text(stringResource(R.string.signout_text)) },
-        confirmButton = { TextButton(onClick = { vm.signOut(); signOut = false }) { Text(stringResource(R.string.signout_confirm)) } }, dismissButton = { TextButton(onClick = { signOut = false }) { Text(stringResource(R.string.action_cancel)) } })
+    if (signOut) AppDialog(onDismissRequest = { signOut = false }, title = { Text(stringResource(R.string.signout_title)) }, text = { Text(stringResource(R.string.signout_text)) },
+        confirmButton = { DialogConfirm(destructive = true, onClick = { vm.signOut(); signOut = false }) { Text(stringResource(R.string.signout_confirm)) } }, dismissButton = { DialogDismiss(onClick = { signOut = false }) { Text(stringResource(R.string.action_cancel)) } })
 }
