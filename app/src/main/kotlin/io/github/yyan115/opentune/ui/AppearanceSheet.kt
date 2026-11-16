@@ -102,8 +102,8 @@ private fun ThemePreview(id: String, systemDark: Boolean, selected: Boolean) {
                 Column(Modifier.fillMaxSize().padding(top = 18.dp)) {
                     Text(stringResource(R.string.nav_home), Modifier.padding(horizontal = 20.dp), style = AppFonts.title(40, 46))
                     SectionTitle(stringResource(R.string.home_recently_played), stringResource(R.string.action_view_all))
-                    TrackRow(SampleTracks[0], true, {}, {})
-                    TrackRow(SampleTracks[1], false, {}, {})
+                    TrackRow(SampleTracks[0], true, {}, {}, swipeToQueue = false)
+                    TrackRow(SampleTracks[1], false, {}, {}, swipeToQueue = false)
                     Row(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         TuneButton(onClick = {}, modifier = Modifier.weight(1f)) { Icon(OpenTuneIcons.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.action_play)) }
                         TuneOutlinedButton(onClick = {}, modifier = Modifier.weight(1f)) { Icon(OpenTuneIcons.Shuffle, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.action_shuffle)) }
