@@ -87,12 +87,16 @@ class AudioSources(private val app: OpenTuneApp) {
         qualities.remove(id)
     }
 
-    fun unresolved(track: Track): MediaItem = metadata(track).setUri("opentune://track/${Uri.encode(track.id)}").build()
+    /** A queue item for [track]. [manual] marks a track that the listener added by hand, so that it plays ahead of the rest of the queue. */
+    fun unresolved(track: Track, manual: Boolean = false): MediaItem = metadata(track, manual).setUri("opentune://track/${Uri.encode(track.id)}").build()
 
-    private fun metadata(track: Track): MediaItem.Builder = MediaItem.Builder().setMediaId(track.id).setMediaMetadata(
+    private fun metadata(track: Track, manual: Boolean = false): MediaItem.Builder = MediaItem.Builder().setMediaId(track.id).setMediaMetadata(
         MediaMetadata.Builder().setTitle(track.title).setArtist(track.artist).setAlbumTitle(track.album)
             .setArtworkUri(track.artwork?.let(Uri::parse)).setIsBrowsable(false).setIsPlayable(true)
-            .setExtras(android.os.Bundle().apply { putString("track", io.github.yyan115.opentune.core.JsonCodec.encodeTrack(track).toString()) }).build())
+            .setExtras(android.os.Bundle().apply {
+                putString("track", io.github.yyan115.opentune.core.JsonCodec.encodeTrack(track).toString())
+                if (manual) putBoolean(MANUAL_EXTRA, true)
+            }).build())
 
     fun manifestUri(stream: StreamInfo): String = "data:application/dash+xml;base64," + Base64.getEncoder().encodeToString(
         requireNotNull(stream.dashManifest).toByteArray(Charsets.UTF_8))
