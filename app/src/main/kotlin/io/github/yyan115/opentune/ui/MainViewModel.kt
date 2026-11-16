@@ -477,13 +477,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         while (account.isNotBlank() && account == app.tidal.accountId && !ui.value.settings.offline) {
             val changes = withContext(Dispatchers.IO) { app.library.pendingFavorites(account) }
             if (changes.isEmpty()) return
-            for ((id, favorite) in changes) {
-                if (account != app.tidal.accountId || ui.value.settings.offline) return
-                app.tidal.setFavorite(id, favorite)
-                val track = withContext(Dispatchers.IO) { app.library.favoriteSynced(account, id, favorite); app.library.get(id) }
-                if (account != app.tidal.accountId) return
-                cloudFavorites = if (favorite && track != null) (listOf(track) + cloudFavorites).distinctBy(Track::id) else cloudFavorites.filterNot { it.id == id }
-            }
+            var refused = 0
+            FavoriteSync.upload(changes, active = { account == app.tidal.accountId && !ui.value.settings.offline },
+                send = { id, favorite -> app.tidal.setFavorite(id, favorite) },
+                sent = { id, favorite ->
+                    val track = withContext(Dispatchers.IO) { app.library.favoriteSynced(account, id, favorite); app.library.get(id) }
+                    if (account == app.tidal.accountId) cloudFavorites = if (favorite && track != null) (listOf(track) + cloudFavorites).distinctBy(Track::id) else cloudFavorites.filterNot { it.id == id }
+                },
+                rejected = { id, favorite ->
+                    // TIDAL refuses this change for good, so it leaves the waiting changes and the sync goes on. A track that could not be saved is not shown as saved.
+                    withContext(Dispatchers.IO) {
+                        app.library.favoriteSynced(account, id, favorite)
+                        if (favorite) app.library.get(id)?.let { app.library.setFavorite(it, false) }
+                    }
+                    refused++
+                })
+            if (account != app.tidal.accountId || ui.value.settings.offline) return
+            if (refused > 0) notify(app.resources.getQuantityString(R.plurals.notify_favorites_refused, refused, refused))
             withContext(Dispatchers.IO) { app.library.cache(account, "favorites", JsonCodec.encodeTracks(cloudFavorites)) }
             refreshLocal()
         }

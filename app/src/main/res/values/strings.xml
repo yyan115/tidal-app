@@ -522,6 +522,10 @@
     <string name="notify_plays_next">Plays next</string>
     <string name="notify_added_queue">Added to queue</string>
     <string name="notify_track_not_saved">The track could not be saved. Check available storage and try again.</string>
+    <plurals name="notify_favorites_refused">
+        <item quantity="one">TIDAL did not accept %1$d saved track</item>
+        <item quantity="other">TIDAL did not accept %1$d saved tracks</item>
+    </plurals>
     <string name="notify_saved_local_failed">Saved on this device. TIDAL could not be updated: %1$s</string>
     <string name="notify_import_failed">An audio file could not be imported. Check that it is readable.</string>
     <plurals name="notify_files_added">
