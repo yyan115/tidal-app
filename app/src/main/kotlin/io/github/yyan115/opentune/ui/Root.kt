@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -46,6 +47,11 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     var settingsPage by rememberSaveable { mutableStateOf<String?>(null) }
     var downloadQueue by rememberSaveable { mutableStateOf(false) }
     var nowPlaying by rememberSaveable { mutableStateOf(initialPlayer) }
+    // The lists of the main screens keep their place when an album or a playlist opens over them, because their state lives here and not in the screen that is replaced.
+    val homeList = rememberLazyListState()
+    val searchList = rememberLazyListState()
+    val deviceList = rememberLazyListState()
+    val libraryLists = List(5) { rememberLazyListState() }
     val sheetScope = rememberCoroutineScope()
     // How far the full player is open. A drag of the small player or of the full player moves it, and so do the buttons that open and close it.
     val sheet = remember { PlayerSheet(nowPlaying, sheetScope) }
@@ -170,11 +176,11 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
                 state.routes.isNotEmpty() -> PageScreen(state.routes.last(), state, vm, pagesVm, openTrackMenu)
                 state.detail != null -> DetailScreen(state, vm, { track, index -> trackMenu = track; playlistPosition = index }, onAddSongs = { addSongs = true })
                 destination == Destination.Home -> ListenScreen(state, vm, importAudio, openLogin, { filter -> libraryFilter = filter; destinationName = Destination.Library.name },
-                    { destinationName = Destination.Device.name }, openTrackMenu, { nowPlaying = true })
-                destination == Destination.Search -> SearchScreen(state, vm, openLogin, openTrackMenu)
+                    { destinationName = Destination.Device.name }, openTrackMenu, { nowPlaying = true }, homeList)
+                destination == Destination.Search -> SearchScreen(state, vm, openLogin, openTrackMenu, searchList)
                 destination == Destination.Library -> LibraryScreen(state, vm, openLogin, { newPlaylistTrack = null; playlistTitle = ""; newPlaylist = true }, openTrackMenu,
-                    libraryFilter, { libraryFilter = it })
-                else -> OnDeviceScreen(state, vm, importAudio, addFolder, openLogin, { newPlaylistTrack = null; playlistTitle = ""; newPlaylist = true }, { downloadQueue = true }, openTrackMenu)
+                    libraryFilter, { libraryFilter = it }, libraryLists[libraryFilter.coerceIn(0, 4)])
+                else -> OnDeviceScreen(state, vm, importAudio, addFolder, openLogin, { newPlaylistTrack = null; playlistTitle = ""; newPlaylist = true }, { downloadQueue = true }, openTrackMenu, deviceList)
             }
         }
     }
