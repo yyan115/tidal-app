@@ -36,6 +36,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Library sync stopping after TIDAL refused a saved track
 - Playback retrying every 2 seconds without end after a failure
 - Waiting ListenBrainz listens being dropped on a rate limit
+- Sign-in being lost after a temporary keystore error
 
 ## [0.7.0] - 2026-11-08
 
