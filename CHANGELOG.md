@@ -6,12 +6,15 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Added
 
+- Drag gesture to open and close the full player
 - Swipe on a track to play it next or add it to the queue
 - Custom time for Avoid repeats, from 1 hour to 365 days
 - Description of the Experimental section
 
 ### Changed
 
+- Swipe on the small player or the cover changes the track
+- Stop playback moved to the menu of the full player
 - Tracks added to the queue play before the rest of the album or playlist
 - One dialog style that follows the theme
 - Download queue on its own page, opened from On device
