@@ -54,18 +54,18 @@ fun PlaylistRow(playlist: Release, canMove: Boolean, onMove: () -> Unit, onOpen:
 @Composable
 fun NameDialog(title: String, initial: String, confirm: String, onConfirm: (String) -> Unit, onClose: () -> Unit) {
     var name by remember { mutableStateOf(initial) }
-    AlertDialog(onDismissRequest = onClose, title = { Text(title) }, text = { OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.field_name)) }, singleLine = true) },
-        confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onConfirm(name.trim()); onClose() }) { Text(confirm) } },
-        dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } })
+    AppDialog(onDismissRequest = onClose, title = { Text(title) }, text = { OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.field_name)) }, singleLine = true) },
+        confirmButton = { DialogConfirm(enabled = name.isNotBlank(), onClick = { onConfirm(name.trim()); onClose() }) { Text(confirm) } },
+        dismissButton = { DialogDismiss(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } })
 }
 
 @Composable
 fun MoveToFolderDialog(playlist: Release, folders: List<Release>, onPick: (String) -> Unit, onClose: () -> Unit) {
-    AlertDialog(onDismissRequest = onClose, title = { Text(stringResource(R.string.move_title, playlist.title)) }, text = {
+    AppDialog(onDismissRequest = onClose, title = { Text(stringResource(R.string.move_title, playlist.title)) }, text = {
         Column {
             TextButton(onClick = { onPick(TidalClient.ROOT_FOLDER); onClose() }) { Text(stringResource(R.string.folder_top_level)) }
             folders.filter { it.type == ReleaseType.FOLDER }.forEach { folder -> TextButton(onClick = { onPick(folder.id); onClose() }) { Text(folder.title) } }
             if (folders.none { it.type == ReleaseType.FOLDER }) Text(stringResource(R.string.folder_none_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-    }, confirmButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } })
+    }, confirmButton = { DialogDismiss(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } })
 }

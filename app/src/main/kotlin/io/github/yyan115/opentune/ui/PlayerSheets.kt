@@ -104,7 +104,7 @@ fun NormalizationDialog(current: String, onPick: (String) -> Unit, onClose: () -
         Triple("track", stringResource(R.string.normalization_track), stringResource(R.string.normalization_track_hint)),
         Triple("album", stringResource(R.string.normalization_album), stringResource(R.string.normalization_album_hint)),
     )
-    AlertDialog(onDismissRequest = onClose, title = { Text(stringResource(R.string.normalization_title)) }, text = {
+    AppDialog(onDismissRequest = onClose, title = { Text(stringResource(R.string.normalization_title)) }, text = {
         Column {
             options.forEach { (value, label, description) ->
                 Row(Modifier.fillMaxWidth().clickable { onPick(value); onClose() }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -118,5 +118,5 @@ fun NormalizationDialog(current: String, onPick: (String) -> Unit, onClose: () -
             Text(stringResource(R.string.normalization_note), Modifier.padding(top = 8.dp),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-    }, confirmButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_close)) } })
+    }, confirmButton = { DialogDismiss(onClick = onClose) { Text(stringResource(R.string.action_close)) } })
 }

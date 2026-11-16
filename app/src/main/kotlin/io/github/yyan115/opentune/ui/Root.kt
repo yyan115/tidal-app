@@ -240,12 +240,12 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
             }
         }
     }
-    if (statsInfo) AlertDialog(onDismissRequest = { statsInfo = false }, text = { Text(stringResource(R.string.stats_info)) },
-        confirmButton = { TextButton(onClick = { statsInfo = false }) { Text(stringResource(R.string.action_close)) } })
-    state.update?.let { found -> AlertDialog(onDismissRequest = vm::dismissUpdate, title = { Text(stringResource(R.string.update_title)) },
+    if (statsInfo) AppDialog(onDismissRequest = { statsInfo = false }, text = { Text(stringResource(R.string.stats_info)) },
+        confirmButton = { DialogDismiss(onClick = { statsInfo = false }) { Text(stringResource(R.string.action_close)) } })
+    state.update?.let { found -> AppDialog(onDismissRequest = vm::dismissUpdate, title = { Text(stringResource(R.string.update_title)) },
         text = { Text(stringResource(R.string.update_text, found.version)) },
-        confirmButton = { TextButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(found.url))) }; vm.dismissUpdate() }) { Text(stringResource(R.string.update_download)) } },
-        dismissButton = { TextButton(onClick = vm::dismissUpdate) { Text(stringResource(R.string.update_later)) } }) }
+        confirmButton = { DialogConfirm(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(found.url))) }; vm.dismissUpdate() }) { Text(stringResource(R.string.update_download)) } },
+        dismissButton = { DialogDismiss(onClick = vm::dismissUpdate) { Text(stringResource(R.string.update_later)) } }) }
     detailsTrack?.let { track -> SourceDetailsSheet(track.quality.orEmpty(), track, vm) { detailsTrack = null } }
     state.video?.let { video -> VideoPlayerOverlay(video, state.settings.offline, vm::closeVideo) }
     state.credits?.let { credits -> CreditsSheet(credits, onClose = vm::dismissCredits, onPerson = { person ->
@@ -259,19 +259,19 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
         onCreate = { name, home -> vm.createPlaylist(name, home, newPlaylistTrack); newPlaylist = false; newPlaylistTrack = null },
         onClose = { newPlaylist = false; newPlaylistTrack = null })
     if (addSongs) state.detail?.let { release -> AddSongsSheet(release, state, vm) { addSongs = false } }
-    if (editPlaylist) state.detail?.let { release -> AlertDialog(onDismissRequest = { editPlaylist = false }, title = { Text(stringResource(R.string.playlist_edit)) }, text = {
+    if (editPlaylist) state.detail?.let { release -> AppDialog(onDismissRequest = { editPlaylist = false }, title = { Text(stringResource(R.string.playlist_edit)) }, text = {
         Column {
             OutlinedTextField(playlistTitle, { playlistTitle = it }, label = { Text(stringResource(R.string.field_name)) }, singleLine = true)
             TextButton(onClick = { editPlaylist = false; deletePlaylist = true }) { Text(stringResource(R.string.playlist_delete), color = MaterialTheme.colorScheme.error) }
         }
-    }, confirmButton = { TextButton(enabled = playlistTitle.isNotBlank(), onClick = { vm.renamePlaylist(release, playlistTitle); editPlaylist = false; playlistTitle = "" }) { Text(stringResource(R.string.action_save)) } },
-        dismissButton = { TextButton(onClick = { editPlaylist = false }) { Text(stringResource(R.string.action_cancel)) } }) }
-    if (deletePlaylist) state.detail?.let { release -> AlertDialog(onDismissRequest = { deletePlaylist = false }, title = { Text(stringResource(R.string.playlist_delete_title, release.title)) },
+    }, confirmButton = { DialogConfirm(enabled = playlistTitle.isNotBlank(), onClick = { vm.renamePlaylist(release, playlistTitle); editPlaylist = false; playlistTitle = "" }) { Text(stringResource(R.string.action_save)) } },
+        dismissButton = { DialogDismiss(onClick = { editPlaylist = false }) { Text(stringResource(R.string.action_cancel)) } }) }
+    if (deletePlaylist) state.detail?.let { release -> AppDialog(onDismissRequest = { deletePlaylist = false }, title = { Text(stringResource(R.string.playlist_delete_title, release.title)) },
         text = { Text(stringResource(R.string.playlist_delete_text)) },
-        confirmButton = { TextButton(onClick = { vm.deletePlaylist(release); deletePlaylist = false }) { Text(stringResource(R.string.action_delete)) } },
-        dismissButton = { TextButton(onClick = { deletePlaylist = false }) { Text(stringResource(R.string.action_cancel)) } }) }
-    removeTrack?.let { track -> AlertDialog(onDismissRequest = { removeTrack = null }, title = { Text(stringResource(R.string.track_remove_title)) },
+        confirmButton = { DialogConfirm(destructive = true, onClick = { vm.deletePlaylist(release); deletePlaylist = false }) { Text(stringResource(R.string.action_delete)) } },
+        dismissButton = { DialogDismiss(onClick = { deletePlaylist = false }) { Text(stringResource(R.string.action_cancel)) } }) }
+    removeTrack?.let { track -> AppDialog(onDismissRequest = { removeTrack = null }, title = { Text(stringResource(R.string.track_remove_title)) },
         text = { Text(if (track.isFile) stringResource(R.string.track_remove_local_text) else stringResource(R.string.track_remove_download_text)) },
-        confirmButton = { TextButton(onClick = { vm.removeLocal(track); removeTrack = null }) { Text(stringResource(R.string.action_remove)) } },
-        dismissButton = { TextButton(onClick = { removeTrack = null }) { Text(stringResource(R.string.action_cancel)) } }) }
+        confirmButton = { DialogConfirm(destructive = true, onClick = { vm.removeLocal(track); removeTrack = null }) { Text(stringResource(R.string.action_remove)) } },
+        dismissButton = { DialogDismiss(onClick = { removeTrack = null }) { Text(stringResource(R.string.action_cancel)) } }) }
 }

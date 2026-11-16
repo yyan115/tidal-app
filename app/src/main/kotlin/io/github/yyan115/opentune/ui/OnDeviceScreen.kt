@@ -126,9 +126,9 @@ fun OnDeviceScreen(state: AppState, vm: MainViewModel, onAddFiles: () -> Unit, o
         }
     }
     removing?.let { folder ->
-        AlertDialog(onDismissRequest = { removing = null }, title = { Text(stringResource(R.string.device_folder_remove_title, folder.name)) },
+        AppDialog(onDismissRequest = { removing = null }, title = { Text(stringResource(R.string.device_folder_remove_title, folder.name)) },
             text = { Text(stringResource(R.string.device_folder_remove_text)) },
-            confirmButton = { TextButton(onClick = { vm.removeDeviceFolder(folder.id); removing = null }) { Text(stringResource(R.string.action_remove)) } },
-            dismissButton = { TextButton(onClick = { removing = null }) { Text(stringResource(R.string.action_cancel)) } })
+            confirmButton = { DialogConfirm(destructive = true, onClick = { vm.removeDeviceFolder(folder.id); removing = null }) { Text(stringResource(R.string.action_remove)) } },
+            dismissButton = { DialogDismiss(onClick = { removing = null }) { Text(stringResource(R.string.action_cancel)) } })
     }
 }
