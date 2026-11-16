@@ -81,6 +81,17 @@ class LocalPlaybackTest {
         assertEquals(listOf("Remove 1", "Remove 3", "Remove 5"), model.state.value.playback.queue.map(Track::title))
     }
 
+    @Test fun aLocalFileThatIsGoneShowsItsErrorAndIsNotTriedAgain() {
+        val gone = track.copy(id = "local:gone", title = "Gone", localUri = Uri.fromFile(File(app.filesDir, "gone.flac")).toString())
+        val before = io.github.yyan115.opentune.playback.PlaybackService.retries
+        compose.runOnIdle { model.play(listOf(gone)) }
+        compose.waitUntil(15_000) { model.state.value.playback.error != null }
+        // A failure that can pass is tried again after two seconds. A missing file cannot pass.
+        Thread.sleep(5_000)
+        assertEquals(before, io.github.yyan115.opentune.playback.PlaybackService.retries)
+        compose.runOnIdle { model.stopPlayback() }
+    }
+
     @Test fun localFlacRemainsPlayableInOfflineMode() {
         compose.runOnIdle { model.settings { it.copy(offline = true) }; model.play(listOf(track)) }
         compose.waitUntil(15_000) { model.state.value.playback.playing || model.state.value.playback.error != null }
