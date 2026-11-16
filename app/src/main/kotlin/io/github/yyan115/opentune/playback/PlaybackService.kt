@@ -38,6 +38,7 @@ import io.github.yyan115.opentune.data.DownloadRequests
 import io.github.yyan115.opentune.core.JsonCodec
 import io.github.yyan115.opentune.core.Normalization
 import io.github.yyan115.opentune.core.RepeatPolicy
+import io.github.yyan115.opentune.core.RetryBackoff
 import io.github.yyan115.opentune.core.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -82,10 +83,11 @@ class PlaybackService : MediaLibraryService() {
 
     private val connectivity by lazy { getSystemService(ConnectivityManager::class.java) }
     private var retryJob: Job? = null
+    private val backoff = RetryBackoff()
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             val error = player.playerError ?: return
-            if (isTransient(error)) { android.util.Log.i("OpenTune", "Network is back, preparing the player again"); player.prepare() }
+            if (isTransient(error)) { android.util.Log.i("OpenTune", "Network is back, preparing the player again"); backoff.reset(); player.prepare() }
         }
     }
 
@@ -117,6 +119,7 @@ class PlaybackService : MediaLibraryService() {
         player.addListener(object : Player.Listener {
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) { if (shuffleModeEnabled) shuffleUpcoming() else restoreOrder() }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                backoff.reset()
                 finishListening()
                 val track = mediaItem?.let(::trackOf)
                 if (track != null) {
@@ -134,7 +137,7 @@ class PlaybackService : MediaLibraryService() {
             }
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) finishListening()
-                if (playbackState == Player.STATE_READY) retryJob?.cancel()
+                if (playbackState == Player.STATE_READY) { retryJob?.cancel(); backoff.reset() }
             }
             override fun onPlayerError(error: PlaybackException) {
                 val transient = isTransient(error)
@@ -144,6 +147,8 @@ class PlaybackService : MediaLibraryService() {
             override fun onAudioSessionIdChanged(audioSessionId: Int) { applyEqualizer(); applyBitPerfect() }
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM && sleepAtTrackEnd) clearSleepTimer()
+                // The listener asked to play, so a failure after this starts with the shortest wait.
+                if (playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) backoff.reset()
             }
         })
         app.sources.onGains = { id -> Handler(Looper.getMainLooper()).post { if (player.currentMediaItem?.mediaId == id) applyNormalization() } }
@@ -403,6 +408,8 @@ class PlaybackService : MediaLibraryService() {
      */
     private fun isTransient(error: PlaybackException): Boolean {
         val chain = generateSequence<Throwable>(error) { it.cause }.toList()
+        // A file that is gone stays gone, so another try cannot help.
+        if (chain.any { it is java.io.FileNotFoundException }) return false
         chain.filterIsInstance<io.github.yyan115.opentune.core.ServiceException>().firstOrNull()?.let { return it.status == 429 || it.status in 500..599 }
         chain.filterIsInstance<androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException>().firstOrNull()?.let {
             return it.responseCode == 403 || it.responseCode == 429 || it.responseCode in 500..599
@@ -411,16 +418,25 @@ class PlaybackService : MediaLibraryService() {
             error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT || chain.any { it is java.io.IOException }
     }
 
-    /** Prepares the player again after a short wait, and again with longer waits, until playback resumes. */
+    companion object {
+        /** How often the service prepared the player again after a failure, for tests and reports. */
+        @Volatile var retries = 0
+            private set
+    }
+
+    /**
+     * Prepares the player again after a wait. Each failure in a row waits longer, and after the last wait the service stops trying.
+     * The waits start again when playback resumes, the track changes, the connection returns or the listener presses play.
+     */
     private fun scheduleRetry() {
         retryJob?.cancel()
+        val wait = backoff.next() ?: run { android.util.Log.i("OpenTune", "Retry stopped: every try is used"); return }
         retryJob = scope.launch {
-            for (wait in listOf(2_000L, 4_000L, 8_000L, 15_000L, 30_000L, 30_000L, 30_000L, 30_000L)) {
-                delay(wait)
-                if (player.playerError == null || !player.playWhenReady) { android.util.Log.i("OpenTune", "Retry stopped: error=${player.playerError != null} playWhenReady=${player.playWhenReady}"); return@launch }
-                android.util.Log.i("OpenTune", "Retrying playback after ${wait / 1000} s")
-                player.prepare()
-            }
+            delay(wait)
+            if (player.playerError == null || !player.playWhenReady) { android.util.Log.i("OpenTune", "Retry stopped: error=${player.playerError != null} playWhenReady=${player.playWhenReady}"); return@launch }
+            android.util.Log.i("OpenTune", "Retrying playback after ${wait / 1000} s")
+            retries++
+            player.prepare()
         }
     }
 }
