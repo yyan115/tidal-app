@@ -44,6 +44,36 @@ class BackupTest {
         app.settings.update { it.copy(normalization = "off", theme = "gold") }
     }
 
+    @Test fun theSettingsOfPlaybackAndTheEqualizerSurviveABackupAndRestore() {
+        val before = app.settings.state.value
+        try {
+            app.settings.update { it.copy(autoplay = false, avoidRepeatHours = 36, visualizer = true, checkUpdates = false,
+                equalizerCustom = listOf(300, -200, 0, 150, 450), equalizerUsesCustom = true) }
+            val text = BackupManager(app).toJson().toString()
+            app.settings.update { it.copy(autoplay = true, avoidRepeatHours = 0, visualizer = false, checkUpdates = true, equalizerCustom = emptyList(), equalizerUsesCustom = false) }
+            BackupManager(app).restore(JSONObject(text))
+            val restored = app.settings.state.value
+            assertFalse(restored.autoplay)
+            assertEquals(36, restored.avoidRepeatHours)
+            assertTrue(restored.visualizer)
+            assertFalse(restored.checkUpdates)
+            assertEquals(listOf(300, -200, 0, 150, 450), restored.equalizerCustom)
+            assertTrue(restored.equalizerUsesCustom)
+        } finally { app.settings.update { before } }
+    }
+
+    @Test fun aBackupOfAnEarlierVersionLeavesTheNewerSettingsAsTheyAre() {
+        val before = app.settings.state.value
+        try {
+            app.settings.update { it.copy(autoplay = false, avoidRepeatHours = 6, checkUpdates = false) }
+            BackupManager(app).restore(JSONObject("""{"format":"opentune-backup","version":1,"settings":{"theme":"dark"}}"""))
+            val restored = app.settings.state.value
+            assertFalse(restored.autoplay)
+            assertEquals(6, restored.avoidRepeatHours)
+            assertFalse(restored.checkUpdates)
+        } finally { app.settings.update { before } }
+    }
+
     @Test fun otherFilesAreRefused() {
         try { BackupManager(app).restore(JSONObject("""{"format":"something-else"}""")); fail() } catch (_: IllegalArgumentException) { }
         try { BackupManager(app).restore(JSONObject("""{"format":"opentune-backup","version":9}""")); fail() } catch (_: IllegalArgumentException) { }
