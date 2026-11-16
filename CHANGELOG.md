@@ -32,6 +32,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Downloads waiting for Wi-Fi not starting after Download over mobile data is turned on
 - Clear failed downloads showing when no download has failed
 - Visualizer showing the lowest bars at the same height and the treble too low
+- Wrong track being removed from the queue after another track was removed
 
 ## [0.7.0] - 2026-11-08
 

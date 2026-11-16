@@ -67,6 +67,20 @@ class LocalPlaybackTest {
         screenshot("queue")
     }
 
+    @Test fun removingSeveralRowsFromTheQueueRemovesTheRowsThatWereSwiped() {
+        val tracks = (1..5).map { track.copy(id = "local:remove-$it", title = "Remove $it") }
+        compose.runOnIdle { model.play(tracks) }
+        compose.waitUntil(10_000) { model.state.value.playback.queue.size == 5 }
+        compose.onNodeWithTag("mini-player").performClick()
+        compose.onNodeWithText("Queue · 5").performClick()
+        compose.onNode(hasContentDescription("Reorder Remove 2")).performTouchInput { swipeLeft() }
+        compose.waitUntil(5_000) { model.state.value.playback.queue.size == 4 }
+        // The row of the fourth track moved up by one place, and its swipe removes that track.
+        compose.onNode(hasContentDescription("Reorder Remove 4")).performTouchInput { swipeLeft() }
+        compose.waitUntil(5_000) { model.state.value.playback.queue.size == 3 }
+        assertEquals(listOf("Remove 1", "Remove 3", "Remove 5"), model.state.value.playback.queue.map(Track::title))
+    }
+
     @Test fun localFlacRemainsPlayableInOfflineMode() {
         compose.runOnIdle { model.settings { it.copy(offline = true) }; model.play(listOf(track)) }
         compose.waitUntil(15_000) { model.state.value.playback.playing || model.state.value.playback.error != null }
