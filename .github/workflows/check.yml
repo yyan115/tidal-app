@@ -117,7 +117,7 @@ jobs:
           script: |
             adb shell pm disable-user --user 0 com.google.android.gms || true
             adb shell settings put global heads_up_notifications_enabled 0
-            ./gradlew --no-daemon :app:connectedDebugAndroidTest
+            ./gradlew --no-daemon :app:connectedDebugAndroidTest ${{ matrix.api == 36 && '-Pandroid.testInstrumentationRunnerArguments.screenTour=true' || '' }}
       - name: Upload device reports and screenshots
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
