@@ -28,6 +28,9 @@ class BackupManager(private val app: OpenTuneApp) {
                 put("theme", settings.theme); put("normalization", settings.normalization)
                 put("equalizer", settings.equalizer); put("equalizerLevels", JSONArray(settings.equalizerLevels)); put("bitPerfect", settings.bitPerfect)
                 put("downloadSaved", settings.downloadSaved); put("downloadPlayed", settings.downloadPlayed); put("scrobble", settings.scrobble); put("scrobbleServer", settings.scrobbleServer)
+                put("equalizerCustom", JSONArray(settings.equalizerCustom)); put("equalizerUsesCustom", settings.equalizerUsesCustom)
+                put("autoplay", settings.autoplay); put("avoidRepeatHours", settings.avoidRepeatHours)
+                put("visualizer", settings.visualizer); put("checkUpdates", settings.checkUpdates)
             })
             put("playlists", JSONArray().apply {
                 app.library.playlists().forEach { playlist ->
@@ -60,6 +63,12 @@ class BackupManager(private val app: OpenTuneApp) {
                     bitPerfect = values.optBoolean("bitPerfect", current.bitPerfect), downloadSaved = values.optBoolean("downloadSaved", values.optBoolean("keepFavoritesOffline", current.downloadSaved)),
                     downloadPlayed = values.optBoolean("downloadPlayed", current.downloadPlayed),
                     scrobble = values.optBoolean("scrobble", current.scrobble), scrobbleServer = values.optString("scrobbleServer", current.scrobbleServer),
+                    // A backup of an earlier version has none of the settings below, and the present values stay.
+                    equalizerCustom = values.optJSONArray("equalizerCustom")?.let { array -> (0 until array.length()).map(array::getInt) } ?: current.equalizerCustom,
+                    equalizerUsesCustom = values.optBoolean("equalizerUsesCustom", current.equalizerUsesCustom),
+                    autoplay = values.optBoolean("autoplay", current.autoplay),
+                    avoidRepeatHours = values.optInt("avoidRepeatHours", current.avoidRepeatHours).coerceIn(0, RepeatWindow.MAX_DAYS * 24),
+                    visualizer = values.optBoolean("visualizer", current.visualizer), checkUpdates = values.optBoolean("checkUpdates", current.checkUpdates),
                 )
             }
         }
