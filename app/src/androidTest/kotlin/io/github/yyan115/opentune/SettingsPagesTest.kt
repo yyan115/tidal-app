@@ -76,6 +76,9 @@ class SettingsPagesTest {
         openAvoidRepeats()
         compose.onNodeWithText("Custom").performClick()
         compose.waitUntil(5_000) { hours == 48 }
+        // The entry is on the screen at once, also on a small one where it starts below the options.
+        compose.onNodeWithTag("repeats-custom").assertIsDisplayed()
+        compose.onNodeWithTag("repeats-unit").assertIsDisplayed()
         compose.onNodeWithTag("repeats-custom").assertTextContains("2")
         compose.onNodeWithTag("repeats-custom").performTextReplacement("3")
         compose.waitUntil(5_000) { hours == 72 }

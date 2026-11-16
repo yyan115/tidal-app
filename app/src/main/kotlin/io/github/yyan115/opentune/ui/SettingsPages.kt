@@ -1,7 +1,10 @@
 package io.github.yyan115.opentune.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.selection.selectable
@@ -54,35 +57,37 @@ fun durationText(milliseconds: Long): String {
 }
 
 /** The number field and the unit of a custom time window. A valid number applies at once, and an invalid one leaves the window as it was. */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun CustomWindow(hours: Int, onChange: (Int) -> Unit) {
     var days by rememberSaveable { mutableStateOf(RepeatWindow.inDays(hours)) }
     var text by rememberSaveable { mutableStateOf(if (hours > 0) RepeatWindow.number(hours, days).toString() else "") }
     val valid = RepeatWindow.hours(text.toIntOrNull(), days) != null
-    Column(Modifier.fillMaxWidth().padding(start = 64.dp, end = 24.dp, top = 4.dp, bottom = 8.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(text, { input ->
-                text = input.filter(Char::isDigit).take(4)
-                RepeatWindow.hours(text.toIntOrNull(), days)?.let(onChange)
-            }, Modifier.weight(1f).testTag("repeats-custom"), label = { Text(stringResource(R.string.repeats_duration)) }, singleLine = true, isError = !valid,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-            val units = listOf(false to stringResource(R.string.repeats_unit_hours), true to stringResource(R.string.repeats_unit_days))
-            SingleChoiceSegmentedButtonRow(Modifier.padding(start = 12.dp).testTag("repeats-unit")) {
-                units.forEachIndexed { index, (inDays, label) ->
-                    SegmentedButton(days == inDays, {
-                        if (days != inDays) {
-                            days = inDays
-                            text.toIntOrNull()?.let { value ->
-                                text = RepeatWindow.convert(value, inDays).toString()
-                                RepeatWindow.hours(text.toIntOrNull(), inDays)?.let(onChange)
-                            }
+    // The entry scrolls into view when it appears, because on a small screen it starts below the options.
+    val requester = remember { BringIntoViewRequester() }
+    LaunchedEffect(Unit) { requester.bringIntoView() }
+    // The number and the unit sit one under the other, so that the field keeps its width on a narrow screen.
+    Column(Modifier.bringIntoViewRequester(requester).fillMaxWidth().padding(start = 64.dp, end = 24.dp, top = 4.dp, bottom = 8.dp)) {
+        OutlinedTextField(text, { input ->
+            text = input.filter(Char::isDigit).take(4)
+            RepeatWindow.hours(text.toIntOrNull(), days)?.let(onChange)
+        }, Modifier.fillMaxWidth().testTag("repeats-custom"), label = { Text(stringResource(R.string.repeats_duration)) }, singleLine = true, isError = !valid,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+        val units = listOf(false to stringResource(R.string.repeats_unit_hours), true to stringResource(R.string.repeats_unit_days))
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 12.dp).testTag("repeats-unit")) {
+            units.forEachIndexed { index, (inDays, label) ->
+                SegmentedButton(days == inDays, {
+                    if (days != inDays) {
+                        days = inDays
+                        text.toIntOrNull()?.let { value ->
+                            text = RepeatWindow.convert(value, inDays).toString()
+                            RepeatWindow.hours(text.toIntOrNull(), inDays)?.let(onChange)
                         }
-                    }, SegmentedButtonDefaults.itemShape(index, units.size), icon = {},
-                        colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primary, activeContentColor = MaterialTheme.colorScheme.onPrimary,
-                            activeBorderColor = MaterialTheme.colorScheme.primary),
-                        contentPadding = PaddingValues(horizontal = 12.dp)) { Text(label, maxLines = 1) }
-                }
+                    }
+                }, SegmentedButtonDefaults.itemShape(index, units.size), icon = {},
+                    colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primary, activeContentColor = MaterialTheme.colorScheme.onPrimary,
+                        activeBorderColor = MaterialTheme.colorScheme.primary),
+                    contentPadding = PaddingValues(horizontal = 12.dp)) { Text(label, maxLines = 1) }
             }
         }
         Text(stringResource(R.string.repeats_range), Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodySmall,
