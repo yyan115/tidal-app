@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -58,7 +59,7 @@ fun ConnectCard(onLogin: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @UnstableApi
 @Composable
-fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu: (Track) -> Unit) {
+fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu: (Track) -> Unit, listState: LazyListState = rememberLazyListState()) {
     var filter by rememberSaveable { mutableIntStateOf(0) }
     val filters = rememberLazyListState()
     LaunchedEffect(filter) { filters.animateScrollToItem(filter) }
@@ -78,7 +79,7 @@ fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu
     val songs = (local + if (state.settings.offline) emptyList() else state.search.tracks).distinctBy(Track::id)
     val result = state.search
     val open: (Release) -> Unit = { release -> vm.rememberSearch(query); keyboard?.hide(); vm.open(release) }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Spacer(Modifier.height(12.dp)) }
         item { OutlinedTextField(query, vm::search, Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             placeholder = { Text(stringResource(R.string.search_hint)) }, leadingIcon = { Icon(OpenTuneIcons.Search, null) },
@@ -185,7 +186,7 @@ private enum class LibrarySort(@androidx.annotation.StringRes val label: Int) { 
 @UnstableApi
 @Composable
 fun LibraryScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onNewPlaylist: () -> Unit,
-    onMenu: (Track) -> Unit, filter: Int, onFilter: (Int) -> Unit) {
+    onMenu: (Track) -> Unit, filter: Int, onFilter: (Int) -> Unit, listState: LazyListState = rememberLazyListState()) {
     val columns = if (LocalDensity.current.fontScale > 1.3f) 1 else 2
     val filters = rememberLazyListState()
     LaunchedEffect(filter) { filters.animateScrollToItem(filter) }
@@ -221,7 +222,7 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onNew
         LibrarySort.Title -> sortedBy { title(it).lowercase() }
         LibrarySort.Artist -> sortedWith(compareBy({ artist(it).lowercase() }, { title(it).lowercase() }))
     }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize().testTag("library-list"), listState, contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Spacer(Modifier.height(8.dp)) }
         item { LazyRow(modifier = Modifier.testTag("library-filters"), state = filters, contentPadding = PaddingValues(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(libraryTabs) { index, label -> FilterTab(filter == index, { onFilter(index) }, label) }

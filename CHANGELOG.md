@@ -28,6 +28,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Fixed
 
+- Lists jumping back to the top after returning from an album, artist or playlist
 - Downloads waiting for Wi-Fi not starting after Download over mobile data is turned on
 - Clear failed downloads showing when no download has failed
 - Visualizer showing the lowest bars at the same height and the treble too low
