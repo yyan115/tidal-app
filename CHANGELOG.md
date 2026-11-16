@@ -6,6 +6,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Added
 
+- Swipe on a track to play it next or add it to the queue
 - Custom time for Avoid repeats, from 1 hour to 365 days
 - Description of the Experimental section
 

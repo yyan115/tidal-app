@@ -204,6 +204,28 @@ class ScreenTourTest {
         }
     }
 
+    @Test fun swipeToQueue() {
+        val file = File(app.filesDir, "tour.flac")
+        InstrumentationRegistry.getInstrumentation().context.assets.open("night-walk.flac").use { input -> file.outputStream().use(input::copyTo) }
+        val tracks = listOf("Night Walk", "Glass Rooms", "Slow Tide").mapIndexed { index, title ->
+            Track("local:tour-swipe-$index", title, "Harbour Lights", "Local audio checks", durationMs = 30_000, localUri = Uri.fromFile(file).toString(), quality = "FLAC")
+        }
+        tracks.forEach(app.library::save)
+        compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false) } }
+        try {
+            compose.waitUntil(10_000) { model.state.value.local.count { it.id.startsWith("local:tour-swipe") } == 3 }
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("device-list").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("device-list").performScrollToNode(hasText("Glass Rooms"))
+            picture("70-track-rows")
+            val y = compose.onNode(hasText("Glass Rooms")).fetchSemanticsNode().boundsInRoot.center.y
+            compose.onRoot().performTouchInput { swipe(androidx.compose.ui.geometry.Offset(width * .05f, y), androidx.compose.ui.geometry.Offset(width * .40f, y), 500) }
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("swipe-actions").fetchSemanticsNodes().isNotEmpty() }
+            picture("71-track-row-swiped")
+        } finally {
+            tracks.forEach { app.library.removeLocal(it.id) }
+        }
+    }
+
     @Test fun dialogsInEveryTheme() {
         compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false) } }
         for (theme in io.github.yyan115.opentune.ui.appThemes) {
