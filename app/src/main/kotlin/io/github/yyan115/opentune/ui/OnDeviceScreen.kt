@@ -3,6 +3,8 @@ package io.github.yyan115.opentune.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
@@ -34,7 +36,7 @@ private enum class DeviceSort(@androidx.annotation.StringRes val label: Int) {
  */
 @UnstableApi
 @Composable
-fun OnDeviceScreen(state: AppState, vm: MainViewModel, onAddFiles: () -> Unit, onAddFolder: () -> Unit, onLogin: () -> Unit, onNewPlaylist: () -> Unit, onOpenQueue: () -> Unit, onMenu: (Track) -> Unit) {
+fun OnDeviceScreen(state: AppState, vm: MainViewModel, onAddFiles: () -> Unit, onAddFolder: () -> Unit, onLogin: () -> Unit, onNewPlaylist: () -> Unit, onOpenQueue: () -> Unit, onMenu: (Track) -> Unit, listState: LazyListState = rememberLazyListState()) {
     var filter by rememberSaveable { mutableIntStateOf(0) }
     var sort by rememberSaveable { mutableStateOf(DeviceSort.Recent) }
     var text by rememberSaveable { mutableStateOf("") }
@@ -53,7 +55,7 @@ fun OnDeviceScreen(state: AppState, vm: MainViewModel, onAddFiles: () -> Unit, o
     }
     val sourceLabel = stringResource(R.string.nav_device)
     val filters = listOf(R.string.device_filter_all, R.string.device_filter_downloads, R.string.device_filter_files).map { stringResource(it) }
-    LazyColumn(Modifier.fillMaxSize().testTag("device-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize().testTag("device-list"), listState, contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 TuneOutlinedButton(onClick = onAddFiles, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 13.dp)) { Icon(OpenTuneIcons.AudioFile, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.device_add_files), maxLines = 1, overflow = TextOverflow.Ellipsis) }
