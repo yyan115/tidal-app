@@ -20,7 +20,9 @@ import io.github.yyan115.opentune.core.Spectrum
 import io.github.yyan115.opentune.core.SpectrumAnalyzer
 import io.github.yyan115.opentune.core.SpectrumSmoother
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -68,24 +70,19 @@ fun PlayControl(playing: Boolean, buffering: Boolean = false, size: Dp = 72.dp, 
 /** The playback position in milliseconds. The activity provides the position of the player and a preview provides a fixed one. */
 val LocalPlaybackPosition = staticCompositionLocalOf<StateFlow<Long>> { MutableStateFlow(0L) }
 
-/** The mini player. A swipe to either side that goes far enough stops playback and clears the queue. */
+/**
+ * The mini player. A swipe to the left plays the next track and a swipe to the right plays the previous one.
+ * A drag upward opens the full player, which follows the finger. Stopping playback is an action of the full player and of screen readers.
+ */
 @Composable
-fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onDismiss: () -> Unit = {}) {
+fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onDismiss: () -> Unit = {},
+    onPrevious: () -> Unit = {}, sheet: PlayerSheet? = null, onSheetReleased: (Boolean) -> Unit = {}) {
     val track = state.track ?: return
-    var width by remember { mutableIntStateOf(1) }
-    var offset by remember { mutableFloatStateOf(0f) }
-    var dragging by remember { mutableStateOf(false) }
-    val shown by androidx.compose.animation.core.animateFloatAsState(if (dragging) offset else 0f, label = "mini-player-swipe")
     val stop = stringResource(R.string.player_stop)
-    // Only a drag of the finger moves the bar, so that nothing but a deliberate swipe stops the music.
-    Box(Modifier.testTag("mini-player").onSizeChanged { width = it.width.coerceAtLeast(1) }
-        .graphicsLayer { translationX = shown; alpha = 1f - .7f * (kotlin.math.abs(shown) / width).coerceIn(0f, 1f) }
-        .semantics { customActions = listOf(CustomAccessibilityAction(stop) { onDismiss(); true }) }
-        .pointerInput(Unit) {
-            detectHorizontalDragGestures(onDragStart = { dragging = true; offset = 0f },
-                onDragEnd = { dragging = false; if (kotlin.math.abs(offset) > width * .35f) onDismiss() },
-                onDragCancel = { dragging = false }) { change, amount -> change.consume(); offset += amount }
-        }) {
+    val change = ChangeTrack(hasNext = state.nextIndex >= 0, hasPrevious = state.index > 0, onNext = onNext, onPrevious = onPrevious)
+    val drag = rememberDraggableState { sheet?.dragBy(it) }
+    SwipeToChangeTrack(track.id, change, Modifier.testTag("mini-player").semantics { customActions = listOf(CustomAccessibilityAction(stop) { onDismiss(); true }) }
+        .draggable(drag, Orientation.Vertical, enabled = sheet != null, onDragStarted = { sheet?.dragStarted() }, onDragStopped = { velocity -> sheet?.let { onSheetReleased(it.released(velocity)) } })) {
     Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(7.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
@@ -113,21 +110,28 @@ fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, 
 
 @UnstableApi
 @Composable
-fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, onQueue: () -> Unit, onMenu: (Track) -> Unit, onDownload: (Track) -> Unit,
+fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onClose: () -> Unit, onQueue: () -> Unit, onMenu: (Track) -> Unit, onDownload: (Track) -> Unit,
     onAlbum: (Track) -> Unit = {}, onArtist: (Track) -> Unit = {}, initialLyrics: Boolean = false) {
     val track = state.playback.track ?: return
+    val changeTrack = ChangeTrack(hasNext = state.playback.nextIndex >= 0, hasPrevious = state.playback.index > 0, onNext = vm::next, onPrevious = vm::previous)
+    val drag = rememberDraggableState { sheet.dragBy(it) }
     var lyrics by rememberSaveable { mutableStateOf(initialLyrics) }
     var timer by remember { mutableStateOf(false) }
     LaunchedEffect(track.id, lyrics) { if (lyrics) vm.loadLyrics() }
     var source by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val window = (LocalView.current.parent as DialogWindowProvider).window
+        // The player slides over the app by itself, so the window needs neither a dimmed background nor an animation of its own.
+        SideEffect { window.setDimAmount(0f); window.setWindowAnimations(0) }
         val light = MaterialTheme.colorScheme.background.luminance() > .5f
         LaunchedEffect(light) {
             withFrameNanos { }
             WindowCompat.getInsetsController(window, window.decorView).apply { isAppearanceLightStatusBars = light; isAppearanceLightNavigationBars = light }
         }
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        // The player follows a finger that drags it down, and it moves back when the finger lifts too early.
+        Surface(Modifier.fillMaxSize().graphicsLayer { translationY = size.height * (1f - sheet.progress) }
+            .draggable(drag, Orientation.Vertical, onDragStarted = { sheet.dragStarted() }, onDragStopped = { velocity -> if (!sheet.released(velocity)) onClose() }),
+            color = MaterialTheme.colorScheme.background) {
             BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
                 val large = LocalDensity.current.fontScale > 1.3f
                 val landscape = maxWidth > maxHeight && maxWidth >= 480.dp && !large
@@ -148,7 +152,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
                     if (landscape) {
                         Row(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                             if (lyrics) LyricsPanel(state, vm, Modifier.width(landscapeArtworkSize * 1.3f).height(landscapeArtworkSize))
-                            else PlayerArtwork(track, stringResource(R.string.player_artwork, track.album), Modifier.size(landscapeArtworkSize), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing)
+                            else PlayerArtwork(track, stringResource(R.string.player_artwork, track.album), Modifier.size(landscapeArtworkSize), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, changeTrack)
                             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                                 PlayerHeading(track, true, onAlbum, onArtist)
                                 GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, true)
@@ -158,7 +162,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
                         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
                             PlayerHeading(track, true, onAlbum, onArtist)
                             if (lyrics) LyricsPanel(state, vm, Modifier.fillMaxWidth().height(if (large) 220.dp else 260.dp))
-                            else PlayerArtwork(track, stringResource(R.string.player_artwork, track.album), Modifier.size(if (large) 104.dp else 180.dp).align(Alignment.CenterHorizontally).padding(vertical = 8.dp), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing)
+                            else PlayerArtwork(track, stringResource(R.string.player_artwork, track.album), Modifier.size(if (large) 104.dp else 180.dp).align(Alignment.CenterHorizontally).padding(vertical = 8.dp), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, changeTrack)
                             GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, true)
                         }
                     } else {
@@ -166,7 +170,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, onClose: () -> Unit, on
                             PlayerHeading(track, dense, onAlbum, onArtist)
                             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                                 if (lyrics) LyricsPanel(state, vm, Modifier.fillMaxSize())
-                                else PlayerArtwork(track, stringResource(R.string.player_artwork, track.album), Modifier.size(minOf(maxWidth - 20.dp, maxHeight - 8.dp).coerceAtLeast(0.dp)), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing)
+                                else PlayerArtwork(track, stringResource(R.string.player_artwork, track.album), Modifier.size(minOf(maxWidth - 20.dp, maxHeight - 8.dp).coerceAtLeast(0.dp)), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, changeTrack)
                             }
                             GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, dense)
                         }
@@ -264,10 +268,12 @@ private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> U
 
 /** The cover of the playing track. With the visualizer on, the cover dims and the bars of the music move over it. */
 @Composable
-private fun PlayerArtwork(track: Track, description: String, modifier: Modifier, visualizer: Boolean, playing: Boolean) {
-    Box(modifier) {
-        TrackArtwork(track, description, Modifier.fillMaxSize().graphicsLayer { alpha = if (visualizer) VISUALIZER_COVER_ALPHA else 1f })
-        if (visualizer) SpectrumBars(playing, Modifier.matchParentSize().padding(12.dp).testTag("spectrum"))
+private fun PlayerArtwork(track: Track, description: String, modifier: Modifier, visualizer: Boolean, playing: Boolean, change: ChangeTrack) {
+    SwipeToChangeTrack(track.id, change, modifier.testTag("player-cover")) {
+        Box(Modifier.fillMaxSize()) {
+            TrackArtwork(track, description, Modifier.fillMaxSize().graphicsLayer { alpha = if (visualizer) VISUALIZER_COVER_ALPHA else 1f })
+            if (visualizer) SpectrumBars(playing, Modifier.matchParentSize().padding(12.dp).testTag("spectrum"))
+        }
     }
 }
 

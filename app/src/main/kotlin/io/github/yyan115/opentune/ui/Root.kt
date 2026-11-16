@@ -46,6 +46,13 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     var settingsPage by rememberSaveable { mutableStateOf<String?>(null) }
     var downloadQueue by rememberSaveable { mutableStateOf(false) }
     var nowPlaying by rememberSaveable { mutableStateOf(initialPlayer) }
+    val sheetScope = rememberCoroutineScope()
+    // How far the full player is open. A drag of the small player or of the full player moves it, and so do the buttons that open and close it.
+    val sheet = remember { PlayerSheet(nowPlaying, sheetScope) }
+    val windowHeight = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.height
+    SideEffect { sheet.height = windowHeight.toFloat() }
+    LaunchedEffect(nowPlaying) { sheet.follow(nowPlaying) }
+    val playerShown by remember { derivedStateOf { sheet.progress > 0.001f } }
     var queue by rememberSaveable { mutableStateOf(false) }
     var trackMenu by remember { mutableStateOf<Track?>(null) }
     var addToPlaylist by remember { mutableStateOf<Track?>(null) }
@@ -142,7 +149,8 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
         },
         bottomBar = {
             Column {
-                if (state.playback.track != null) MiniPlayer(state.playback, position, onOpen = { nowPlaying = true }, onPlay = vm::togglePlay, onNext = vm::next, onDismiss = vm::stopPlayback)
+                if (state.playback.track != null) MiniPlayer(state.playback, position, onOpen = { nowPlaying = true }, onPlay = vm::togglePlay, onNext = vm::next, onDismiss = { vm.stopPlayback(); nowPlaying = false },
+                    onPrevious = vm::previous, sheet = sheet, onSheetReleased = { nowPlaying = it })
                 if (!settings && !downloadQueue && !landscape && !largeText && navigation) OpenTuneNavigation(destinations, destination, select)
                 else Spacer(Modifier.navigationBarsPadding())
             }
@@ -182,7 +190,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
 
     // The sign-in finishes in the browser, so a spinner covers the screen while the app exchanges the answer.
     if (state.signingIn) SigningIn()
-    if (nowPlaying && state.playback.track != null) NowPlayingScreen(state, vm, onClose = { nowPlaying = false }, onQueue = { queue = true }, onMenu = openTrackMenu, onDownload = { track ->
+    if ((nowPlaying || playerShown) && state.playback.track != null) NowPlayingScreen(state, vm, sheet, onClose = { nowPlaying = false }, onQueue = { queue = true }, onMenu = openTrackMenu, onDownload = { track ->
         askPermissions()
         vm.download(track)
     }, onAlbum = { track -> openRelease(Release(track.albumId, track.album, track.artist, track.artwork)) },
@@ -204,6 +212,8 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
                 SettingRow(if (saved) OpenTuneIcons.Favorite else OpenTuneIcons.FavoriteBorder, if (saved) stringResource(R.string.track_unsave) else stringResource(R.string.track_save), onClick = { vm.favorite(track); trackMenu = null })
                 SettingRow(OpenTuneIcons.PlaylistPlay, stringResource(R.string.track_play_next), onClick = { vm.queue(track, true); trackMenu = null })
                 SettingRow(OpenTuneIcons.QueueMusic, stringResource(R.string.track_add_queue), onClick = { vm.queue(track); trackMenu = null })
+                // The menu of the full player can stop playback, because a swipe on the small player now changes the track.
+                if (nowPlaying && track.id == state.playback.track?.id) SettingRow(OpenTuneIcons.Close, stringResource(R.string.player_stop), onClick = { vm.stopPlayback(); nowPlaying = false; trackMenu = null })
                 SettingRow(OpenTuneIcons.PlaylistAdd, stringResource(R.string.playlist_add), onClick = { addToPlaylist = track; trackMenu = null })
                 state.detail?.takeIf { vm.canEdit(it) }?.let { release ->
                     playlistPosition?.let { position ->

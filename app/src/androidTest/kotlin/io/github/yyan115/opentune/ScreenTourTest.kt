@@ -226,6 +226,38 @@ class ScreenTourTest {
         }
     }
 
+    @Test fun playerFollowsTheFinger() {
+        val file = File(app.filesDir, "tour.flac")
+        InstrumentationRegistry.getInstrumentation().context.assets.open("night-walk.flac").use { input -> file.outputStream().use(input::copyTo) }
+        val tracks = listOf("Night Walk", "Glass Rooms", "Slow Tide").mapIndexed { index, title ->
+            Track("local:tour-drag-$index", title, "Harbour Lights", "Local audio checks", durationMs = 30_000, localUri = Uri.fromFile(file).toString(), quality = "FLAC")
+        }
+        tracks.forEach(app.library::save)
+        compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false, visualizer = false) } }
+        try {
+            compose.runOnIdle { model.play(tracks) }
+            compose.waitUntil(15_000) { model.state.value.playback.queue.size == 3 }
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("mini-player").fetchSemanticsNodes().isNotEmpty() }
+            val height = compose.onAllNodes(isRoot()).fetchSemanticsNodes().first().boundsInRoot.height
+            // The finger stays down on the small player after the first move, so that the picture shows the player half way up.
+            compose.onNodeWithTag("mini-player").performTouchInput { down(center); moveTo(androidx.compose.ui.geometry.Offset(center.x, center.y - height * .55f)) }
+            compose.waitForIdle()
+            save("80-player-dragged-up")
+            compose.onNodeWithTag("mini-player").performTouchInput { up() }
+            compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("Close player").fetchSemanticsNodes().isNotEmpty() }
+            picture("81-player-open")
+            compose.onNodeWithTag("player-cover").performTouchInput { down(center); moveTo(androidx.compose.ui.geometry.Offset(center.x - width * .45f, center.y)) }
+            compose.waitForIdle()
+            save("82-cover-dragged-left")
+            compose.onNodeWithTag("player-cover").performTouchInput { up() }
+            compose.waitUntil(5_000) { model.state.value.playback.index == 1 }
+            picture("83-next-track")
+        } finally {
+            compose.runOnIdle { model.stopPlayback() }
+            tracks.forEach { app.library.removeLocal(it.id) }
+        }
+    }
+
     @Test fun dialogsInEveryTheme() {
         compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false) } }
         for (theme in io.github.yyan115.opentune.ui.appThemes) {
