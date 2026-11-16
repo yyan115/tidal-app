@@ -87,6 +87,11 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
         entries.add(to, entries.removeAt(from))
         dragOffset += item.offset - target.offset
     }
+    // A row moves when a row above it leaves, so the place of a row is looked up at the moment it is removed.
+    fun removeRow(uid: Long) {
+        val at = entries.indexOfFirst { it.uid == uid }
+        if (at >= 0) { entries.removeAt(at); vm.removeQueue(at) }
+    }
     fun drop() {
         val uid = dragged ?: return
         val end = entries.indexOfFirst { it.uid == uid }
@@ -117,7 +122,7 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
                 val moveDown = stringResource(R.string.queue_move_down, track.title)
                 val remove = stringResource(R.string.queue_remove, track.title)
                 val dismiss = rememberSwipeToDismissBoxState(confirmValueChange = { value ->
-                    if (value != SwipeToDismissBoxValue.Settled && dragged == null) { entries.removeAll { it.uid == entry.uid }; vm.removeQueue(index); true } else false
+                    if (value != SwipeToDismissBoxValue.Settled && dragged == null) { removeRow(entry.uid); true } else false
                 })
                 SwipeToDismissBox(dismiss, modifier = Modifier.animateItem().zIndex(if (lifted) 1f else 0f).graphicsLayer { if (lifted) translationY = dragOffset },
                     backgroundContent = { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.errorContainer).padding(horizontal = 24.dp), contentAlignment = Alignment.CenterEnd) {
@@ -128,7 +133,7 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
                             .semantics { customActions = listOf(
                                 CustomAccessibilityAction(moveUp) { if (index > 0) { entries.add(index - 1, entries.removeAt(index)); vm.moveQueue(index, index - 1); true } else false },
                                 CustomAccessibilityAction(moveDown) { if (index < entries.lastIndex) { entries.add(index + 1, entries.removeAt(index)); vm.moveQueue(index, index + 1); true } else false },
-                                CustomAccessibilityAction(remove) { entries.removeAll { it.uid == entry.uid }; vm.removeQueue(index); true }) },
+                                CustomAccessibilityAction(remove) { removeRow(entry.uid); true }) },
                             verticalAlignment = Alignment.CenterVertically) {
                             Box(contentAlignment = Alignment.Center) {
                                 TrackArtwork(track, null, Modifier.size(44.dp).graphicsLayer { alpha = if (index < current) .5f else 1f })
