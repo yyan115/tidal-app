@@ -11,6 +11,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Changed
 
+- One dialog style that follows the theme
 - Download queue on its own page, opened from On device
 - Update check ignores test versions such as 0.7.1-rc1
 - Clear message when TIDAL stops accepting the app, without signing out
