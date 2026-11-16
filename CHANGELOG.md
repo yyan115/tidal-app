@@ -11,6 +11,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Changed
 
+- Tracks added to the queue play before the rest of the album or playlist
 - One dialog style that follows the theme
 - Download queue on its own page, opened from On device
 - Update check ignores test versions such as 0.7.1-rc1

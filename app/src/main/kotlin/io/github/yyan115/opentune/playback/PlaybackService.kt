@@ -220,20 +220,24 @@ class PlaybackService : MediaLibraryService() {
         }).setSessionActivity(activity).build()
     }
 
-    /** Puts the tracks after the current one in random order. The tracks before it and the current one stay where they are. */
+    /**
+     * Puts the tracks after the current one in random order. The tracks before it and the current one stay where they are,
+     * and so do the tracks that the listener added by hand, which play first in the order of adding.
+     */
     private fun shuffleUpcoming() {
         val count = player.mediaItemCount
         orderBeforeShuffle = (0 until count).map(player::getMediaItemAt)
-        val current = player.currentMediaItemIndex
-        if (count - current < 3) return
+        val first = player.currentMediaItemIndex + 1 + player.leadingManual()
+        if (count - first < 2) return
         val hours = app.settings.state.value.avoidRepeatHours
         val recent = if (hours > 0) app.library.playedSince(System.currentTimeMillis() - hours * 3_600_000L) else emptySet()
-        player.replaceMediaItems(current + 1, count, RepeatPolicy.deferRecent(orderBeforeShuffle.subList(current + 1, count).shuffled(), { it.mediaId }, recent))
+        player.replaceMediaItems(first, count, RepeatPolicy.deferRecent(orderBeforeShuffle.subList(first, count).shuffled(), { it.mediaId }, recent))
     }
 
     /**
      * Puts the queue back in the order it had before shuffle turned on. The current track keeps playing.
-     * A track that was added after shuffle turned on follows the tracks that were there before.
+     * A track that was added after shuffle turned on follows the tracks that were there before,
+     * except for the tracks that the listener added by hand, which keep their place right after the current track.
      */
     private fun restoreOrder() {
         val original = orderBeforeShuffle
@@ -243,12 +247,14 @@ class PlaybackService : MediaLibraryService() {
         val positions = HashMap<String, ArrayDeque<Int>>()
         original.forEachIndexed { position, item -> positions.getOrPut(item.mediaId) { ArrayDeque() }.addLast(position) }
         val queue = (0 until count).map(player::getMediaItemAt)
-        val ranked = queue.mapIndexed { index, item -> Triple(index, item, positions[item.mediaId]?.removeFirstOrNull() ?: (original.size + index)) }.sortedBy { it.third }
         val current = player.currentMediaItemIndex
+        val held = queue.subList(current + 1, current + 1 + player.leadingManual())
+        val others = queue.filterIndexed { index, _ -> index <= current || index > current + held.size }
+        val ranked = others.mapIndexed { index, item -> Triple(index, item, positions[item.mediaId]?.removeFirstOrNull() ?: (original.size + index)) }.sortedBy { it.third }
         val at = ranked.indexOfFirst { it.first == current }
         if (at < 0) return
         // The part after the current track goes first, so that the index of the current track holds while it is replaced.
-        player.replaceMediaItems(current + 1, count, ranked.drop(at + 1).map { it.second })
+        player.replaceMediaItems(current + 1, count, held + ranked.drop(at + 1).map { it.second })
         if (current > 0) player.replaceMediaItems(0, current, ranked.take(at).map { it.second })
     }
 

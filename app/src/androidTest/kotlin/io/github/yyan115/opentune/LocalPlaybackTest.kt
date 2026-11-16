@@ -307,8 +307,10 @@ class LocalPlaybackTest {
         compose.waitUntil(5_000) { model.state.value.playback.queue.size == 13 }
         assertEquals("Next Up", model.state.value.playback.queue[model.state.value.playback.index + 1].title)
         compose.runOnIdle { model.toggleShuffle() }
-        compose.waitUntil(5_000) { !model.state.value.playback.shuffle && model.state.value.playback.queue.take(12).map(Track::id) == tracks.map(Track::id) }
-        assertEquals("Next Up", model.state.value.playback.queue.last().title)
+        // A track added by hand keeps its place ahead of the rest of the queue when shuffle turns off, and the other tracks come back in order.
+        val restored = listOf(tracks.first().id, "local:next-up") + tracks.drop(1).map(Track::id)
+        compose.waitUntil(5_000) { !model.state.value.playback.shuffle && model.state.value.playback.queue.map(Track::id) == restored }
+        assertEquals("Next Up", model.state.value.playback.queue[1].title)
     }
 
     @Test fun aSwipeOnTheMiniPlayerStopsPlaybackAndATapOnlyOpensIt() {
