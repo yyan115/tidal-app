@@ -57,6 +57,20 @@ fun Activity.enterVideoPip() {
 }
 
 /**
+ * Pauses [player] when the activity stops being visible. The activity stays visible in picture-in-picture,
+ * and it stops when the listener closes that window or turns the screen off, so that no sound plays without its picture.
+ */
+@Composable
+fun PauseWhileStopped(player: Player) {
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle, player) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event -> if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) player.pause() }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+}
+
+/**
  * A music video over the whole screen. It is drawn inside the activity, not in a dialog,
  * so that it also fills the picture-in-picture window. Music pauses through Android's audio focus.
  */
@@ -88,6 +102,7 @@ fun VideoPlayerOverlay(release: Release, offline: Boolean, onClose: () -> Unit) 
         player.addListener(listener)
         onDispose { player.removeListener(listener); player.release() }
     }
+    PauseWhileStopped(player)
     DisposableEffect(activity) {
         val listener = Consumer<androidx.core.app.PictureInPictureModeChangedInfo> { inPip = it.isInPictureInPictureMode }
         activity?.addOnPictureInPictureModeChangedListener(listener)
