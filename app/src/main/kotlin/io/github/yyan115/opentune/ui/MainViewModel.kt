@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
@@ -410,8 +411,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // With shuffle on, the chosen track plays first and every other track is still to come, so that all of them take part.
         val queue = if (shuffled) listOf(tracks[start]) + tracks.filterIndexed { position, _ -> position != start } else tracks
         player.setMediaItems(queue.map(app.sources::unresolved), if (shuffled) 0 else start, 0)
-        if (shuffled) player.sendCustomCommand(PlaybackCommands.Reshuffle, android.os.Bundle.EMPTY)
+        if (shuffled) reshuffleOnceApplied(player, queue.size, queue.first().id)
         player.prepare(); player.play()
+    }
+
+    /**
+     * Shuffles the new queue once the player holds it. The service resolves the tracks before it applies a new queue, so a command that is sent
+     * right after the queue would shuffle the previous queue, and the new one would play in its original order.
+     */
+    private fun reshuffleOnceApplied(player: Player, size: Int, firstId: String) {
+        val listener = object : Player.Listener {
+            override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                if (player.mediaItemCount != size || player.getMediaItemAt(0).mediaId != firstId) return
+                player.removeListener(this)
+                (player as? MediaController)?.sendCustomCommand(PlaybackCommands.Reshuffle, android.os.Bundle.EMPTY)
+            }
+        }
+        player.addListener(listener)
+        // A queue that arrives unchanged raises no event, and the listener is not kept for ever.
+        viewModelScope.launch { delay(10_000); player.removeListener(listener) }
     }
     fun togglePlay() {
         controller?.let { player ->

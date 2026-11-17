@@ -47,6 +47,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Stutter with queues of thousands of tracks
 - Covers of local files taking more storage than needed
 - Soft cover picture in the full player
+- Queue not being shuffled after playing a list while shuffle is on
 
 ## [0.7.0] - 2026-11-08
 
