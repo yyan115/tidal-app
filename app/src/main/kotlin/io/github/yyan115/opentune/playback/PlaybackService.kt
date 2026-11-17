@@ -89,6 +89,7 @@ class PlaybackService : MediaLibraryService() {
     private var skipped = 0
     private val playbackPreferences by lazy { getSharedPreferences("playback", MODE_PRIVATE) }
     private var saveJob: Job? = null
+    private var queueHeld = false
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             val error = player.playerError ?: return
@@ -145,7 +146,11 @@ class PlaybackService : MediaLibraryService() {
                 if (playbackState == Player.STATE_ENDED) finishListening()
                 if (playbackState == Player.STATE_READY) { retryJob?.cancel(); backoff.reset(); skipped = 0 }
             }
-            override fun onEvents(player: Player, events: Player.Events) { if (player.mediaItemCount > 0) saveQueueSoon() }
+            override fun onEvents(player: Player, events: Player.Events) {
+                // An empty queue is written once, when the listener empties a queue, so that the next start does not bring it back.
+                // A service that starts with an empty queue leaves the saved one for the screen to restore.
+                if (player.mediaItemCount > 0) { queueHeld = true; saveQueueSoon() } else if (queueHeld) { queueHeld = false; saveQueueSoon() }
+            }
             override fun onPlayerError(error: PlaybackException) {
                 val transient = isTransient(error)
                 android.util.Log.w("OpenTune", "Playback error ${error.errorCodeName}, transient=$transient, chain=${generateSequence<Throwable>(error) { it.cause }.joinToString(" > ") { it.javaClass.simpleName }}")
