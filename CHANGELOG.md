@@ -38,6 +38,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Waiting ListenBrainz listens being dropped on a rate limit
 - Sign-in being lost after a temporary keystore error
 - Backup missing the Autoplay, Avoid repeats, Visualizer, update check and custom equalizer settings
+- 24-bit tracks being played as 16-bit
 
 ## [0.7.0] - 2026-11-08
 
