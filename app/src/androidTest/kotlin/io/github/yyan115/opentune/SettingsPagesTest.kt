@@ -78,7 +78,11 @@ class SettingsPagesTest {
         compose.waitUntil(5_000) { hours == 48 }
         // The entry is on the screen at once, also on a small one where it starts below the options.
         compose.onNodeWithTag("repeats-custom").assertIsDisplayed()
-        compose.onNodeWithTag("repeats-unit").assertIsDisplayed()
+        try { compose.onNodeWithTag("repeats-unit").assertIsDisplayed() }
+        catch (e: AssertionError) {
+            val m = compose.activity.resources.displayMetrics
+            throw AssertionError("PROBE ${m.widthPixels}x${m.heightPixels} dpi=${m.densityDpi} " + compose.onRoot().printToString(60), e)
+        }
         compose.onNodeWithTag("repeats-custom").assertTextContains("2")
         compose.onNodeWithTag("repeats-custom").performTextReplacement("3")
         compose.waitUntil(5_000) { hours == 72 }
