@@ -84,6 +84,8 @@ class PlaybackService : MediaLibraryService() {
     private val connectivity by lazy { getSystemService(ConnectivityManager::class.java) }
     private var retryJob: Job? = null
     private val backoff = RetryBackoff()
+    // The tracks in a row that could not play and were skipped. A queue in which nothing plays, for example after the account signed out, does not run through.
+    private var skipped = 0
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             val error = player.playerError ?: return
@@ -143,12 +145,12 @@ class PlaybackService : MediaLibraryService() {
             }
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) finishListening()
-                if (playbackState == Player.STATE_READY) { retryJob?.cancel(); backoff.reset() }
+                if (playbackState == Player.STATE_READY) { retryJob?.cancel(); backoff.reset(); skipped = 0 }
             }
             override fun onPlayerError(error: PlaybackException) {
                 val transient = isTransient(error)
                 android.util.Log.w("OpenTune", "Playback error ${error.errorCodeName}, transient=$transient, chain=${generateSequence<Throwable>(error) { it.cause }.joinToString(" > ") { it.javaClass.simpleName }}")
-                if (transient) scheduleRetry()
+                if (transient) scheduleRetry() else skipUnplayable()
             }
             override fun onAudioSessionIdChanged(audioSessionId: Int) { applyEqualizer(); applyBitPerfect() }
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
@@ -425,9 +427,20 @@ class PlaybackService : MediaLibraryService() {
     }
 
     companion object {
+        private const val MAX_SKIPPED = 5
+
         /** How often the service prepared the player again after a failure, for tests and reports. */
         @Volatile var retries = 0
             private set
+    }
+
+    /** A track that cannot play, such as one that no longer exists, is skipped, so that the queue goes on with the next track. */
+    private fun skipUnplayable() {
+        if (!player.hasNextMediaItem() || skipped >= MAX_SKIPPED) return
+        skipped++
+        android.util.Log.i("OpenTune", "Skipping a track that cannot play ($skipped in a row)")
+        player.seekToNextMediaItem()
+        player.prepare()
     }
 
     /**

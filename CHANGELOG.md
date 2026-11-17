@@ -42,6 +42,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Downloads failing when they start while the app is in the background on Android 12 and later
 - Video sound playing on after the picture-in-picture window is closed
 - Download all starting every download at once
+- Queue stopping at a track that cannot play
 
 ## [0.7.0] - 2026-11-08
 
