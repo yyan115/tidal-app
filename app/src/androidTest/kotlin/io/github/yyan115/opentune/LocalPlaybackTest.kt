@@ -39,6 +39,8 @@ class LocalPlaybackTest {
             localUri = Uri.fromFile(file).toString(), quality = "FLAC · 24-bit · 96 kHz")
         app.library.save(track)
         compose.waitUntil(10_000) { model.state.value.local.any { it.id == track.id } }
+        // The player keeps the shuffle setting between tests, so every test starts with shuffle off.
+        compose.runOnIdle { model.play(listOf(track), 0, "", shuffle = false); model.stopPlayback() }
     }
 
     @Test fun localFlacPlaysThroughTheInterfaceAndPauses() {
