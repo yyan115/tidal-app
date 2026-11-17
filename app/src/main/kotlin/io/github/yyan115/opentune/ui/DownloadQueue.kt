@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import androidx.work.WorkInfo
 import io.github.yyan115.opentune.R
+import io.github.yyan115.opentune.data.DownloadWorker
 import io.github.yyan115.opentune.downloadErrorText
 
 /** The downloads that are in the queue: the ones that run or wait, and the ones that failed. */
@@ -34,13 +35,15 @@ fun DownloadQueuePage(state: AppState, vm: MainViewModel) {
         items(queue, key = { it.id }) { work ->
             val trackId = work.tags.firstOrNull { it.startsWith("track:") }?.removePrefix("track:")
             val track = state.downloadTracks[trackId]
+            // Downloads take turns, so a download that Android runs may still wait for its turn.
+            val transferring = work.state == WorkInfo.State.RUNNING && !work.progress.getBoolean(DownloadWorker.WAITING, false)
             Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(OpenTuneIcons.Download, null, tint = MaterialTheme.colorScheme.primary)
                     Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
                         Text(track?.title ?: stringResource(R.string.downloads_unnamed), style = MaterialTheme.typography.titleSmall)
                         Text(when (work.state) {
-                            WorkInfo.State.RUNNING -> stringResource(R.string.download_progress, work.progress.getInt("progress", 0))
+                            WorkInfo.State.RUNNING -> if (transferring) stringResource(R.string.download_progress, work.progress.getInt("progress", 0)) else stringResource(R.string.download_queued)
                             WorkInfo.State.FAILED -> context.downloadErrorText(work.outputData.getString("error"))
                             WorkInfo.State.BLOCKED -> stringResource(R.string.download_waiting)
                             else -> if (state.settings.downloadOnWifi) stringResource(R.string.download_queued_wifi) else stringResource(R.string.download_queued)
@@ -49,7 +52,7 @@ fun DownloadQueuePage(state: AppState, vm: MainViewModel) {
                     if (!work.state.isFinished) IconButton(onClick = { vm.cancelDownload(work) }) { Icon(OpenTuneIcons.Close, stringResource(R.string.download_cancel)) }
                     else if (track != null) TextButton(onClick = { vm.download(track) }) { Text(stringResource(R.string.action_retry)) }
                 }
-                if (work.state == WorkInfo.State.RUNNING) LinearProgressIndicator(progress = { work.progress.getInt("progress", 0) / 100f }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
+                if (transferring) LinearProgressIndicator(progress = { work.progress.getInt("progress", 0) / 100f }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
             }
         }
         // Only a failed download stays in the list, so this is the only case where there is something to clear.

@@ -41,6 +41,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - 24-bit tracks being played as 16-bit
 - Downloads failing when they start while the app is in the background on Android 12 and later
 - Video sound playing on after the picture-in-picture window is closed
+- Download all starting every download at once
 
 ## [0.7.0] - 2026-11-08
 
