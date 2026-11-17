@@ -252,8 +252,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val folderFiles = withContext(Dispatchers.IO) { app.library.folderFileIds() }
         val pending = withContext(Dispatchers.IO) { app.library.pendingFavorites(app.tidal.accountId) }
         val localById = local.associateBy(Track::id)
-        ui.update { it.copy(local = local, favorites = (favorites + cloudFavorites).filter { track -> pending[track.id] != false }.distinctBy(Track::id)
-            .map { track -> localById[track.id] ?: track }, recent = recent, localPlaylists = playlists, deviceFolders = folders, folderFiles = folderFiles) }
+        ui.update { it.copy(local = local, favorites = SavedTracks.merge(favorites, cloudFavorites, pending).map { track -> localById[track.id] ?: track }, recent = recent, localPlaylists = playlists, deviceFolders = folders, folderFiles = folderFiles) }
     }
 
     fun search(text: String) { query.value = text; ui.update { it.copy(searchQuery = text) } }
@@ -318,7 +317,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 favoriteSyncLock.withLock {
                     drainFavorites(account)
                     cloudFavorites = app.tidal.allFavorites(); favoritesOffset = cloudFavorites.size
-                    withContext(Dispatchers.IO) { app.library.cache(account, "favorites", JsonCodec.encodeTracks(cloudFavorites)) }
+                    withContext(Dispatchers.IO) {
+                        app.library.cache(account, "favorites", JsonCodec.encodeTracks(cloudFavorites))
+                        // A track that was removed from the saved tracks in another app stops being shown as saved.
+                        val removed = SavedTracks.removedElsewhere(app.library.favorites(), cloudFavorites, app.library.pendingFavorites(account))
+                        if (removed.isNotEmpty()) app.library.clearFavorites(removed.map(Track::id))
+                    }
                 }
                 ui.update { it.copy(hasMoreFavorites = false) }
                 refreshLocal()

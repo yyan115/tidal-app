@@ -173,6 +173,17 @@ class LibraryStore(context: Context, databaseName: String = "library.db") : SQLi
         revision.value++
     }
 
+    /** Marks the tracks as not saved. The tracks stay in the library. */
+    @Synchronized fun clearFavorites(ids: Collection<String>) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            ids.forEach { db.update("tracks", ContentValues().apply { put("favorite", 0) }, "id=?", arrayOf(it)) }
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+        revision.value++
+    }
+
     @Synchronized fun played(track: Track) {
         save(track)
         writableDatabase.update("tracks", ContentValues().apply { put("played", System.currentTimeMillis()) }, "id=?", arrayOf(track.id))

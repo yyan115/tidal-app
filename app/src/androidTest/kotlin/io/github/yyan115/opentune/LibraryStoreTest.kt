@@ -45,6 +45,19 @@ class LibraryStoreTest {
         } } finally { context.deleteDatabase(name) }
     }
 
+    @Test fun clearingSavedTracksKeepsThemInTheLibrary() {
+        val name = "clear-favorites-test.db"
+        context.deleteDatabase(name)
+        try { withStore(name) { store ->
+            val tracks = listOf(Track("1", "First", "Artist"), Track("2", "Second", "Artist"), Track("3", "Third", "Artist"))
+            tracks.forEach { store.setFavorite(it, true) }
+            store.clearFavorites(listOf("1", "3", "unknown"))
+            assertEquals(listOf("2"), store.favorites().map(Track::id))
+            assertFalse(store.isFavorite("1"))
+            assertEquals("First", store.get("1")?.title)
+        } } finally { context.deleteDatabase(name) }
+    }
+
     @Test fun pendingFavoritesKeepTheLatestChoiceAcrossRestarts() {
         val name = "pending-favorites-test.db"
         context.deleteDatabase(name)

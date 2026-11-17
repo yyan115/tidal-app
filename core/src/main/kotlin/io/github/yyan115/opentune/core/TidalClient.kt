@@ -109,17 +109,29 @@ class TidalClient(
             topTrack = if (topType == "TRACKS") topValue?.let(JsonCodec::track) else null)
     }
 
-    suspend fun favorites(offset: Int = 0): List<Track> =
-        JsonCodec.items(request("users/${userId()}/favorites/tracks", mapOf("limit" to "100", "offset" to "$offset", "order" to "DATE", "orderDirection" to "DESC"))).map(JsonCodec::track)
+    /** One page of a list, with the number of items in the whole list, or -1 when the service does not give it. */
+    private class Page<T>(val items: List<T>, val total: Int)
 
-    suspend fun favoriteAlbums(offset: Int = 0): List<Release> =
-        JsonCodec.items(request("users/${userId()}/favorites/albums", mapOf("limit" to "100", "offset" to "$offset"))).map { JsonCodec.release(it, ReleaseType.ALBUM) }
+    private fun <T> page(value: JSONObject, read: (JSONObject) -> T) = Page(JsonCodec.items(value).map(read), value.optInt("totalNumberOfItems", -1))
 
-    suspend fun playlists(offset: Int = 0): List<Release> =
-        JsonCodec.items(request("users/${userId()}/playlistsAndFavoritePlaylists", mapOf("limit" to "50", "offset" to "$offset")))
-            .map { JsonCodec.release(it.optJSONObject("playlist") ?: it, ReleaseType.PLAYLIST) }
+    private suspend fun favoritesPage(offset: Int) = page(request("users/${userId()}/favorites/tracks",
+        mapOf("limit" to "100", "offset" to "$offset", "order" to "DATE", "orderDirection" to "DESC")), JsonCodec::track)
 
-    suspend fun tracks(release: Release, offset: Int = 0): List<Track> {
+    private suspend fun favoriteAlbumsPage(offset: Int) =
+        page(request("users/${userId()}/favorites/albums", mapOf("limit" to "100", "offset" to "$offset"))) { JsonCodec.release(it, ReleaseType.ALBUM) }
+
+    private suspend fun playlistsPage(offset: Int) =
+        page(request("users/${userId()}/playlistsAndFavoritePlaylists", mapOf("limit" to "50", "offset" to "$offset"))) {
+            JsonCodec.release(it.optJSONObject("playlist") ?: it, ReleaseType.PLAYLIST)
+        }
+
+    suspend fun favorites(offset: Int = 0): List<Track> = favoritesPage(offset).items
+    suspend fun favoriteAlbums(offset: Int = 0): List<Release> = favoriteAlbumsPage(offset).items
+    suspend fun playlists(offset: Int = 0): List<Release> = playlistsPage(offset).items
+
+    suspend fun tracks(release: Release, offset: Int = 0): List<Track> = tracksPage(release, offset).items
+
+    private suspend fun tracksPage(release: Release, offset: Int): Page<Track> {
         val path = when (release.type) {
             ReleaseType.ALBUM -> "albums/${release.id}/tracks"
             ReleaseType.PLAYLIST -> "playlists/${release.id}/items"
@@ -127,28 +139,33 @@ class TidalClient(
             ReleaseType.MIX -> "mixes/${release.id}/items"
             ReleaseType.VIDEO, ReleaseType.FOLDER -> throw IllegalArgumentException("This item has no track list.")
         }
-        return JsonCodec.items(request(path, mapOf("limit" to "100", "offset" to "$offset"))).map(JsonCodec::track)
+        return page(request(path, mapOf("limit" to "100", "offset" to "$offset")), JsonCodec::track)
     }
 
-    suspend fun allTracks(release: Release): List<Track> = allPages { tracks(release, it) }
-    suspend fun allFavorites(): List<Track> = allPages(page = ::favorites)
-    suspend fun allFavoriteAlbums(): List<Release> = allPages(page = ::favoriteAlbums)
-    suspend fun allPlaylists(): List<Release> = allPages(50, ::playlists)
+    suspend fun allTracks(release: Release): List<Track> = allPages { tracksPage(release, it) }
+    suspend fun allFavorites(): List<Track> = allPages(page = ::favoritesPage)
+    suspend fun allFavoriteAlbums(): List<Release> = allPages(page = ::favoriteAlbumsPage)
+    suspend fun allPlaylists(): List<Release> = allPages(50, ::playlistsPage)
 
-    private suspend fun <T> allPages(pageSize: Int = 100, page: suspend (Int) -> List<T>): List<T> {
+    /**
+     * Reads a list page after page. A page can hold fewer items than were asked for, because the service leaves out items that are not available.
+     * The end of the list is therefore told by the count that the service gives. Without a count, a page that is not full is the last one.
+     */
+    private suspend fun <T> allPages(pageSize: Int = 100, page: suspend (Int) -> Page<T>): List<T> {
         val result = mutableListOf<T>()
         var offset = 0
         while (true) {
             currentCoroutineContext().ensureActive()
             val next = page(offset)
-            result.addAll(next)
-            if (next.size < pageSize) return result
-            offset += next.size
+            result.addAll(next.items)
+            val last = if (next.total >= 0) offset + pageSize >= next.total else next.items.size < pageSize
+            if (last) return result
+            offset += pageSize
         }
     }
 
     suspend fun artistAlbums(id: String): List<Release> = allPages { offset ->
-        JsonCodec.items(request("artists/$id/albums", mapOf("limit" to "100", "offset" to "$offset"))).map { JsonCodec.release(it, ReleaseType.ALBUM) }
+        page(request("artists/$id/albums", mapOf("limit" to "100", "offset" to "$offset"))) { JsonCodec.release(it, ReleaseType.ALBUM) }
     }
 
     suspend fun stream(id: String, quality: AudioQuality): StreamInfo {
@@ -272,8 +289,7 @@ class TidalClient(
         JsonCodec.items(request("artists/$id/toptracks", mapOf("limit" to "100"))).map(JsonCodec::track)
 
     suspend fun followedArtists(): List<Release> = allPages { offset ->
-        JsonCodec.items(request("users/${userId()}/favorites/artists", mapOf("limit" to "100", "offset" to "$offset")))
-            .map { JsonCodec.release(it, ReleaseType.ARTIST) }
+        page(request("users/${userId()}/favorites/artists", mapOf("limit" to "100", "offset" to "$offset"))) { JsonCodec.release(it, ReleaseType.ARTIST) }
     }
 
     suspend fun setArtistFollowed(id: String, follow: Boolean) {
