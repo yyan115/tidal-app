@@ -57,7 +57,8 @@ class QueueSavingTest {
         compose.runOnIdle { model.play(tracks(2, uri())) }
         compose.waitUntil(15_000) { savedTitles().size == 2 }
         compose.runOnIdle { model.stopPlayback() }
-        compose.waitUntil(10_000) { savedTitles().isEmpty() }
+        // The empty queue is written at once and not after the pause that follows other changes, because the service may stop a moment after it.
+        compose.waitUntil(900) { savedTitles().isEmpty() }
     }
 
     @Test fun aQueueOfThousandsOfTracksIsSavedWhole() {

@@ -90,6 +90,10 @@ class PlaybackService : MediaLibraryService() {
     private val playbackPreferences by lazy { getSharedPreferences("playback", MODE_PRIVATE) }
     private var saveJob: Job? = null
     private var queueHeld = false
+    // Each write of the queue has a number, and a write that a later one has overtaken is dropped, so that an older queue never replaces a newer one.
+    private val writeLock = Any()
+    private var snapshotsTaken = 0L
+    private var snapshotsWritten = 0L
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             val error = player.playerError ?: return
@@ -149,7 +153,8 @@ class PlaybackService : MediaLibraryService() {
             override fun onEvents(player: Player, events: Player.Events) {
                 // An empty queue is written once, when the listener empties a queue, so that the next start does not bring it back.
                 // A service that starts with an empty queue leaves the saved one for the screen to restore.
-                if (player.mediaItemCount > 0) { queueHeld = true; saveQueueSoon() } else if (queueHeld) { queueHeld = false; saveQueueSoon() }
+                if (player.mediaItemCount > 0) { queueHeld = true; saveQueueSoon() }
+                else if (queueHeld) { queueHeld = false; saveJob?.cancel(); saveQueue(wait = false) }
             }
             override fun onPlayerError(error: PlaybackException) {
                 val transient = isTransient(error)
@@ -455,13 +460,19 @@ class PlaybackService : MediaLibraryService() {
         val items = (0 until player.mediaItemCount).map(player::getMediaItemAt)
         val snapshot = QueueSnapshot(items.map { it.mediaMetadata.extras?.getString("track") ?: "{}" }, items.map { it.isManual() },
             player.currentMediaItemIndex.coerceAtLeast(0), player.currentPosition.coerceAtLeast(0), player.shuffleModeEnabled, player.repeatMode)
+        val number = ++snapshotsTaken
         fun write() {
-            val editor = playbackPreferences.edit().putString("queue", snapshot.tracksJson()).putString("manual", snapshot.manualMarks())
-                .putInt("index", snapshot.index).putLong("position", snapshot.positionMs).putBoolean("shuffle", snapshot.shuffle).putInt("repeat", snapshot.repeat)
-            if (wait) editor.commit() else editor.apply()
+            synchronized(writeLock) {
+                if (number <= snapshotsWritten) return
+                snapshotsWritten = number
+                val editor = playbackPreferences.edit().putString("queue", snapshot.tracksJson()).putString("manual", snapshot.manualMarks())
+                    .putInt("index", snapshot.index).putLong("position", snapshot.positionMs).putBoolean("shuffle", snapshot.shuffle).putInt("repeat", snapshot.repeat)
+                if (wait) editor.commit() else editor.apply()
+            }
         }
         // The texts of the tracks are written as they are, off the main thread, so that a queue of thousands of tracks does not stall the player.
-        if (wait) write() else scope.launch(Dispatchers.Default) { write() }
+        // An empty queue is written at once, because the service may stop a moment after the queue was emptied.
+        if (wait || items.isEmpty()) write() else scope.launch(Dispatchers.Default) { write() }
     }
 
     /** A track that cannot play, such as one that was removed, is skipped, so that the queue goes on with the next track. */
