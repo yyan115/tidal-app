@@ -43,6 +43,8 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Video sound playing on after the picture-in-picture window is closed
 - Download all starting every download at once
 - Queue stopping at a track that cannot play
+- Queue and position being lost after the app is swiped away
+- Stutter with queues of thousands of tracks
 
 ## [0.7.0] - 2026-11-08
 

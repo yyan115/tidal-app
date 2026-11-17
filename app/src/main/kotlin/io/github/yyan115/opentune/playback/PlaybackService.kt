@@ -37,6 +37,7 @@ import io.github.yyan115.opentune.OpenTuneApp
 import io.github.yyan115.opentune.data.DownloadRequests
 import io.github.yyan115.opentune.core.JsonCodec
 import io.github.yyan115.opentune.core.Normalization
+import io.github.yyan115.opentune.core.QueueSnapshot
 import io.github.yyan115.opentune.core.RepeatPolicy
 import io.github.yyan115.opentune.core.RetryBackoff
 import io.github.yyan115.opentune.core.Track
@@ -86,6 +87,8 @@ class PlaybackService : MediaLibraryService() {
     private val backoff = RetryBackoff()
     // The tracks in a row that could not play and were skipped. A queue in which nothing plays, for example after the account signed out, does not run through.
     private var skipped = 0
+    private val playbackPreferences by lazy { getSharedPreferences("playback", MODE_PRIVATE) }
+    private var saveJob: Job? = null
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             val error = player.playerError ?: return
@@ -147,6 +150,7 @@ class PlaybackService : MediaLibraryService() {
                 if (playbackState == Player.STATE_ENDED) finishListening()
                 if (playbackState == Player.STATE_READY) { retryJob?.cancel(); backoff.reset(); skipped = 0 }
             }
+            override fun onEvents(player: Player, events: Player.Events) { if (player.mediaItemCount > 0) saveQueueSoon() }
             override fun onPlayerError(error: PlaybackException) {
                 val transient = isTransient(error)
                 android.util.Log.w("OpenTune", "Playback error ${error.errorCodeName}, transient=$transient, chain=${generateSequence<Throwable>(error) { it.cause }.joinToString(" > ") { it.javaClass.simpleName }}")
@@ -162,6 +166,8 @@ class PlaybackService : MediaLibraryService() {
         app.sources.onGains = { id -> Handler(Looper.getMainLooper()).post { if (player.currentMediaItem?.mediaId == id) applyNormalization() } }
         scope.launch { app.settings.state.collect { AudioSpectrum.enabled = it.visualizer; applyNormalization(); applyEqualizer(); applyBitPerfect() } }
         scope.launch { runCatching { app.scrobbler.flush() } }
+        // The position moves without an event, so it is written about every ten seconds while the player plays.
+        scope.launch { while (true) { delay(10_000); if (player.isPlaying) saveQueue(wait = false) } }
         if (Build.VERSION.SDK_INT >= 23) audioManager.registerAudioDeviceCallback(deviceCallback, Handler(Looper.getMainLooper()))
         runCatching { connectivity.registerDefaultNetworkCallback(networkCallback, Handler(Looper.getMainLooper())) }
 
@@ -387,10 +393,12 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
     override fun onTaskRemoved(rootIntent: Intent?) {
+        if (player.mediaItemCount > 0) saveQueue(wait = true)
         val current = session?.player
         if (current == null || !current.playWhenReady || current.mediaItemCount == 0) stopSelf()
     }
     override fun onDestroy() {
+        if (player.mediaItemCount > 0) saveQueue(wait = true)
         finishListening()
         if (Build.VERSION.SDK_INT >= 23) audioManager.unregisterAudioDeviceCallback(deviceCallback)
         runCatching { connectivity.unregisterNetworkCallback(networkCallback) }
@@ -434,7 +442,29 @@ class PlaybackService : MediaLibraryService() {
             private set
     }
 
-    /** A track that cannot play, such as one that no longer exists, is skipped, so that the queue goes on with the next track. */
+    /**
+     * The queue and the place in it are written here and not by the screen, so that they are kept when the app is swiped away,
+     * and also when the service plays without the app, as in a car. A change is written a moment after it, so that a burst of changes is one write.
+     */
+    private fun saveQueueSoon() {
+        saveJob?.cancel()
+        saveJob = scope.launch { delay(1_000); saveQueue(wait = false) }
+    }
+
+    private fun saveQueue(wait: Boolean) {
+        val items = (0 until player.mediaItemCount).map(player::getMediaItemAt)
+        val snapshot = QueueSnapshot(items.map { it.mediaMetadata.extras?.getString("track") ?: "{}" }, items.map { it.isManual() },
+            player.currentMediaItemIndex.coerceAtLeast(0), player.currentPosition.coerceAtLeast(0), player.shuffleModeEnabled, player.repeatMode)
+        fun write() {
+            val editor = playbackPreferences.edit().putString("queue", snapshot.tracksJson()).putString("manual", snapshot.manualMarks())
+                .putInt("index", snapshot.index).putLong("position", snapshot.positionMs).putBoolean("shuffle", snapshot.shuffle).putInt("repeat", snapshot.repeat)
+            if (wait) editor.commit() else editor.apply()
+        }
+        // The texts of the tracks are written as they are, off the main thread, so that a queue of thousands of tracks does not stall the player.
+        if (wait) write() else scope.launch(Dispatchers.Default) { write() }
+    }
+
+    /** A track that cannot play, such as one that was removed, is skipped, so that the queue goes on with the next track. */
     private fun skipUnplayable() {
         if (!player.hasNextMediaItem() || skipped >= MAX_SKIPPED) return
         skipped++
