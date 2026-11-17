@@ -136,7 +136,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 controller = player
                 player.addListener(object : Player.Listener {
                     override fun onEvents(player: Player, events: Player.Events) {
-                        updatePlayback(); persistQueue()
+                        // The queue is read again only when it changed. A change of position or of the play state leaves it as it is.
+                        updatePlayback(rebuildQueue = events.contains(Player.EVENT_TIMELINE_CHANGED) || ui.value.playback.queue.size != player.mediaItemCount)
                         if (events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) && player.playbackState == Player.STATE_ENDED) continueWithSimilarMusic(player)
                     }
                     override fun onPlayerError(error: PlaybackException) {
@@ -165,7 +166,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-        viewModelScope.launch { while (true) { delay(10_000); persistQueue() } }
         // A scan stores a file after a file. The lists refresh once the changes pause, not after each one.
         viewModelScope.launch { app.library.changes.collectLatest { delay(200); refreshLocal() } }
         viewModelScope.launch { app.folders.scans.collect { scans -> ui.update { it.copy(scans = scans) } } }
@@ -817,12 +817,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } catch (error: Exception) { if (error is CancellationException) throw error; notify(app.getString(R.string.notify_playlist_not_saved)) }
     }
 
-    private fun updatePlayback() {
+    // The tracks of the queue by their JSON text, so that a track is read once however often the player reports.
+    private val decodedTracks = HashMap<String, Track>()
+
+    private fun updatePlayback(rebuildQueue: Boolean = true) {
         val player = controller ?: return
-        val queue = (0 until player.mediaItemCount).mapNotNull { index ->
-            player.getMediaItemAt(index).mediaMetadata.extras?.getString("track")?.let {
-                runCatching { JsonCodec.decodeTrack(JSONObject(it)) }.getOrNull()
-            }
+        val queue = if (!rebuildQueue) ui.value.playback.queue else {
+            val texts = (0 until player.mediaItemCount).mapNotNull { index -> player.getMediaItemAt(index).mediaMetadata.extras?.getString("track") }
+            val tracks = texts.mapNotNull { text -> decodedTracks[text] ?: runCatching { JsonCodec.decodeTrack(JSONObject(text)) }.getOrNull()?.also { decodedTracks[text] = it } }
+            decodedTracks.keys.retainAll(texts.toSet())
+            tracks
         }
         val quality = player.currentMediaItem?.localConfiguration?.tag as? String ?: queue.getOrNull(player.currentMediaItemIndex)?.quality.orEmpty()
         ui.update { it.copy(playback = it.playback.copy(queue = queue, index = player.currentMediaItemIndex.coerceAtLeast(0),
@@ -831,13 +835,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             error = if (player.playerError == null) null else it.playback.error)) }
     }
 
-    private fun persistQueue() {
-        val player = controller ?: return
-        preferences.edit().putString("queue", JsonCodec.encodeTracks(ui.value.playback.queue))
-            .putString("manual", QueueOrder.encode(player.manualMarks()))
-            .putInt("index", player.currentMediaItemIndex.coerceAtLeast(0)).putLong("position", player.currentPosition.coerceAtLeast(0))
-            .putBoolean("shuffle", player.shuffleModeEnabled).putInt("repeat", player.repeatMode).apply()
-    }
     private fun restoreQueue() {
         if ((controller?.mediaItemCount ?: 0) > 0) return
         val saved = preferences.getString("queue", null) ?: return
@@ -963,6 +960,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         if (networkCallbackRegistered) runCatching { connectivity.unregisterNetworkCallback(networkCallback) }
-        persistQueue(); MediaController.releaseFuture(controllerFuture); super.onCleared()
+        MediaController.releaseFuture(controllerFuture); super.onCleared()
     }
 }
