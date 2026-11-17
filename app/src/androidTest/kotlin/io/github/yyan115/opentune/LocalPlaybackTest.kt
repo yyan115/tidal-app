@@ -117,6 +117,22 @@ class LocalPlaybackTest {
         } finally { compose.runOnIdle { model.settings { it.copy(bitPerfect = false) }; model.stopPlayback() } }
     }
 
+    @Test fun aTrackThatCannotPlayIsSkippedAndTheQueueGoesOn() {
+        val gone = track.copy(id = "local:gone-first", title = "Gone", localUri = Uri.fromFile(File(app.filesDir, "gone-first.flac")).toString())
+        compose.runOnIdle { model.play(listOf(gone, track.copy(id = "local:after-gone", title = "After Gone"))) }
+        compose.waitUntil(20_000) { model.state.value.playback.index == 1 && model.state.value.playback.playing }
+        assertEquals("After Gone", model.state.value.playback.track?.title)
+        compose.runOnIdle { model.stopPlayback() }
+    }
+
+    @Test fun aQueueOfTracksThatCannotPlayStopsWithTheErrorAfterTheLastOne() {
+        val tracks = (1..3).map { track.copy(id = "local:gone-all-$it", title = "Gone $it", localUri = Uri.fromFile(File(app.filesDir, "gone-all-$it.flac")).toString()) }
+        compose.runOnIdle { model.play(tracks) }
+        compose.waitUntil(20_000) { model.state.value.playback.index == 2 && model.state.value.playback.error != null }
+        assertFalse(model.state.value.playback.playing)
+        compose.runOnIdle { model.stopPlayback() }
+    }
+
     @Test fun localFlacRemainsPlayableInOfflineMode() {
         compose.runOnIdle { model.settings { it.copy(offline = true) }; model.play(listOf(track)) }
         compose.waitUntil(15_000) { model.state.value.playback.playing || model.state.value.playback.error != null }
