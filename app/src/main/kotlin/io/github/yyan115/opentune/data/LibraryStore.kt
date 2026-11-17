@@ -1,7 +1,9 @@
 package io.github.yyan115.opentune.data
 
 import android.content.ContentValues
+import java.io.File
 import android.content.Context
+import android.net.Uri
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import io.github.yyan115.opentune.core.JsonCodec
@@ -16,6 +18,7 @@ import org.json.JSONObject
 import java.util.UUID
 
 class LibraryStore(context: Context, databaseName: String = "library.db") : SQLiteOpenHelper(context, databaseName, null, 7) {
+    private val artworkDirectory = File(context.applicationContext.filesDir, "artwork")
     private val revision = MutableStateFlow(0L)
     val changes = revision.asStateFlow()
     override fun onCreate(db: SQLiteDatabase) {
@@ -255,7 +258,21 @@ class LibraryStore(context: Context, databaseName: String = "library.db") : SQLi
         "SELECT id,payload FROM pending_scrobbles ORDER BY id LIMIT ?", arrayOf(limit.toString())).use { buildList { while (it.moveToNext()) add(it.getLong(0) to it.getString(1)) } }
     @Synchronized fun scrobblesSent(ids: List<Long>) { ids.forEach { writableDatabase.delete("pending_scrobbles", "id=?", arrayOf(it.toString())) } }
 
+    /** Deletes a picture of the artwork folder when no track uses it. A track may point at a picture outside that folder, and that picture stays. */
+    private fun removeCoverIfUnused(address: String?) {
+        val file = address?.let { Uri.parse(it).path }?.let(::File) ?: return
+        if (file.parentFile != artworkDirectory) return
+        val used = readableDatabase.rawQuery("SELECT 1 FROM tracks WHERE payload LIKE ? LIMIT 1", arrayOf("%" + file.name + "%")).use { it.moveToFirst() }
+        if (!used) file.delete()
+    }
+
     @Synchronized fun removeLocal(id: String) {
+        val cover = get(id)?.artwork
+        removeLocalTrack(id)
+        removeCoverIfUnused(cover)
+    }
+
+    private fun removeLocalTrack(id: String) {
         if (isDeviceId(id)) {
             writableDatabase.beginTransaction()
             try {
