@@ -53,6 +53,13 @@ class QueueSavingTest {
         assertEquals(listOf(false, true, false, false, false), QueueOrder.decode(saved.getString("manual", null), 5))
     }
 
+    @Test fun aQueueThatWasEmptiedIsNotSavedAnyMore() {
+        compose.runOnIdle { model.play(tracks(2, uri())) }
+        compose.waitUntil(15_000) { savedTitles().size == 2 }
+        compose.runOnIdle { model.stopPlayback() }
+        compose.waitUntil(10_000) { savedTitles().isEmpty() }
+    }
+
     @Test fun aQueueOfThousandsOfTracksIsSavedWhole() {
         val list = tracks(3_000, uri())
         compose.runOnIdle { model.play(list) }
