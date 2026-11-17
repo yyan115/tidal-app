@@ -92,6 +92,31 @@ class LocalPlaybackTest {
         compose.runOnIdle { model.stopPlayback() }
     }
 
+    /** Plays the 24-bit test file and returns the encoding of the output that the player opens for it. */
+    private fun outputEncodingOfTheTestFile(): Int {
+        val opened = io.github.yyan115.opentune.playback.OutputFormat.opened
+        compose.runOnIdle { model.play(listOf(track)) }
+        compose.waitUntil(15_000) { model.state.value.playback.playing && io.github.yyan115.opentune.playback.OutputFormat.opened > opened }
+        assertEquals(96_000, io.github.yyan115.opentune.playback.OutputFormat.sampleRate)
+        return io.github.yyan115.opentune.playback.OutputFormat.encoding
+    }
+
+    @Test fun aTwentyFourBitFileKeepsItsBitDepthAtTheOutput() {
+        val encoding = outputEncodingOfTheTestFile()
+        assertTrue("The output of a 24-bit file uses encoding $encoding, which holds 16 bits",
+            encoding in setOf(androidx.media3.common.C.ENCODING_PCM_FLOAT, androidx.media3.common.C.ENCODING_PCM_24BIT, androidx.media3.common.C.ENCODING_PCM_32BIT))
+        compose.runOnIdle { model.stopPlayback() }
+    }
+
+    @Test fun theBitPerfectSettingKeepsSixteenBitSamplesAtTheOutput() {
+        org.junit.Assume.assumeTrue(android.os.Build.VERSION.SDK_INT >= 34)
+        compose.runOnIdle { model.settings { it.copy(bitPerfect = true) } }
+        try {
+            // A bit-perfect connection needs samples in a format of the device, so this setting keeps the output that sends whole numbers.
+            assertEquals(androidx.media3.common.C.ENCODING_PCM_16BIT, outputEncodingOfTheTestFile())
+        } finally { compose.runOnIdle { model.settings { it.copy(bitPerfect = false) }; model.stopPlayback() } }
+    }
+
     @Test fun localFlacRemainsPlayableInOfflineMode() {
         compose.runOnIdle { model.settings { it.copy(offline = true) }; model.play(listOf(track)) }
         compose.waitUntil(15_000) { model.state.value.playback.playing || model.state.value.playback.error != null }
