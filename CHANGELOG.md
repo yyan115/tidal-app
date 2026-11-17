@@ -48,6 +48,9 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Covers of local files taking more storage than needed
 - Soft cover picture in the full player
 - Queue not being shuffled after playing a list while shuffle is on
+- Saved tracks missing from the library after a sync
+- Saved tracks not following the order of the account
+- Tracks removed from the saved tracks in another app still shown as saved
 
 ## [0.7.0] - 2026-11-08
 
