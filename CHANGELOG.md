@@ -39,6 +39,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Sign-in being lost after a temporary keystore error
 - Backup missing the Autoplay, Avoid repeats, Visualizer, update check and custom equalizer settings
 - 24-bit tracks being played as 16-bit
+- Downloads failing when they start while the app is in the background on Android 12 and later
 
 ## [0.7.0] - 2026-11-08
 

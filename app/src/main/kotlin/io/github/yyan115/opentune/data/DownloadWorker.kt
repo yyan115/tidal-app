@@ -32,6 +32,7 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
     private var lastProgress = -1
     private var title = ""
     private var lastNotified = 0L
+    private var inForeground = false
 
     private companion object {
         /** The share of the progress bar that the arrival of the segments takes. The rest is the writing of the file. */
@@ -49,7 +50,7 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
         var dash: DashDownloader? = null
         var stored: DownloadFiles.Stored? = null
         try {
-            setForeground(notification(track.title, 0))
+            enterForeground(track.title)
             val stream = app.tidal.stream(track.id, app.settings.state.value.quality)
             if (stream.dashManifest != null) {
                 // The segments arrive first, which is most of the work. Then they become one tagged audio file in the download folder.
@@ -115,6 +116,16 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
         }
     }
 
+    /**
+     * Shows the download as the notification of a foreground service. Android 12 and later refuse that for work that starts
+     * while the app is in the background, such as a download that waited for Wi-Fi. The download then runs without a notification.
+     */
+    private suspend fun enterForeground(title: String) {
+        inForeground = try { setForeground(notification(title, 0)); true }
+        catch (error: kotlinx.coroutines.CancellationException) { throw error }
+        catch (_: Exception) { false }
+    }
+
     private fun progress(value: Int) {
         val percent = value.coerceIn(0, 100)
         if (percent > lastProgress) {
@@ -122,7 +133,7 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
             setProgressAsync(workDataOf("progress" to percent))
             // The notification follows the download. Android drops updates that come too fast, so it changes about once a second.
             val now = android.os.SystemClock.elapsedRealtime()
-            if (percent == 100 || now - lastNotified >= 900) { lastNotified = now; setForegroundAsync(notification(title.ifBlank { applicationContext.getString(R.string.download_preparing) }, percent)) }
+            if (inForeground && (percent == 100 || now - lastNotified >= 900)) { lastNotified = now; setForegroundAsync(notification(title.ifBlank { applicationContext.getString(R.string.download_preparing) }, percent)) }
         }
     }
 
