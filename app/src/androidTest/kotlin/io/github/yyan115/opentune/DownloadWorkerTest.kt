@@ -7,17 +7,24 @@ import androidx.work.ListenableWorker
 import androidx.work.testing.TestListenableWorkerBuilder
 import androidx.work.workDataOf
 import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.SettableFuture
 import io.github.yyan115.opentune.core.JsonCodec
 import io.github.yyan115.opentune.core.Track
 import io.github.yyan115.opentune.data.DownloadWorker
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
-/** A download does not depend on its notification. */
+/** A download does not depend on its notification, and downloads take turns. */
 @UnstableApi
 @RunWith(AndroidJUnit4::class)
 class DownloadWorkerTest {
@@ -35,5 +42,23 @@ class DownloadWorkerTest {
         // Nobody is signed in, so the download ends at the request for the stream, which comes after the notification.
         assertTrue(result is ListenableWorker.Result.Failure)
         assertEquals("problem:SIGN_IN_REQUIRED:401", (result as ListenableWorker.Result.Failure).outputData.getString("error"))
+    }
+
+    @Test fun downloadsTakeTurnsAndOnlyAFewTransferAtTheSameTime() {
+        assumeTrue("This test needs a device without an account", !app.tidal.signedIn)
+        app.settings.update { it.copy(offline = false) }
+        val inside = AtomicInteger(); val peak = AtomicInteger()
+        val timer = Executors.newSingleThreadScheduledExecutor()
+        // A download shows its notification once its turn has come. The notification takes a moment here, so that the downloads overlap.
+        fun worker(index: Int) = TestListenableWorkerBuilder<DownloadWorker>(app)
+            .setInputData(workDataOf("track" to JsonCodec.encodeTrack(track.copy(id = "22000${20 + index}")).toString()))
+            .setForegroundUpdater { _, _, _ ->
+                val now = inside.incrementAndGet(); peak.updateAndGet { maxOf(it, now) }
+                SettableFuture.create<Void>().also { future -> timer.schedule({ inside.decrementAndGet(); future.set(null) }, 300, TimeUnit.MILLISECONDS) }
+            }.build()
+        try {
+            runBlocking { (1..8).map { index -> async(Dispatchers.Default) { worker(index).doWork() } }.awaitAll() }
+        } finally { timer.shutdownNow() }
+        assertEquals(DownloadWorker.PARALLEL_DOWNLOADS, peak.get())
     }
 }
