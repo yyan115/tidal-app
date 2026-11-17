@@ -122,11 +122,6 @@ class PlaybackService : MediaLibraryService() {
         // Shuffle reorders the queue itself, so that the queue shows what plays next and "play next" and reordering do what they say.
         // The player's own shuffle order stays the natural order.
         player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(0))
-        player.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
-            override fun onAudioTrackInitialized(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioTrackConfig: androidx.media3.exoplayer.audio.AudioSink.AudioTrackConfig) {
-                OutputFormat.encoding = audioTrackConfig.encoding; OutputFormat.sampleRate = audioTrackConfig.sampleRate; OutputFormat.opened++
-            }
-        })
         player.addListener(object : Player.Listener {
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) { if (shuffleModeEnabled) shuffleUpcoming() else restoreOrder() }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {

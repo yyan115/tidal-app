@@ -94,8 +94,17 @@ class LocalPlaybackTest {
         compose.runOnIdle { model.stopPlayback() }
     }
 
+    /** Android 8 has no FLAC decoder in its media codecs, so the player has no output to open there. */
+    private fun assumeFlacCanBeDecoded() {
+        val decodes = android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
+            !info.isEncoder && info.supportedTypes.any { it.equals("audio/flac", ignoreCase = true) }
+        }
+        org.junit.Assume.assumeTrue("This system has no FLAC decoder", decodes)
+    }
+
     /** Plays the 24-bit test file and returns the encoding of the output that the player opens for it. */
     private fun outputEncodingOfTheTestFile(): Int {
+        assumeFlacCanBeDecoded()
         val opened = io.github.yyan115.opentune.playback.OutputFormat.opened
         compose.runOnIdle { model.play(listOf(track)) }
         compose.waitUntil(15_000) { model.state.value.playback.playing && io.github.yyan115.opentune.playback.OutputFormat.opened > opened }
