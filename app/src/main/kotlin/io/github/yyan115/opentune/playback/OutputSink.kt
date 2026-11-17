@@ -1,6 +1,7 @@
 package io.github.yyan115.opentune.playback
 
 import android.media.AudioDeviceInfo
+import androidx.annotation.RequiresApi
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.AuxEffectInfo
 import androidx.media3.common.Format
@@ -32,7 +33,7 @@ class OutputSink(private val float: AudioSink, private val integer: AudioSink, p
     private var bufferSeen = false
 
     private fun chosen() = if (useInteger()) integer else float
-    private inline fun both(action: AudioSink.() -> Unit) { float.action(); integer.action() }
+    private val outputs = listOf(float, integer)
 
     override fun configure(audioSinkConfig: AudioSink.AudioSinkConfig) {
         val next = chosen()
@@ -55,9 +56,9 @@ class OutputSink(private val float: AudioSink, private val integer: AudioSink, p
 
     override fun play() { playing = true; current.play() }
     override fun pause() { playing = false; current.pause() }
-    override fun flush() { bufferSeen = false; both { flush() } }
-    override fun reset() { bufferSeen = false; both { reset() } }
-    override fun release() { both { release() } }
+    override fun flush() { bufferSeen = false; outputs.forEach { it.flush() } }
+    override fun reset() { bufferSeen = false; outputs.forEach { it.reset() } }
+    override fun release() { outputs.forEach { it.release() } }
 
     // What the renderer asks before it configures a stream is answered by the output that the stream will use.
     override fun supportsFormat(format: Format) = chosen().supportsFormat(format)
@@ -76,21 +77,43 @@ class OutputSink(private val float: AudioSink, private val integer: AudioSink, p
     override fun getAudioTrackBufferSizeUs() = current.audioTrackBufferSizeUs
 
     // Every setting goes to both outputs, so that either one is ready when a stream uses it.
-    override fun setListener(listener: AudioSink.Listener) = both { setListener(listener) }
-    override fun setPlayerId(playerId: PlayerId?) = both { setPlayerId(playerId) }
-    override fun setClock(clock: Clock) = both { setClock(clock) }
-    override fun setPlaybackParameters(playbackParameters: PlaybackParameters) = both { setPlaybackParameters(playbackParameters) }
-    override fun setSkipSilenceEnabled(skipSilenceEnabled: Boolean) = both { setSkipSilenceEnabled(skipSilenceEnabled) }
-    override fun setAudioAttributes(audioAttributes: AudioAttributes) = both { setAudioAttributes(audioAttributes) }
-    override fun setAudioSessionId(audioSessionId: Int) = both { setAudioSessionId(audioSessionId) }
-    override fun setAuxEffectInfo(auxEffectInfo: AuxEffectInfo) = both { setAuxEffectInfo(auxEffectInfo) }
-    override fun setPreferredDevice(audioDeviceInfo: AudioDeviceInfo?) = both { setPreferredDevice(audioDeviceInfo) }
-    override fun setVirtualDeviceId(virtualDeviceId: Int) = both { setVirtualDeviceId(virtualDeviceId) }
-    override fun setOutputStreamOffsetUs(outputStreamOffsetUs: Long) = both { setOutputStreamOffsetUs(outputStreamOffsetUs) }
-    override fun enableTunnelingV21() = both { enableTunnelingV21() }
-    override fun disableTunneling() = both { disableTunneling() }
-    override fun setOffloadMode(offloadMode: Int) = both { setOffloadMode(offloadMode) }
-    override fun setOffloadDelayPadding(delayInFrames: Int, paddingInFrames: Int) = both { setOffloadDelayPadding(delayInFrames, paddingInFrames) }
-    override fun setAudioOutputProvider(audioOutputProvider: AudioOutputProvider) = both { setAudioOutputProvider(audioOutputProvider) }
-    override fun setVolume(volume: Float) = both { setVolume(volume) }
+    override fun setListener(listener: AudioSink.Listener) { val reporting = OutputReport(listener); outputs.forEach { it.setListener(reporting) } }
+    override fun setPlayerId(playerId: PlayerId?) = outputs.forEach { it.setPlayerId(playerId) }
+    override fun setClock(clock: Clock) = outputs.forEach { it.setClock(clock) }
+    override fun setPlaybackParameters(playbackParameters: PlaybackParameters) = outputs.forEach { it.setPlaybackParameters(playbackParameters) }
+    override fun setSkipSilenceEnabled(skipSilenceEnabled: Boolean) = outputs.forEach { it.setSkipSilenceEnabled(skipSilenceEnabled) }
+    override fun setAudioAttributes(audioAttributes: AudioAttributes) = outputs.forEach { it.setAudioAttributes(audioAttributes) }
+    override fun setAudioSessionId(audioSessionId: Int) = outputs.forEach { it.setAudioSessionId(audioSessionId) }
+    override fun setAuxEffectInfo(auxEffectInfo: AuxEffectInfo) = outputs.forEach { it.setAuxEffectInfo(auxEffectInfo) }
+    override fun setPreferredDevice(audioDeviceInfo: AudioDeviceInfo?) = outputs.forEach { it.setPreferredDevice(audioDeviceInfo) }
+    override fun setVirtualDeviceId(virtualDeviceId: Int) = outputs.forEach { it.setVirtualDeviceId(virtualDeviceId) }
+    override fun setOutputStreamOffsetUs(outputStreamOffsetUs: Long) = outputs.forEach { it.setOutputStreamOffsetUs(outputStreamOffsetUs) }
+    override fun enableTunnelingV21() = outputs.forEach { it.enableTunnelingV21() }
+    override fun disableTunneling() = outputs.forEach { it.disableTunneling() }
+    @RequiresApi(29)
+    override fun setOffloadMode(offloadMode: Int) = outputs.forEach { it.setOffloadMode(offloadMode) }
+    @RequiresApi(29)
+    override fun setOffloadDelayPadding(delayInFrames: Int, paddingInFrames: Int) = outputs.forEach { it.setOffloadDelayPadding(delayInFrames, paddingInFrames) }
+    override fun setAudioOutputProvider(audioOutputProvider: AudioOutputProvider) = outputs.forEach { it.setAudioOutputProvider(audioOutputProvider) }
+    override fun setVolume(volume: Float) = outputs.forEach { it.setVolume(volume) }
+}
+
+/** Passes every event of the output on to [next] and records the format of each output that opens. */
+@UnstableApi
+private class OutputReport(private val next: AudioSink.Listener) : AudioSink.Listener {
+    override fun onPositionDiscontinuity() = next.onPositionDiscontinuity()
+    override fun onPositionAdvancing(playoutStartSystemTimeMs: Long) = next.onPositionAdvancing(playoutStartSystemTimeMs)
+    override fun onUnderrun(bufferSize: Int, bufferSizeMs: Long, elapsedSinceLastFeedMs: Long) = next.onUnderrun(bufferSize, bufferSizeMs, elapsedSinceLastFeedMs)
+    override fun onSkipSilenceEnabledChanged(skipSilenceEnabled: Boolean) = next.onSkipSilenceEnabledChanged(skipSilenceEnabled)
+    override fun onOffloadBufferEmptying() = next.onOffloadBufferEmptying()
+    override fun onOffloadBufferFull() = next.onOffloadBufferFull()
+    override fun onAudioSinkError(audioSinkError: Exception) = next.onAudioSinkError(audioSinkError)
+    override fun onAudioCapabilitiesChanged() = next.onAudioCapabilitiesChanged()
+    override fun onAudioTrackInitialized(audioTrackConfig: AudioSink.AudioTrackConfig) {
+        OutputFormat.record(audioTrackConfig.encoding, audioTrackConfig.sampleRate)
+        next.onAudioTrackInitialized(audioTrackConfig)
+    }
+    override fun onAudioTrackReleased(audioTrackConfig: AudioSink.AudioTrackConfig) = next.onAudioTrackReleased(audioTrackConfig)
+    override fun onSilenceSkipped() = next.onSilenceSkipped()
+    override fun onAudioSessionIdChanged(audioSessionId: Int) = next.onAudioSessionIdChanged(audioSessionId)
 }

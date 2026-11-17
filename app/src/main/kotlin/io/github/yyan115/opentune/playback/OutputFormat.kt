@@ -12,4 +12,8 @@ object OutputFormat {
     /** How many outputs the player opened so far. */
     @Volatile var opened = 0
         internal set
+
+    internal fun record(encoding: Int, sampleRate: Int) {
+        this.encoding = encoding; this.sampleRate = sampleRate; opened++
+    }
 }
