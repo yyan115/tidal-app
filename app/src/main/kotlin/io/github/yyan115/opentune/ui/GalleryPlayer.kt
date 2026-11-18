@@ -271,7 +271,7 @@ private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> U
 private fun PlayerArtwork(track: Track, description: String, modifier: Modifier, visualizer: Boolean, playing: Boolean, change: ChangeTrack) {
     SwipeToChangeTrack(track.id, change, modifier.testTag("player-cover")) {
         Box(Modifier.fillMaxSize()) {
-            TrackArtwork(track, description, Modifier.fillMaxSize().graphicsLayer { alpha = if (visualizer) VISUALIZER_COVER_ALPHA else 1f })
+            TrackArtwork(track, description, Modifier.fillMaxSize().graphicsLayer { alpha = if (visualizer) VISUALIZER_COVER_ALPHA else 1f }, large = true)
             if (visualizer) SpectrumBars(playing, Modifier.matchParentSize().padding(12.dp).testTag("spectrum"))
         }
     }

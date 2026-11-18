@@ -32,6 +32,7 @@ import coil3.request.crossfade
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
+import io.github.yyan115.opentune.core.ArtworkSize
 import io.github.yyan115.opentune.core.Release
 import io.github.yyan115.opentune.core.Track
 import kotlinx.coroutines.delay
@@ -46,21 +47,29 @@ private val ArtworkRetryDelays = listOf(2_000L, 5_000L, 12_000L)
 /**
  * A cover picture. A load that fails is requested again after two, five and twelve seconds.
  * When the device regains a network, the schedule starts again at once, because a request made while it was away fails.
+ * A [large] picture asks for the larger copy of a TIDAL cover. If that copy cannot be loaded, the standard copy takes its place at once
+ * and the larger copy is not requested again for that cover.
  */
 @Composable
-fun Artwork(uri: String?, description: String?, modifier: Modifier = Modifier, placeholderSeed: String? = null) {
+fun Artwork(uri: String?, description: String?, modifier: Modifier = Modifier, placeholderSeed: String? = null, large: Boolean = false) {
     val context = LocalContext.current
     val offline = LocalOfflineMode.current
     val epoch = LocalNetworkEpoch.current
     var attempt by remember(uri) { mutableIntStateOf(0) }
     var failures by remember(uri) { mutableIntStateOf(0) }
-    val request = remember(uri, offline, context, attempt) { ImageRequest.Builder(context).data(uri)
+    var largeFailed by remember(uri) { mutableStateOf(false) }
+    val address = if (large && !offline && !largeFailed) ArtworkSize.large(uri) else uri
+    val request = remember(address, offline, context, attempt) { ImageRequest.Builder(context).data(address)
         .crossfade(true).networkCachePolicy(if (offline) CachePolicy.DISABLED else CachePolicy.ENABLED)
-        .listener(onError = { r, result -> failures++; android.util.Log.w("OpenTune", "Cover ${r.data.toString().takeLast(36)} failed: ${result.throwable.javaClass.simpleName}") },
-            onSuccess = { _, _ -> failures = 0 }).build() }
+        .listener(onError = { r, result ->
+            // A cover may have no larger copy. The standard copy is then requested at once, and the failure does not start the retry schedule.
+            if (address != uri && r.data == address) { largeFailed = true; attempt++ } else failures++
+            android.util.Log.w("OpenTune", "Cover ${r.data.toString().takeLast(36)} failed: ${result.throwable.javaClass.simpleName}")
+        }, onSuccess = { _, _ -> failures = 0 }).build() }
     LaunchedEffect(epoch) { if (failures > 0) { failures = 0; attempt++ } }
     LaunchedEffect(failures) {
-        if (failures in 1..ArtworkRetryDelays.size && !offline) { delay(ArtworkRetryDelays[failures - 1]); attempt++ }
+        val failed = failures
+        if (failed in 1..ArtworkRetryDelays.size && !offline) { delay(ArtworkRetryDelays[failed - 1]); attempt++ }
     }
     Box(modifier.clip(MaterialTheme.shapes.small).background(placeholderBrush(placeholderSeed)), contentAlignment = Alignment.Center) {
         if (placeholderSeed != null) Icon(OpenTuneIcons.MusicNote, null, Modifier.fillMaxSize(.34f), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = .55f))
@@ -83,8 +92,8 @@ private fun placeholderBrush(seed: String?): Brush {
 
 /** The cover of a track. A file without a picture gets a coloured tile with a note, which tells it from a TIDAL track whose cover is still loading. */
 @Composable
-fun TrackArtwork(track: Track, description: String?, modifier: Modifier = Modifier) =
-    Artwork(track.artwork, description, modifier, if (track.isFile && track.artwork == null) track.album.ifBlank { track.artist.ifBlank { track.title } } else null)
+fun TrackArtwork(track: Track, description: String?, modifier: Modifier = Modifier, large: Boolean = false) =
+    Artwork(track.artwork, description, modifier, if (track.isFile && track.artwork == null) track.album.ifBlank { track.artist.ifBlank { track.title } } else null, large)
 
 /** Marks a file that the listener added from the device. A TIDAL track carries no mark, because TIDAL is what the app is for. */
 @Composable

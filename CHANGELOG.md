@@ -32,6 +32,25 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Downloads waiting for Wi-Fi not starting after Download over mobile data is turned on
 - Clear failed downloads showing when no download has failed
 - Visualizer showing the lowest bars at the same height and the treble too low
+- Wrong track being removed from the queue after another track was removed
+- Library sync stopping after TIDAL refused a saved track
+- Playback retrying every 2 seconds without end after a failure
+- Waiting ListenBrainz listens being dropped on a rate limit
+- Sign-in being lost after a temporary keystore error
+- Backup missing the Autoplay, Avoid repeats, Visualizer, update check and custom equalizer settings
+- 24-bit tracks being played as 16-bit
+- Downloads failing when they start while the app is in the background on Android 12 and later
+- Video sound playing on after the picture-in-picture window is closed
+- Download all starting every download at once
+- Queue stopping at a track that cannot play
+- Queue and position being lost after the app is swiped away
+- Stutter with queues of thousands of tracks
+- Covers of local files taking more storage than needed
+- Soft cover picture in the full player
+- Queue not being shuffled after playing a list while shuffle is on
+- Saved tracks list ending before the last track
+- Saved tracks not following the order of the account
+- Tracks removed from the saved tracks in another app still shown as saved
 
 ## [0.7.0] - 2026-11-08
 

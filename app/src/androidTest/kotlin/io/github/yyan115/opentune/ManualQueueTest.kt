@@ -88,6 +88,26 @@ class ManualQueueTest {
         assertEquals(listOf("A", "Added X", "Added Y", "Added Z", "B", "C", "D", "E", "F", "G", "H"), titles())
     }
 
+    @Test fun aNewListPlayedWhileShuffleIsOnIsShuffledAndKeepsTheChosenTrackFirst() {
+        compose.runOnIdle { model.toggleShuffle() }
+        compose.waitUntil(10_000) { model.state.value.playback.shuffle }
+        val more = (1..12).map { playlist[0].copy(id = "local:fresh-$it", title = "Fresh $it") }
+        more.forEach(app.library::save)
+        try {
+            compose.runOnIdle { model.play(more, 4, "Another list") }
+            compose.waitUntil(15_000) { model.state.value.playback.queue.size == 12 && model.state.value.playback.queue.first().title == "Fresh 5" }
+            Thread.sleep(1_500)
+            val shown = model.state.value.playback.queue.map(Track::title)
+            assertEquals("The chosen track plays first", "Fresh 5", shown.first())
+            assertEquals("Every track of the list is in the queue", more.map(Track::title).sorted(), shown.sorted())
+            assertTrue("The rest of the queue is shuffled: $shown", shown.drop(1) != more.map(Track::title).filterNot { it == "Fresh 5" })
+            // Turning shuffle off puts the rest of the list back in its own order.
+            compose.runOnIdle { model.toggleShuffle() }
+            val inOrder = listOf("Fresh 5") + more.map(Track::title).filterNot { it == "Fresh 5" }
+            compose.waitUntil(10_000) { !model.state.value.playback.shuffle && model.state.value.playback.queue.map(Track::title) == inOrder }
+        } finally { more.forEach { app.library.removeLocal(it.id) } }
+    }
+
     @Test fun anEmptyQueueStartsPlayingTheTrack() {
         compose.runOnIdle { model.stopPlayback() }
         compose.waitUntil(10_000) { model.state.value.playback.queue.isEmpty() }

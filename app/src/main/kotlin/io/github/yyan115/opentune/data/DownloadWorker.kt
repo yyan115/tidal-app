@@ -18,8 +18,11 @@ import io.github.yyan115.opentune.R
 import io.github.yyan115.opentune.OpenTuneApp
 import io.github.yyan115.opentune.core.JsonCodec
 import io.github.yyan115.opentune.core.StreamManifest
+import io.github.yyan115.opentune.core.Track
 import io.github.yyan115.opentune.playback.AudioSources
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import org.json.JSONObject
@@ -32,10 +35,20 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
     private var lastProgress = -1
     private var title = ""
     private var lastNotified = 0L
+    private var inForeground = false
 
-    private companion object {
+    companion object {
         /** The share of the progress bar that the arrival of the segments takes. The rest is the writing of the file. */
-        const val SEGMENT_SHARE = 85
+        private const val SEGMENT_SHARE = 85
+
+        /** How many downloads transfer data at the same time. The others wait for their turn. */
+        const val PARALLEL_DOWNLOADS = 2
+
+        /** The key of the progress data that says a download waits for its turn. */
+        const val WAITING = "waiting"
+
+        // WorkManager starts every download that it may run, so the downloads take turns here.
+        private val turns = Semaphore(PARALLEL_DOWNLOADS)
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -45,11 +58,17 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
         if (track.onDevice || app.library.get(track.id)?.onDevice == true) return@withContext Result.success()
         if (app.settings.state.value.offline) return@withContext Result.retry()
         if (!app.downloadFiles.canWrite()) return@withContext Result.failure(workDataOf("error" to "storage"))
+        setProgress(workDataOf(WAITING to true))
+        turns.withPermit { download(track) }
+    }
+
+    private suspend fun download(track: Track): Result {
+        progress(0)
         var temporary: File? = null
         var dash: DashDownloader? = null
         var stored: DownloadFiles.Stored? = null
-        try {
-            setForeground(notification(track.title, 0))
+        return try {
+            enterForeground(track.title)
             val stream = app.tidal.stream(track.id, app.settings.state.value.quality)
             if (stream.dashManifest != null) {
                 // The segments arrive first, which is most of the work. Then they become one tagged audio file in the download folder.
@@ -110,9 +129,19 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
             dash?.let { runCatching { it.remove() } }
             if (dash != null) app.sources.offlineFile(track.id).delete()
             if (isStopped) throw error
-            if (app.settings.state.value.offline) return@withContext Result.retry()
+            if (app.settings.state.value.offline) return Result.retry()
             Result.failure(workDataOf("error" to downloadErrorCode(error)))
         }
+    }
+
+    /**
+     * Shows the download as the notification of a foreground service. Android 12 and later refuse that for work that starts
+     * while the app is in the background, such as a download that waited for Wi-Fi. The download then runs without a notification.
+     */
+    private suspend fun enterForeground(title: String) {
+        inForeground = try { setForeground(notification(title, 0)); true }
+        catch (error: kotlinx.coroutines.CancellationException) { throw error }
+        catch (_: Exception) { false }
     }
 
     private fun progress(value: Int) {
@@ -122,7 +151,7 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
             setProgressAsync(workDataOf("progress" to percent))
             // The notification follows the download. Android drops updates that come too fast, so it changes about once a second.
             val now = android.os.SystemClock.elapsedRealtime()
-            if (percent == 100 || now - lastNotified >= 900) { lastNotified = now; setForegroundAsync(notification(title.ifBlank { applicationContext.getString(R.string.download_preparing) }, percent)) }
+            if (inForeground && (percent == 100 || now - lastNotified >= 900)) { lastNotified = now; setForegroundAsync(notification(title.ifBlank { applicationContext.getString(R.string.download_preparing) }, percent)) }
         }
     }
 

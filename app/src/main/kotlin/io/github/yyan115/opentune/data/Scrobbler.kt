@@ -5,14 +5,12 @@ import io.github.yyan115.opentune.BuildConfig
 import io.github.yyan115.opentune.OpenTuneApp
 import io.github.yyan115.opentune.core.Listen
 import io.github.yyan115.opentune.core.ListenBrainzClient
-import io.github.yyan115.opentune.core.ServiceException
+import io.github.yyan115.opentune.core.ListenUpload
 import io.github.yyan115.opentune.core.Track
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.io.IOException
 
 /**
  * Sends finished listens to ListenBrainz when the listener turned scrobbling on and added a token.
@@ -41,23 +39,11 @@ class Scrobbler(private val app: OpenTuneApp) {
         flush()
     }
 
-    /** Sends the queued listens. A rejected batch is dropped, and an unreachable server keeps the queue for later. */
+    /** Sends the queued listens. A batch that the server refuses for good is dropped, and a server that cannot take them at the moment keeps the queue for later. */
     suspend fun flush() {
         if (!enabled) return
         lock.withLock {
-            withContext(Dispatchers.IO) {
-                while (true) {
-                    val pending = app.library.pendingScrobbles(50)
-                    if (pending.isEmpty()) return@withContext
-                    try {
-                        client.submit(pending.map { JSONObject(it.second) })
-                        app.library.scrobblesSent(pending.map { it.first })
-                    } catch (error: ServiceException) {
-                        if (error.status == 401) return@withContext
-                        app.library.scrobblesSent(pending.map { it.first })
-                    } catch (_: IOException) { return@withContext }
-                }
-            }
+            withContext(Dispatchers.IO) { ListenUpload.flush({ app.library.pendingScrobbles(50) }, client::submit, app.library::scrobblesSent) }
         }
     }
 

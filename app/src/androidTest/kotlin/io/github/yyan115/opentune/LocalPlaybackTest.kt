@@ -39,6 +39,8 @@ class LocalPlaybackTest {
             localUri = Uri.fromFile(file).toString(), quality = "FLAC · 24-bit · 96 kHz")
         app.library.save(track)
         compose.waitUntil(10_000) { model.state.value.local.any { it.id == track.id } }
+        // The player keeps the shuffle setting between tests, so every test starts with shuffle off.
+        compose.runOnIdle { model.play(listOf(track), 0, "", shuffle = false); model.stopPlayback() }
     }
 
     @Test fun localFlacPlaysThroughTheInterfaceAndPauses() {
@@ -65,6 +67,81 @@ class LocalPlaybackTest {
         compose.waitUntil(5_000) { model.state.value.playback.queue.size == 2 }
         assertEquals(listOf(track.id, track.id), model.state.value.playback.queue.map(Track::id))
         screenshot("queue")
+    }
+
+    @Test fun removingSeveralRowsFromTheQueueRemovesTheRowsThatWereSwiped() {
+        val tracks = (1..5).map { track.copy(id = "local:remove-$it", title = "Remove $it") }
+        compose.runOnIdle { model.play(tracks) }
+        compose.waitUntil(10_000) { model.state.value.playback.queue.size == 5 }
+        compose.onNodeWithTag("mini-player").performClick()
+        compose.onNodeWithText("Queue · 5").performClick()
+        compose.onNode(hasContentDescription("Reorder Remove 2")).performTouchInput { swipeLeft() }
+        compose.waitUntil(5_000) { model.state.value.playback.queue.size == 4 }
+        // The row of the fourth track moved up by one place, and its swipe removes that track.
+        compose.onNode(hasContentDescription("Reorder Remove 4")).performTouchInput { swipeLeft() }
+        compose.waitUntil(5_000) { model.state.value.playback.queue.size == 3 }
+        assertEquals(listOf("Remove 1", "Remove 3", "Remove 5"), model.state.value.playback.queue.map(Track::title))
+    }
+
+    @Test fun aLocalFileThatIsGoneShowsItsErrorAndIsNotTriedAgain() {
+        val gone = track.copy(id = "local:gone", title = "Gone", localUri = Uri.fromFile(File(app.filesDir, "gone.flac")).toString())
+        val before = io.github.yyan115.opentune.playback.PlaybackService.retries
+        compose.runOnIdle { model.play(listOf(gone)) }
+        compose.waitUntil(15_000) { model.state.value.playback.error != null }
+        // A failure that can pass is tried again after two seconds. A missing file cannot pass.
+        Thread.sleep(5_000)
+        assertEquals(before, io.github.yyan115.opentune.playback.PlaybackService.retries)
+        compose.runOnIdle { model.stopPlayback() }
+    }
+
+    /** Android 8 has no FLAC decoder in its media codecs, so the player has no output to open there. */
+    private fun assumeFlacCanBeDecoded() {
+        val decodes = android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
+            !info.isEncoder && info.supportedTypes.any { it.equals("audio/flac", ignoreCase = true) }
+        }
+        org.junit.Assume.assumeTrue("This system has no FLAC decoder", decodes)
+    }
+
+    /** Plays the 24-bit test file and returns the encoding of the output that the player opens for it. */
+    private fun outputEncodingOfTheTestFile(): Int {
+        assumeFlacCanBeDecoded()
+        val opened = io.github.yyan115.opentune.playback.OutputFormat.opened
+        compose.runOnIdle { model.play(listOf(track)) }
+        compose.waitUntil(15_000) { model.state.value.playback.playing && io.github.yyan115.opentune.playback.OutputFormat.opened > opened }
+        assertEquals(96_000, io.github.yyan115.opentune.playback.OutputFormat.sampleRate)
+        return io.github.yyan115.opentune.playback.OutputFormat.encoding
+    }
+
+    @Test fun aTwentyFourBitFileKeepsItsBitDepthAtTheOutput() {
+        val encoding = outputEncodingOfTheTestFile()
+        assertTrue("The output of a 24-bit file uses encoding $encoding, which holds 16 bits",
+            encoding in setOf(androidx.media3.common.C.ENCODING_PCM_FLOAT, androidx.media3.common.C.ENCODING_PCM_24BIT, androidx.media3.common.C.ENCODING_PCM_32BIT))
+        compose.runOnIdle { model.stopPlayback() }
+    }
+
+    @Test fun theBitPerfectSettingKeepsSixteenBitSamplesAtTheOutput() {
+        org.junit.Assume.assumeTrue(android.os.Build.VERSION.SDK_INT >= 34)
+        compose.runOnIdle { model.settings { it.copy(bitPerfect = true) } }
+        try {
+            // A bit-perfect connection needs samples in a format of the device, so this setting keeps the output that sends whole numbers.
+            assertEquals(androidx.media3.common.C.ENCODING_PCM_16BIT, outputEncodingOfTheTestFile())
+        } finally { compose.runOnIdle { model.settings { it.copy(bitPerfect = false) }; model.stopPlayback() } }
+    }
+
+    @Test fun aTrackThatCannotPlayIsSkippedAndTheQueueGoesOn() {
+        val gone = track.copy(id = "local:gone-first", title = "Gone", localUri = Uri.fromFile(File(app.filesDir, "gone-first.flac")).toString())
+        compose.runOnIdle { model.play(listOf(gone, track.copy(id = "local:after-gone", title = "After Gone"))) }
+        compose.waitUntil(20_000) { model.state.value.playback.index == 1 && model.state.value.playback.playing }
+        assertEquals("After Gone", model.state.value.playback.track?.title)
+        compose.runOnIdle { model.stopPlayback() }
+    }
+
+    @Test fun aQueueOfTracksThatCannotPlayStopsWithTheErrorAfterTheLastOne() {
+        val tracks = (1..3).map { track.copy(id = "local:gone-all-$it", title = "Gone $it", localUri = Uri.fromFile(File(app.filesDir, "gone-all-$it.flac")).toString()) }
+        compose.runOnIdle { model.play(tracks) }
+        compose.waitUntil(20_000) { model.state.value.playback.index == 2 && model.state.value.playback.error != null }
+        assertFalse(model.state.value.playback.playing)
+        compose.runOnIdle { model.stopPlayback() }
     }
 
     @Test fun localFlacRemainsPlayableInOfflineMode() {

@@ -135,7 +135,13 @@ object Placeholders {
     @Volatile var unknownArtist = "Unknown artist"
 }
 
-class ServiceException(val status: Int, message: String, val problem: Problem = Problem.forStatus(status)) : Exception(message)
+class ServiceException(val status: Int, message: String, val problem: Problem = Problem.forStatus(status)) : Exception(message) {
+    /**
+     * Whether the service refused the request for good, so that sending it again cannot succeed.
+     * A missing sign-in, a timeout and a rate limit pass by, and the request can be sent again.
+     */
+    val refused: Boolean get() = status in 400..499 && status != 401 && status != 408 && status != 429
+}
 class ProtectedStreamException : Exception("This stream requires content protection that this client does not support.")
 
 fun formatDuration(milliseconds: Long): String {

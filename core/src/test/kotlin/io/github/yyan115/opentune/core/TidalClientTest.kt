@@ -176,6 +176,51 @@ class TidalClientTest {
         assertNotEquals(login.state, client.beginPkce().state)
     }
 
+    private fun savedTracks(first: Int, count: Int) = (first until first + count).joinToString(",") { """{"item":{"id":$it,"title":"Song $it"}}""" }
+
+    @Test fun allSavedTracksAreReadWhenAPageHoldsFewerItemsThanAskedFor() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"totalNumberOfItems":250,"items":[${savedTracks(1, 99)}]}"""))
+        server.enqueue(MockResponse().setBody("""{"totalNumberOfItems":250,"items":[${savedTracks(101, 100)}]}"""))
+        server.enqueue(MockResponse().setBody("""{"totalNumberOfItems":250,"items":[${savedTracks(201, 50)}]}"""))
+        val tracks = client.allFavorites()
+        assertEquals(249, tracks.size)
+        assertEquals("Song 250", tracks.last().title)
+        assertEquals(listOf("0", "100", "200"), List(3) { server.takeRequest().requestUrl!!.queryParameter("offset") })
+    }
+
+    @Test fun aListWithoutACountEndsAtTheFirstPageThatIsNotFull() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"items":[${savedTracks(1, 100)}]}"""))
+        server.enqueue(MockResponse().setBody("""{"items":[${savedTracks(101, 30)}]}"""))
+        assertEquals(130, client.allFavorites().size)
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test fun aListThatEndsOnAFullPageIsNotReadFurther() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"totalNumberOfItems":100,"items":[${savedTracks(1, 100)}]}"""))
+        assertEquals(100, client.allFavorites().size)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun anEmptyListIsOnePage() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"totalNumberOfItems":0,"items":[]}"""))
+        assertEquals(0, client.allFavorites().size)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun allSavedAlbumsAndPlaylistsFollowTheCountToo() = runBlocking {
+        val albums = { first: Int, count: Int -> (first until first + count).joinToString(",") { """{"item":{"id":$it,"title":"Album $it"}}""" } }
+        server.enqueue(MockResponse().setBody("""{"totalNumberOfItems":150,"items":[${albums(1, 97)}]}"""))
+        server.enqueue(MockResponse().setBody("""{"totalNumberOfItems":150,"items":[${albums(101, 50)}]}"""))
+        assertEquals(147, client.allFavoriteAlbums().size)
+        val lists = { first: Int, count: Int -> (first until first + count).joinToString(",") { """{"playlist":{"uuid":"list-$it","title":"List $it"}}""" } }
+        server.enqueue(MockResponse().setBody("""{"totalNumberOfItems":60,"items":[${lists(1, 49)}]}"""))
+        server.enqueue(MockResponse().setBody("""{"totalNumberOfItems":60,"items":[${lists(51, 10)}]}"""))
+        assertEquals(59, client.allPlaylists().size)
+        repeat(2) { server.takeRequest() }
+        server.takeRequest().also { assertEquals("0", it.requestUrl!!.queryParameter("offset")) }
+        assertEquals("50", server.takeRequest().requestUrl!!.queryParameter("offset"))
+    }
+
     @Test fun loadsOwnedAndFollowedPlaylistsAcrossFiftyItemPages() = runBlocking {
         val page = (1..50).joinToString(",") { """{"playlist":{"uuid":"list-$it","title":"List $it","creator":{"id":123}}}""" }
         server.enqueue(MockResponse().setBody("""{"items":[$page]}"""))

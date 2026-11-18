@@ -1,8 +1,8 @@
 package io.github.yyan115.opentune.playback
 
 import androidx.media3.common.C
-import androidx.media3.common.audio.AudioProcessor.AudioFormat
-import androidx.media3.common.audio.BaseAudioProcessor
+import androidx.media3.common.Format
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import io.github.yyan115.opentune.core.Spectrum
 import java.nio.ByteBuffer
@@ -51,11 +51,11 @@ object AudioSpectrum {
 }
 
 /**
- * Passes the audio on unchanged and lets [AudioSpectrum] see it. The samples of all channels are averaged,
+ * Lets [AudioSpectrum] see the audio on its way to the output. The samples of all channels are averaged,
  * and a rate above 48 kHz is brought down by whole steps, so that the analysis covers the same span of time at every rate.
  */
 @UnstableApi
-class SpectrumProcessor : BaseAudioProcessor() {
+class SpectrumTap {
     private var encoding = C.ENCODING_INVALID
     private var channels = 2
     private var step = 1
@@ -63,21 +63,21 @@ class SpectrumProcessor : BaseAudioProcessor() {
     private var sum = 0f
     private var count = 0
 
-    override fun onConfigure(inputAudioFormat: AudioFormat): AudioFormat {
-        // A format that the tap cannot read, such as compressed audio sent on to a receiver, is left alone.
-        if (inputAudioFormat.encoding !in SUPPORTED) return AudioFormat.NOT_SET
-        AudioSpectrum.configuration = "encoding ${inputAudioFormat.encoding}, ${inputAudioFormat.channelCount} channels, ${inputAudioFormat.sampleRate} Hz"
-        encoding = inputAudioFormat.encoding; channels = inputAudioFormat.channelCount.coerceAtLeast(1)
-        step = (inputAudioFormat.sampleRate / 48_000).coerceAtLeast(1); rate = inputAudioFormat.sampleRate / step
+    /** Sets the format of the audio that follows. A format that the tap cannot read, such as compressed audio sent on to a receiver, turns it off. */
+    fun configure(format: Format) {
+        val readable = format.sampleMimeType == MimeTypes.AUDIO_RAW && format.pcmEncoding in SUPPORTED && format.sampleRate > 0
+        encoding = if (readable) format.pcmEncoding else C.ENCODING_INVALID
+        if (!readable) return
+        AudioSpectrum.configuration = "encoding ${format.pcmEncoding}, ${format.channelCount} channels, ${format.sampleRate} Hz"
+        channels = format.channelCount.coerceAtLeast(1)
+        step = (format.sampleRate / 48_000).coerceAtLeast(1); rate = format.sampleRate / step
         sum = 0f; count = 0
-        return inputAudioFormat
     }
 
-    override fun queueInput(inputBuffer: ByteBuffer) {
-        val size = inputBuffer.remaining()
-        if (size == 0) return
-        if (AudioSpectrum.enabled) tap(inputBuffer.duplicate().order(ByteOrder.LITTLE_ENDIAN))
-        replaceOutputBuffer(size).put(inputBuffer).flip()
+    /** Reads the samples of [buffer] without changing it. */
+    fun accept(buffer: ByteBuffer) {
+        if (encoding == C.ENCODING_INVALID || !AudioSpectrum.enabled || !buffer.hasRemaining()) return
+        tap(buffer.duplicate().order(ByteOrder.LITTLE_ENDIAN))
     }
 
     private fun tap(buffer: ByteBuffer) {

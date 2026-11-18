@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
@@ -136,7 +137,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 controller = player
                 player.addListener(object : Player.Listener {
                     override fun onEvents(player: Player, events: Player.Events) {
-                        updatePlayback(); persistQueue()
+                        // The queue is read again only when it changed. A change of position or of the play state leaves it as it is.
+                        updatePlayback(rebuildQueue = events.contains(Player.EVENT_TIMELINE_CHANGED) || ui.value.playback.queue.size != player.mediaItemCount)
                         if (events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) && player.playbackState == Player.STATE_ENDED) continueWithSimilarMusic(player)
                     }
                     override fun onPlayerError(error: PlaybackException) {
@@ -165,7 +167,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-        viewModelScope.launch { while (true) { delay(10_000); persistQueue() } }
         // A scan stores a file after a file. The lists refresh once the changes pause, not after each one.
         viewModelScope.launch { app.library.changes.collectLatest { delay(200); refreshLocal() } }
         viewModelScope.launch { app.folders.scans.collect { scans -> ui.update { it.copy(scans = scans) } } }
@@ -251,8 +252,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val folderFiles = withContext(Dispatchers.IO) { app.library.folderFileIds() }
         val pending = withContext(Dispatchers.IO) { app.library.pendingFavorites(app.tidal.accountId) }
         val localById = local.associateBy(Track::id)
-        ui.update { it.copy(local = local, favorites = (favorites + cloudFavorites).filter { track -> pending[track.id] != false }.distinctBy(Track::id)
-            .map { track -> localById[track.id] ?: track }, recent = recent, localPlaylists = playlists, deviceFolders = folders, folderFiles = folderFiles) }
+        ui.update { it.copy(local = local, favorites = SavedTracks.merge(favorites, cloudFavorites, pending).map { track -> localById[track.id] ?: track }, recent = recent, localPlaylists = playlists, deviceFolders = folders, folderFiles = folderFiles) }
     }
 
     fun search(text: String) { query.value = text; ui.update { it.copy(searchQuery = text) } }
@@ -317,7 +317,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 favoriteSyncLock.withLock {
                     drainFavorites(account)
                     cloudFavorites = app.tidal.allFavorites(); favoritesOffset = cloudFavorites.size
-                    withContext(Dispatchers.IO) { app.library.cache(account, "favorites", JsonCodec.encodeTracks(cloudFavorites)) }
+                    withContext(Dispatchers.IO) {
+                        app.library.cache(account, "favorites", JsonCodec.encodeTracks(cloudFavorites))
+                        // A track that was removed from the saved tracks in another app stops being shown as saved.
+                        val removed = SavedTracks.removedElsewhere(app.library.favorites(), cloudFavorites, app.library.pendingFavorites(account))
+                        if (removed.isNotEmpty()) app.library.clearFavorites(removed.map(Track::id))
+                    }
                 }
                 ui.update { it.copy(hasMoreFavorites = false) }
                 refreshLocal()
@@ -410,8 +415,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // With shuffle on, the chosen track plays first and every other track is still to come, so that all of them take part.
         val queue = if (shuffled) listOf(tracks[start]) + tracks.filterIndexed { position, _ -> position != start } else tracks
         player.setMediaItems(queue.map(app.sources::unresolved), if (shuffled) 0 else start, 0)
-        if (shuffled) player.sendCustomCommand(PlaybackCommands.Reshuffle, android.os.Bundle.EMPTY)
+        if (shuffled) reshuffleOnceApplied(player, queue.size, queue.first().id)
         player.prepare(); player.play()
+    }
+
+    /**
+     * Shuffles the new queue once the player holds it. The service resolves the tracks before it applies a new queue, so a command that is sent
+     * right after the queue would shuffle the previous queue, and the new one would play in its original order.
+     */
+    private fun reshuffleOnceApplied(player: Player, size: Int, firstId: String) {
+        val listener = object : Player.Listener {
+            override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                if (player.mediaItemCount != size || player.getMediaItemAt(0).mediaId != firstId) return
+                player.removeListener(this)
+                (player as? MediaController)?.sendCustomCommand(PlaybackCommands.Reshuffle, android.os.Bundle.EMPTY)
+            }
+        }
+        player.addListener(listener)
+        // A queue that arrives unchanged raises no event, and the listener is not kept for ever.
+        viewModelScope.launch { delay(10_000); player.removeListener(listener) }
     }
     fun togglePlay() {
         controller?.let { player ->
@@ -477,13 +499,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         while (account.isNotBlank() && account == app.tidal.accountId && !ui.value.settings.offline) {
             val changes = withContext(Dispatchers.IO) { app.library.pendingFavorites(account) }
             if (changes.isEmpty()) return
-            for ((id, favorite) in changes) {
-                if (account != app.tidal.accountId || ui.value.settings.offline) return
-                app.tidal.setFavorite(id, favorite)
-                val track = withContext(Dispatchers.IO) { app.library.favoriteSynced(account, id, favorite); app.library.get(id) }
-                if (account != app.tidal.accountId) return
-                cloudFavorites = if (favorite && track != null) (listOf(track) + cloudFavorites).distinctBy(Track::id) else cloudFavorites.filterNot { it.id == id }
-            }
+            var refused = 0
+            FavoriteSync.upload(changes, active = { account == app.tidal.accountId && !ui.value.settings.offline },
+                send = { id, favorite -> app.tidal.setFavorite(id, favorite) },
+                sent = { id, favorite ->
+                    val track = withContext(Dispatchers.IO) { app.library.favoriteSynced(account, id, favorite); app.library.get(id) }
+                    if (account == app.tidal.accountId) cloudFavorites = if (favorite && track != null) (listOf(track) + cloudFavorites).distinctBy(Track::id) else cloudFavorites.filterNot { it.id == id }
+                },
+                rejected = { id, favorite ->
+                    // TIDAL refuses this change for good, so it leaves the waiting changes and the sync goes on. A track that could not be saved is not shown as saved.
+                    withContext(Dispatchers.IO) {
+                        app.library.favoriteSynced(account, id, favorite)
+                        if (favorite) app.library.get(id)?.let { app.library.setFavorite(it, false) }
+                    }
+                    refused++
+                })
+            if (account != app.tidal.accountId || ui.value.settings.offline) return
+            if (refused > 0) notify(app.resources.getQuantityString(R.plurals.notify_favorites_refused, refused, refused))
             withContext(Dispatchers.IO) { app.library.cache(account, "favorites", JsonCodec.encodeTracks(cloudFavorites)) }
             refreshLocal()
         }
@@ -807,12 +839,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } catch (error: Exception) { if (error is CancellationException) throw error; notify(app.getString(R.string.notify_playlist_not_saved)) }
     }
 
-    private fun updatePlayback() {
+    // The tracks of the queue by their JSON text, so that a track is read once however often the player reports.
+    private val decodedTracks = HashMap<String, Track>()
+
+    private fun updatePlayback(rebuildQueue: Boolean = true) {
         val player = controller ?: return
-        val queue = (0 until player.mediaItemCount).mapNotNull { index ->
-            player.getMediaItemAt(index).mediaMetadata.extras?.getString("track")?.let {
-                runCatching { JsonCodec.decodeTrack(JSONObject(it)) }.getOrNull()
-            }
+        val queue = if (!rebuildQueue) ui.value.playback.queue else {
+            val texts = (0 until player.mediaItemCount).mapNotNull { index -> player.getMediaItemAt(index).mediaMetadata.extras?.getString("track") }
+            val tracks = texts.mapNotNull { text -> decodedTracks[text] ?: runCatching { JsonCodec.decodeTrack(JSONObject(text)) }.getOrNull()?.also { decodedTracks[text] = it } }
+            decodedTracks.keys.retainAll(texts.toSet())
+            tracks
         }
         val quality = player.currentMediaItem?.localConfiguration?.tag as? String ?: queue.getOrNull(player.currentMediaItemIndex)?.quality.orEmpty()
         ui.update { it.copy(playback = it.playback.copy(queue = queue, index = player.currentMediaItemIndex.coerceAtLeast(0),
@@ -821,13 +857,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             error = if (player.playerError == null) null else it.playback.error)) }
     }
 
-    private fun persistQueue() {
-        val player = controller ?: return
-        preferences.edit().putString("queue", JsonCodec.encodeTracks(ui.value.playback.queue))
-            .putString("manual", QueueOrder.encode(player.manualMarks()))
-            .putInt("index", player.currentMediaItemIndex.coerceAtLeast(0)).putLong("position", player.currentPosition.coerceAtLeast(0))
-            .putBoolean("shuffle", player.shuffleModeEnabled).putInt("repeat", player.repeatMode).apply()
-    }
     private fun restoreQueue() {
         if ((controller?.mediaItemCount ?: 0) > 0) return
         val saved = preferences.getString("queue", null) ?: return
@@ -953,6 +982,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         if (networkCallbackRegistered) runCatching { connectivity.unregisterNetworkCallback(networkCallback) }
-        persistQueue(); MediaController.releaseFuture(controllerFuture); super.onCleared()
+        MediaController.releaseFuture(controllerFuture); super.onCleared()
     }
 }

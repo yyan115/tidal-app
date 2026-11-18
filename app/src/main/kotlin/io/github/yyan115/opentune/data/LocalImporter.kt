@@ -43,10 +43,7 @@ class LocalImporter(private val context: Context, private val library: LibrarySt
             retriever.setDataSource(context, uri)
             val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0
             val format = readFormat(uri, retriever, size, duration)
-            val art = retriever.embeddedPicture?.let { bytes ->
-                val file = File(context.filesDir, "artwork").apply { mkdirs() }.resolve(id.replace(':', '_') + ".jpg")
-                file.outputStream().use { it.write(bytes) }; Uri.fromFile(file).toString()
-            } ?: cover?.let(::copyCover)
+            val art = retriever.embeddedPicture?.let(::storeEmbeddedCover) ?: cover?.let(::copyCover)
             val track = Track(id, retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)?.takeIf(String::isNotBlank) ?: filename.substringBeforeLast('.'),
                 retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)?.takeIf(String::isNotBlank)
                     ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)?.takeIf(String::isNotBlank)
@@ -96,6 +93,14 @@ class LocalImporter(private val context: Context, private val library: LibrarySt
             buffer.copyOf(read)
         }
     }.getOrNull() ?: ByteArray(0)
+
+    /** Stores a picture that sits inside a file. The name comes from the picture, so the files of one album share one copy. */
+    private fun storeEmbeddedCover(bytes: ByteArray): String {
+        val name = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }.take(24)
+        val file = File(context.filesDir, "artwork").apply { mkdirs() }.resolve("embedded_$name.jpg")
+        if (!file.exists()) file.writeBytes(bytes)
+        return Uri.fromFile(file).toString()
+    }
 
     /** Copies a cover picture next to the artwork of other files. Files of one folder share one copy. */
     private fun copyCover(cover: Uri): String? = runCatching {
