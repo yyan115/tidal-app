@@ -94,7 +94,6 @@ class LocalImporter(private val context: Context, private val library: LibrarySt
         }
     }.getOrNull() ?: ByteArray(0)
 
-    /** Copies a cover picture next to the artwork of other files. Files of one folder share one copy. */
     /** Stores a picture that sits inside a file. The name comes from the picture, so the files of one album share one copy. */
     private fun storeEmbeddedCover(bytes: ByteArray): String {
         val name = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }.take(24)
@@ -103,6 +102,7 @@ class LocalImporter(private val context: Context, private val library: LibrarySt
         return Uri.fromFile(file).toString()
     }
 
+    /** Copies a cover picture next to the artwork of other files. Files of one folder share one copy. */
     private fun copyCover(cover: Uri): String? = runCatching {
         val directory = File(context.filesDir, "artwork").apply { mkdirs() }
         val name = MessageDigest.getInstance("SHA-256").digest(DocumentKey.of(cover.toString()).toByteArray()).joinToString("") { "%02x".format(it) }.take(24)
