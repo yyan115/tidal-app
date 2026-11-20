@@ -8,14 +8,28 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 - Drag gesture to open and close the full player
 - Swipe on a track to play it next or add it to the queue
-- Custom time for Avoid repeats, from 1 hour to 365 days
+- Custom time for Avoid repeats, from 1 minute to 365 days, entered as days, hours and minutes
+- Download folder setting with the system folder picker, applied to new downloads
+- Card for the download that runs, in the list of what is on the device
+- Location of a downloaded track in its details
+- Notifications row in Settings
+- "End of queue" and "Start of queue" messages when a swipe has no track to go to
+- "No connection" message in the small and the full player when a lost connection stops playback
 - Description of the Experimental section
 
 ### Changed
 
 - OpenTune needs Android 10 or later, so that it saves downloads without any storage permission
 - Swipe on the small player or the cover changes the track
-- Stop playback moved to the menu of the full player
+- Stop playback moved to the end of the menu of the full player
+- Small player without a Next button
+- The full player grows out of the small player and shrinks back into it
+- Queue sheet always has its full height
+- Downloads run one at a time, in the order of queuing
+- Permissions page comes once, after the first sign-in, with the download folder and the optional notifications
+- Larger title in pop-ups, and an outline on the second action
+- "Filter" renamed to "Search" in the library
+- Inactive lyric lines are easier to read
 - Tracks added to the queue play before the rest of the album or playlist
 - One dialog style that follows the theme
 - Download queue on its own page, opened from On device
@@ -29,6 +43,11 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Fixed
 
+- Scroll position, tabs and typed text being lost when a screen opens over another one, for example Settings over an artist page
+- Sign-in text and the page header being unreadable on dark themes
+- Credits sheet changing its height
+- Seek bar dot sitting above its line
+- "Shuffled" in the queue looking like a button
 - Lists jumping back to the top after returning from an album, artist or playlist
 - Downloads waiting for Wi-Fi not starting after Download over mobile data is turned on
 - Clear failed downloads showing when no download has failed
