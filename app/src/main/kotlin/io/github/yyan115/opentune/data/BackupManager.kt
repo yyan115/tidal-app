@@ -29,7 +29,7 @@ class BackupManager(private val app: OpenTuneApp) {
                 put("equalizer", settings.equalizer); put("equalizerLevels", JSONArray(settings.equalizerLevels)); put("bitPerfect", settings.bitPerfect)
                 put("downloadSaved", settings.downloadSaved); put("downloadPlayed", settings.downloadPlayed); put("scrobble", settings.scrobble); put("scrobbleServer", settings.scrobbleServer)
                 put("equalizerCustom", JSONArray(settings.equalizerCustom)); put("equalizerUsesCustom", settings.equalizerUsesCustom)
-                put("autoplay", settings.autoplay); put("avoidRepeatHours", settings.avoidRepeatHours)
+                put("autoplay", settings.autoplay); put("avoidRepeatMinutes", settings.avoidRepeatMinutes)
                 put("visualizer", settings.visualizer); put("checkUpdates", settings.checkUpdates)
             })
             put("playlists", JSONArray().apply {
@@ -67,7 +67,8 @@ class BackupManager(private val app: OpenTuneApp) {
                     equalizerCustom = values.optJSONArray("equalizerCustom")?.let { array -> (0 until array.length()).map(array::getInt) } ?: current.equalizerCustom,
                     equalizerUsesCustom = values.optBoolean("equalizerUsesCustom", current.equalizerUsesCustom),
                     autoplay = values.optBoolean("autoplay", current.autoplay),
-                    avoidRepeatHours = values.optInt("avoidRepeatHours", current.avoidRepeatHours).coerceIn(0, RepeatWindow.MAX_DAYS * 24),
+                    // A backup of an earlier version holds the window in hours.
+                    avoidRepeatMinutes = (if (values.has("avoidRepeatMinutes")) values.optInt("avoidRepeatMinutes") else if (values.has("avoidRepeatHours")) RepeatWindow.fromHours(values.optInt("avoidRepeatHours")) else current.avoidRepeatMinutes).coerceIn(0, RepeatWindow.MAX_MINUTES),
                     visualizer = values.optBoolean("visualizer", current.visualizer), checkUpdates = values.optBoolean("checkUpdates", current.checkUpdates),
                 )
             }

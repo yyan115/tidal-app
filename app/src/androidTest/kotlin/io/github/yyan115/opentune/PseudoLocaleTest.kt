@@ -156,7 +156,7 @@ class PseudoLocaleTest {
         }
         // The pages that open from the list. The avoid-repeats page also shows its list of excluded tracks.
         for ((row, name) in listOf(R.string.settings_repeats to "Avoid repeats page", R.string.stats_title to "Statistics page", R.string.settings_licenses to "Licenses page")) {
-            if (row == R.string.settings_repeats) app.settings.update { it.copy(avoidRepeatHours = 24) }
+            if (row == R.string.settings_repeats) app.settings.update { it.copy(avoidRepeatMinutes = 1440) }
             list.performScrollToNode(hasText(s(row)))
             compose.onAllNodes(hasText(s(row)) and hasClickAction()).onFirst().performClick()
             await("the $name") { compose.onAllNodesWithTag("settings-list").fetchSemanticsNodes().isEmpty() }
@@ -170,7 +170,7 @@ class PseudoLocaleTest {
             }
             compose.onNodeWithContentDescription(s(R.string.action_back)).performClick()
             await("the settings list") { compose.onAllNodesWithTag("settings-list").fetchSemanticsNodes().isNotEmpty() }
-            if (row == R.string.settings_repeats) app.settings.update { it.copy(avoidRepeatHours = 0) }
+            if (row == R.string.settings_repeats) app.settings.update { it.copy(avoidRepeatMinutes = 0) }
         }
         finish()
     }

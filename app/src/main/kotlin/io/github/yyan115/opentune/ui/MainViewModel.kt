@@ -688,9 +688,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     data class ExcludedTrack(val track: Track, val playedAt: Long)
 
     /** The tracks that the window of [hours] hours excludes now, the latest play first. */
-    suspend fun excludedTracks(hours: Int): List<ExcludedTrack> = withContext(Dispatchers.IO) {
-        if (hours <= 0) emptyList()
-        else app.library.excludedSince(System.currentTimeMillis() - hours * 3_600_000L).mapNotNull { (id, at) -> app.library.get(id)?.let { ExcludedTrack(it, at) } }
+    suspend fun excludedTracks(minutes: Int): List<ExcludedTrack> = withContext(Dispatchers.IO) {
+        if (minutes <= 0) emptyList()
+        else app.library.excludedSince(System.currentTimeMillis() - minutes * 60_000L).mapNotNull { (id, at) -> app.library.get(id)?.let { ExcludedTrack(it, at) } }
     }
 
     /** Lets an excluded track play again at once. */
@@ -751,8 +751,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /** The ids of the tracks that played within the window of the avoid repeats setting. Empty when the setting is off. */
     private suspend fun recentlyPlayed(): Set<String> {
-        val hours = ui.value.settings.avoidRepeatHours
-        return if (hours <= 0) emptySet() else withContext(Dispatchers.IO) { app.library.playedSince(System.currentTimeMillis() - hours * 3_600_000L) }
+        val minutes = ui.value.settings.avoidRepeatMinutes
+        return if (minutes <= 0) emptySet() else withContext(Dispatchers.IO) { app.library.playedSince(System.currentTimeMillis() - minutes * 60_000L) }
     }
 
     fun playTrackRadio(track: Track) = accountAction {

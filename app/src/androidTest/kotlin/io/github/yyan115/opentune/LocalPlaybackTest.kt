@@ -267,7 +267,7 @@ class LocalPlaybackTest {
     @Test fun theAvoidRepeatsPageListsTheExcludedTracksAndIncludesOneOnRequest() {
         app.library.clearHistory()
         app.library.recordPlay(track, 40_000)
-        compose.runOnIdle { model.settings { it.copy(avoidRepeatHours = 24) } }
+        compose.runOnIdle { model.settings { it.copy(avoidRepeatMinutes = 1440) } }
         try {
             compose.onNodeWithContentDescription("Settings").performClick()
             compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Avoid repeats"))
@@ -281,12 +281,12 @@ class LocalPlaybackTest {
             assertTrue(app.library.playedSince(0).isEmpty())
             // Every time window is one choice of several.
             compose.onNode(hasText("Off") and hasClickAction()).performClick()
-            compose.waitUntil(5_000) { model.state.value.settings.avoidRepeatHours == 0 }
+            compose.waitUntil(5_000) { model.state.value.settings.avoidRepeatMinutes == 0 }
             compose.onAllNodesWithText("AVOIDED TRACKS").assertCountEquals(0)
             compose.onNodeWithContentDescription("Back").performClick()
             compose.onNodeWithTag("settings-list").assertIsDisplayed()
         } finally {
-            compose.runOnIdle { model.settings { it.copy(avoidRepeatHours = 0) } }
+            compose.runOnIdle { model.settings { it.copy(avoidRepeatMinutes = 0) } }
             app.library.clearHistory()
         }
     }

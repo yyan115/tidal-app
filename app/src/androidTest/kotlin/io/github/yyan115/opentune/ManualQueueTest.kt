@@ -39,13 +39,13 @@ class ManualQueueTest {
         playlist = ('A'..'H').map { local("list-$it", "Song $it", uri) }
         x = local("x", "Added X", uri); y = local("y", "Added Y", uri); w = local("w", "Play next W", uri); z = local("z", "Added Z", uri)
         (playlist + listOf(x, y, w, z)).forEach(app.library::save)
-        compose.runOnIdle { model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false, avoidRepeatHours = 0) } }
+        compose.runOnIdle { model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false, avoidRepeatMinutes = 0) } }
         compose.runOnIdle { model.play(playlist, 0, "Test list", shuffle = false) }
         compose.waitUntil(20_000) { model.state.value.playback.playing && model.state.value.playback.queue.size == playlist.size }
     }
 
     @After fun clean() {
-        compose.runOnIdle { model.settings { it.copy(avoidRepeatHours = 0) }; model.stopPlayback() }
+        compose.runOnIdle { model.settings { it.copy(avoidRepeatMinutes = 0) }; model.stopPlayback() }
         (playlist + listOf(x, y, w, z)).forEach { app.library.removeLocal(it.id) }
     }
 

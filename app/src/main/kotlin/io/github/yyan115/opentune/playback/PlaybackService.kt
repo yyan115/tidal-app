@@ -253,8 +253,8 @@ class PlaybackService : MediaLibraryService() {
         orderBeforeShuffle = (0 until count).map(player::getMediaItemAt)
         val first = player.currentMediaItemIndex + 1 + player.leadingManual()
         if (count - first < 2) return
-        val hours = app.settings.state.value.avoidRepeatHours
-        val recent = if (hours > 0) app.library.playedSince(System.currentTimeMillis() - hours * 3_600_000L) else emptySet()
+        val minutes = app.settings.state.value.avoidRepeatMinutes
+        val recent = if (minutes > 0) app.library.playedSince(System.currentTimeMillis() - minutes * 60_000L) else emptySet()
         player.replaceMediaItems(first, count, RepeatPolicy.deferRecent(orderBeforeShuffle.subList(first, count).shuffled(), { it.mediaId }, recent))
     }
 
