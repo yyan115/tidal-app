@@ -10,31 +10,39 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.yyan115.opentune.core.Contributor
+
+/** The share of the height of the screen that the sheet takes, whether it shows the spinner, a message or the credits. */
+private const val SHEET_SHARE = 0.6f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreditsSheet(credits: CreditsUi, onClose: () -> Unit, onPerson: (Contributor) -> Unit) {
     ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        LazyColumn(Modifier.navigationBarsPadding(), contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 24.dp)) {
-            item(key = "title") {
-                Text(stringResource(R.string.credits_title), style = AppFonts.title(32, 38))
-                Text(credits.title, Modifier.padding(top = 4.dp, bottom = 12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (credits.loading) item(key = "loading") { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
-            credits.error?.let { error -> item(key = "error") { Text(error, color = MaterialTheme.colorScheme.error) } }
-            if (!credits.loading && credits.error == null && credits.credits.isEmpty()) item(key = "empty") {
-                Text(stringResource(R.string.credits_none), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            items(credits.credits, key = { it.role }) { credit ->
-                Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                    UpperLabel(credit.role)
-                    FlowRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        credit.people.forEach { person ->
-                            if (person.id.isNotBlank()) Text(person.name, Modifier.clickable { onPerson(person) }.padding(vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-                            else Text(person.name, Modifier.padding(vertical = 4.dp), style = MaterialTheme.typography.bodyMedium)
+        // The sheet has the same height in every state, so that it does not shrink when the spinner gives way to a short message.
+        Column(Modifier.fillMaxHeight(SHEET_SHARE).navigationBarsPadding().padding(horizontal = 24.dp).testTag("credits-sheet")) {
+            Text(stringResource(R.string.credits_title), style = AppFonts.title(32, 38))
+            Text(credits.title, Modifier.padding(top = 4.dp, bottom = 12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    credits.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
+                    credits.error != null -> Text(credits.error, Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                    credits.credits.isEmpty() -> Text(stringResource(R.string.credits_none), Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                    else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) { // scroll: transient (a sheet that closes with its content)
+                        items(credits.credits, key = { it.role }) { credit ->
+                            Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                                UpperLabel(credit.role)
+                                FlowRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    credit.people.forEach { person ->
+                                        if (person.id.isNotBlank()) Text(person.name, Modifier.clickable { onPerson(person) }.padding(vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                                        else Text(person.name, Modifier.padding(vertical = 4.dp), style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
