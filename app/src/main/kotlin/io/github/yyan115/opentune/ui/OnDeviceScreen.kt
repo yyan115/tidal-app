@@ -63,8 +63,14 @@ fun OnDeviceScreen(state: AppState, vm: MainViewModel, onAddFiles: () -> Unit, o
             }
         }
         if (!state.signedIn) item { ConnectCard(onLogin) }
+        // The download that runs now has a card. A tap opens the queue.
+        val current = currentDownload(state)
+        if (current != null) item(key = "current-download") {
+            CurrentDownloadCard(state.downloadTracks[trackIdOf(current)], current.progress.getInt("progress", 0), active.count { !it.state.isFinished } - 1, onOpenQueue)
+        }
         // The downloads in the queue have their own page. A row opens it and shows how many downloads run, wait or failed.
-        if (active.isNotEmpty()) item {
+        // While a card shows the download that runs, the row is only needed for the downloads that failed.
+        if (active.isNotEmpty() && (current == null || active.any { it.state == WorkInfo.State.FAILED })) item {
             val running = active.count { !it.state.isFinished }
             val failed = active.size - running
             val summary = listOfNotNull(

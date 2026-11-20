@@ -350,6 +350,11 @@
     </plurals>
     <string name="downloads_unnamed">Download</string>
     <string name="download_progress">%1$d%%</string>
+    <string name="download_current_status">Downloading · %1$d%%</string>
+    <plurals name="downloads_waiting">
+        <item quantity="one">%d waiting</item>
+        <item quantity="other">%d waiting</item>
+    </plurals>
     <string name="download_failed">Download failed</string>
     <string name="download_error_storage">Allow storage access to save downloads</string>
     <string name="migrate_title">Moving downloads</string>
