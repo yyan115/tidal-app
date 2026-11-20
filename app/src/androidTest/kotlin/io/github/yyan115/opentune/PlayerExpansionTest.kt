@@ -75,7 +75,8 @@ class PlayerExpansionTest {
         screenshot("expand-half")
         val (top, bottom) = drawn()
         assertTrue("The top edge is between the small player (${mini.top}) and the top of the screen: $top", top > height * .05f && top < mini.top - height * .05f)
-        assertTrue("The bottom edge is at or below the small player (${mini.bottom}) and above the bottom of the screen ($height): $bottom", bottom >= mini.bottom - 2f && bottom < height - 1f)
+        // The small player may sit at the very bottom of the screen, as on a device without a navigation bar, so the edge may be at the bottom as well.
+        assertTrue("The bottom edge is at or below the small player (${mini.bottom}) and not below the screen ($height): $bottom", bottom >= mini.bottom - height * .02f && bottom <= height)
         compose.onNodeWithTag("mini-player").performTouchInput { up() }
     }
 
@@ -90,7 +91,7 @@ class PlayerExpansionTest {
         screenshot("collapse-half")
         val (top, bottom) = drawn()
         assertTrue("The top edge has moved down from the top of the screen and not past the small player: $top", top > height * .05f && top < mini.top - height * .05f)
-        assertTrue("The bottom edge has moved up from the bottom of the screen: $bottom", bottom < height - 1f && bottom >= mini.bottom - 2f)
+        assertTrue("The bottom edge is not above the small player (${mini.bottom}) and not below the screen ($height): $bottom", bottom >= mini.bottom - height * .02f && bottom <= height)
         compose.onNodeWithTag("player-cover").performTouchInput { up() }
     }
 

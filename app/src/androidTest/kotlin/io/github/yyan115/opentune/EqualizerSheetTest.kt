@@ -42,6 +42,9 @@ class EqualizerSheetTest {
         // The texts of the entries in the menu, top to bottom. The bounds of a text that is clipped are the part that shows, and are empty when nothing shows.
         val menu = compose.onNode(isPopup(), useUnmergedTree = true).fetchSemanticsNode()
         fun texts(node: SemanticsNode): List<SemanticsNode> = (if (node.config.contains(SemanticsProperties.Text)) listOf(node) else emptyList()) + node.children.flatMap(::texts)
+        // A menu that the bottom of the screen cuts off cannot show four and a half entries, so it says nothing about the height of the list.
+        val screenHeight = compose.onAllNodes(isRoot()).fetchSemanticsNodes().maxOf { it.size.height }
+        assumeTrue("The screen leaves room below the field for four and a half entries", menu.positionOnScreen.y + menu.size.height < screenHeight - 2f)
         val boxes = texts(menu).map { it.boundsInRoot }
         val full = boxes.first().height
         val shown = boxes.map { it.height / full }

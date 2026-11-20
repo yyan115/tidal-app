@@ -15,7 +15,8 @@ data class DocumentLocation(val volume: String, val segments: List<String>) {
 object DocumentKey {
     private val document = Regex("^content://([^/]+)/(?:tree/[^/]+/)?document/([^/?#]+)")
 
-    private fun decode(value: String) = runCatching { URLDecoder.decode(value.replace("+", "%2B"), Charsets.UTF_8) }.getOrDefault(value)
+    // The overload that takes a Charset exists from Android 13. The one that takes the name works on every version.
+    @Suppress("DEPRECATION") private fun decode(value: String) = runCatching { URLDecoder.decode(value.replace("+", "%2B"), "UTF-8") }.getOrDefault(value)
 
     /** The key of an address. An address that is not a document keeps its own text. */
     fun of(uri: String): String = document.find(uri)?.let { "${it.groupValues[1]}|${decode(it.groupValues[2])}" } ?: uri
