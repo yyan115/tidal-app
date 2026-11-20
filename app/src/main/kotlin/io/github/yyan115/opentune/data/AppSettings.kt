@@ -38,8 +38,12 @@ data class Settings(
     val visualizer: Boolean = false,
     /** Looks for a newer release when the app opens. */
     val checkUpdates: Boolean = true,
-    /** The permissions page has to be shown, because the first screen was answered and the page was not. */
+    /** The permissions page has to be shown, because the listener signed in for the first time and the page was not shown. */
     val setupPending: Boolean = false,
+    /** The permissions page was shown once, so it does not come again at the next sign-in. */
+    val setupShown: Boolean = false,
+    /** The address of the folder that the listener picked for downloads. Empty for the default folder. See [io.github.yyan115.opentune.data.DownloadFolder]. */
+    val downloadFolder: String = "",
 ) {
     /** Turns the download of saved tracks on or off. Turning it on turns the download of played tracks off. */
     fun withDownloadSaved(on: Boolean) = copy(downloadSaved = on, downloadPlayed = downloadPlayed && !on)
@@ -68,7 +72,8 @@ class AppSettings(context: Context) {
         scrobble = preferences.getBoolean("scrobble", false), scrobbleServer = preferences.getString("scrobbleServer", "https://api.listenbrainz.org") ?: "https://api.listenbrainz.org",
         welcomeDone = preferences.getBoolean("welcomeDone", false), autoplay = preferences.getBoolean("autoplay", true),
         avoidRepeatHours = preferences.getInt("avoidRepeatHours", 0), visualizer = preferences.getBoolean("visualizer", false),
-        checkUpdates = preferences.getBoolean("checkUpdates", true), setupPending = preferences.getBoolean("setupPending", false)).exclusive())
+        checkUpdates = preferences.getBoolean("checkUpdates", true), setupPending = preferences.getBoolean("setupPending", false),
+        setupShown = preferences.getBoolean("setupShown", false), downloadFolder = preferences.getString("downloadFolder", "").orEmpty()).exclusive())
     val state = mutable.asStateFlow()
     fun update(transform: (Settings) -> Settings) {
         val next = transform(mutable.value).exclusive()
@@ -80,7 +85,8 @@ class AppSettings(context: Context) {
             .putBoolean("equalizerUsesCustom", next.equalizerUsesCustom).putBoolean("bitPerfect", next.bitPerfect)
             .putBoolean("downloadSaved", next.downloadSaved).putBoolean("downloadPlayed", next.downloadPlayed).remove("keepFavoritesOffline").putBoolean("scrobble", next.scrobble)
             .putString("scrobbleServer", next.scrobbleServer).putBoolean("welcomeDone", next.welcomeDone).putBoolean("autoplay", next.autoplay)
-            .putInt("avoidRepeatHours", next.avoidRepeatHours).putBoolean("visualizer", next.visualizer).putBoolean("checkUpdates", next.checkUpdates).putBoolean("setupPending", next.setupPending).apply()
+            .putInt("avoidRepeatHours", next.avoidRepeatHours).putBoolean("visualizer", next.visualizer).putBoolean("checkUpdates", next.checkUpdates).putBoolean("setupPending", next.setupPending)
+            .putBoolean("setupShown", next.setupShown).putString("downloadFolder", next.downloadFolder).apply()
         mutable.value = next
     }
 }

@@ -359,9 +359,19 @@
     <string name="migrate_title">Moving downloads</string>
     <string name="migrate_text">%1$d of %2$d</string>
     <string name="settings_download_folder">Download folder</string>
+    <string name="settings_download_folder_default">Use default folder</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_notifications_text">Download progress</string>
+    <string name="download_error_folder">The download folder is not available. Choose another folder in Settings.</string>
     <string name="setup_title">Permissions</string>
     <string name="setup_notifications">Notifications</string>
-    <string name="setup_notifications_text">Playback controls and download progress</string>
+    <string name="setup_notifications_text">Download progress</string>
+    <string name="setup_intro">OpenTune requires the following permissions.</string>
+    <string name="setup_required_downloads">Required for downloads</string>
+    <string name="setup_optional">Optional</string>
+    <string name="setup_folder_text">Saved in Music/OpenTune unless you choose another folder</string>
+    <string name="setup_folder_chosen">Chosen folder</string>
+    <string name="setup_choose">Choose</string>
     <string name="setup_allow">Allow</string>
     <string name="setup_allowed">Allowed</string>
     <string name="setup_continue">Continue</string>
@@ -566,6 +576,9 @@
     </plurals>
     <string name="notify_tidal_playlist_created">Playlist created in TIDAL</string>
     <string name="notify_account_change">Connect TIDAL and turn off offline mode to make this change</string>
+    <string name="notify_download_folder_changed">Download folder changed. New downloads are saved there.</string>
+    <string name="notify_download_folder_default">New downloads are saved in the default folder.</string>
+    <string name="notify_download_folder_unusable">This folder cannot be used for downloads. Choose another folder.</string>
     <string name="notify_folder_failed">The folder could not be added. Choose another folder and try again.</string>
 
     <!-- Errors -->
