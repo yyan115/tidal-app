@@ -51,6 +51,8 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Saved tracks list ending before the last track
 - Saved tracks not following the order of the account
 - Tracks removed from the saved tracks in another app still shown as saved
+- Lists, tabs and typed text being lost when Settings, a page of Settings or another page is opened over a screen
+- Home jumping when returning to it from a page
 
 ## [0.7.0] - 2026-11-08
 
