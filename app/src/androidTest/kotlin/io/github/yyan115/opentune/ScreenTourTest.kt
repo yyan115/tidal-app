@@ -166,7 +166,7 @@ class ScreenTourTest {
             compose.onNodeWithContentDescription("Settings").performClick()
             compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Avoid repeats"))
             compose.onNode(hasText("Avoid repeats") and hasClickAction()).performClick()
-            compose.waitUntil(10_000) { compose.onAllNodesWithTag("repeats-custom").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("repeats-days").fetchSemanticsNodes().isNotEmpty() }
             picture("42-avoid-repeats-custom-time")
         } finally {
             manager.cancelAllWorkByTag("audio-download").result.get()
