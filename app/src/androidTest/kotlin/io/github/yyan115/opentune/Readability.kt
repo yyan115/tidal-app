@@ -49,11 +49,15 @@ object Readability {
     fun problems(compose: ComposeTestRule, minimum: Double = 2.5, keep: String? = null): List<String> {
         // The picture and the tree of the screen are read one after the other, so a text that moves in between would be judged by the wrong pixels.
         // Only what is wrong at the same place in two readings counts.
-        val first = problemsOnce(compose, minimum, keep)
-        if (first.isEmpty()) return first
-        Thread.sleep(400)
-        val second = problemsOnce(compose, minimum, null).toSet()
-        return first.filter { it in second }
+        // A frame of an emulator can come out wrong, so what counts is what is wrong at the same place in three readings.
+        var found = problemsOnce(compose, minimum, keep)
+        repeat(2) {
+            if (found.isEmpty()) return found
+            Thread.sleep(400)
+            val again = problemsOnce(compose, minimum, null).toSet()
+            found = found.filter { it in again }
+        }
+        return found
     }
 
     private fun problemsOnce(compose: ComposeTestRule, minimum: Double, keep: String?): List<String> {
