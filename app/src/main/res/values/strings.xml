@@ -244,6 +244,7 @@
     <string name="player_pause">Pause</string>
     <string name="player_play">Play</string>
     <string name="player_stopped">Playback stopped</string>
+    <string name="error_no_connection">No connection</string>
     <string name="player_next">Next track</string>
     <string name="player_close">Close player</string>
     <string name="player_playing_from">Playing from</string>
