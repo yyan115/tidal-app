@@ -23,7 +23,8 @@ class NoConnectionTest {
     private val track = Track("tidal:1", "Song", "Artist", "Album", durationMs = 200_000)
 
     private fun show(state: PlaybackState, themeId: String = "dark") {
-        compose.setContent { OpenTuneTheme(themeId) { MiniPlayer(state, mutableStateOf(0L), onOpen = {}, onPlay = {}, onNext = {}) } }
+        val position = mutableStateOf(0L)
+        compose.setContent { OpenTuneTheme(themeId) { MiniPlayer(state, position, onOpen = {}, onPlay = {}, onNext = {}) } }
     }
 
     @Test fun aLostConnectionIsNamedInTheSmallPlayer() {
@@ -47,7 +48,8 @@ class NoConnectionTest {
 
     @Test fun theMessageCanBeReadInEveryTheme() {
         val theme = mutableStateOf(appThemes.first().id)
-        compose.setContent { OpenTuneTheme(theme.value) { MiniPlayer(PlaybackState(queue = listOf(track), error = "No connection", noConnection = true), mutableStateOf(0L), onOpen = {}, onPlay = {}, onNext = {}) } }
+        val position = mutableStateOf(0L)
+        compose.setContent { OpenTuneTheme(theme.value) { MiniPlayer(PlaybackState(queue = listOf(track), error = "No connection", noConnection = true), position, onOpen = {}, onPlay = {}, onNext = {}) } }
         for (item in appThemes) {
             theme.value = item.id; compose.waitForIdle()
             val problems = Readability.problems(compose)
