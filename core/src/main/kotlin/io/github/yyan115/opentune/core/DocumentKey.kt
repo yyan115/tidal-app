@@ -20,6 +20,10 @@ object DocumentKey {
     /** The key of an address. An address that is not a document keeps its own text. */
     fun of(uri: String): String = document.find(uri)?.let { "${it.groupValues[1]}|${decode(it.groupValues[2])}" } ?: uri
 
+    /** The location of a file that the media store describes by the path relative to the volume, such as Music/OpenTune/, and by its name. */
+    fun fromPath(volume: String, relativePath: String, name: String): DocumentLocation =
+        DocumentLocation(volume, relativePath.split('/').filter(String::isNotEmpty) + name)
+
     private val tree = Regex("^content://([^/]+)/tree/([^/?#]+)")
 
     /** The volume and the folders of a folder that the listener picked, or null for a provider that does not use paths. */
