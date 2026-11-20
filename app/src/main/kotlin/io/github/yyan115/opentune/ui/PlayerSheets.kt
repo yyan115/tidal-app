@@ -11,7 +11,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
+import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
@@ -52,6 +57,9 @@ fun SleepTimerSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
     }
 }
 
+/** The number of entries that the list of presets shows at a time. The last one shows in half, which tells that the list scrolls. */
+private const val VISIBLE_ENTRIES = 4.5f
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EqualizerSheet(settings: Settings, onChange: (Settings) -> Unit, onClose: () -> Unit) {
@@ -72,25 +80,42 @@ fun EqualizerSheet(settings: Settings, onChange: (Settings) -> Unit, onClose: ()
             val customName = stringResource(R.string.eq_custom)
             val chosen = if (settings.equalizerUsesCustom) customName else presets.firstOrNull { it.second == levels }?.first ?: customName
             var presetMenu by remember { mutableStateOf(false) }
+            // The height of an entry follows the text size, so it is read from the first entry when the list is first shown.
+            var entryHeight by remember { mutableIntStateOf(0) }
+            val density = LocalDensity.current
             // The field is as inactive as the bands while the equalizer is off, and the list shows four and a half entries at a time, so that it opens below the field and the half entry shows that the list scrolls.
             ExposedDropdownMenuBox(presetMenu && settings.equalizer, { presetMenu = it && settings.equalizer }, Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 OutlinedTextField(chosen, {}, Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable), enabled = settings.equalizer,
                     readOnly = true, singleLine = true, label = { Text(stringResource(R.string.eq_preset)) }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(presetMenu && settings.equalizer) })
-                ExposedDropdownMenu(presetMenu && settings.equalizer, { presetMenu = false }, Modifier.heightIn(max = 216.dp)) {
-                    presets.forEach { (name, preset) -> DropdownMenuItem(text = { Text(name) }, onClick = { onChange(settings.copy(equalizerLevels = preset, equalizerUsesCustom = false)); presetMenu = false }) }
-                    DropdownMenuItem(text = { Text(customName) }, onClick = {
-                        val custom = List(info.bands) { settings.equalizerCustom.getOrNull(it) ?: levels[it] }
-                        onChange(settings.copy(equalizerLevels = custom, equalizerCustom = custom, equalizerUsesCustom = true)); presetMenu = false
-                    })
+                ExposedDropdownMenu(presetMenu && settings.equalizer, { presetMenu = false }) {
+                    val scroll = rememberScrollState()
+                    // The menu scrolls inside its own height, so the list gets a height of its own only when the height of an entry is known.
+                    val limit = if (entryHeight == 0) Modifier else Modifier.heightIn(max = with(density) { (entryHeight * VISIBLE_ENTRIES).toDp() }).verticalScroll(scroll)
+                    Column(limit) {
+                        presets.forEachIndexed { index, (name, preset) ->
+                            DropdownMenuItem(text = { Text(name) }, modifier = if (index > 0 || entryHeight > 0) Modifier else Modifier.onSizeChanged { entryHeight = it.height },
+                                onClick = { onChange(settings.copy(equalizerLevels = preset, equalizerUsesCustom = false)); presetMenu = false })
+                        }
+                        DropdownMenuItem(text = { Text(customName) }, onClick = {
+                            val custom = List(info.bands) { settings.equalizerCustom.getOrNull(it) ?: levels[it] }
+                            onChange(settings.copy(equalizerLevels = custom, equalizerCustom = custom, equalizerUsesCustom = true)); presetMenu = false
+                        })
+                    }
                 }
             }
+            val label = MaterialTheme.typography.labelMedium
+            val frequencies = info.centerHz.map { hz -> if (hz >= 1000) stringResource(R.string.unit_khz, (hz / 1000).toString()) else stringResource(R.string.unit_hz, hz) }
+            val gains = listOf(info.minLevel, info.maxLevel, 0).map { stringResource(R.string.unit_db, it / 100f) }
+            // The labels have the width of the widest one, whatever the size of the text, so that the sliders line up.
+            val measurer = rememberTextMeasurer()
+            val frequencyWidth = with(density) { frequencies.maxOf { measurer.measure(it, label).size.width }.toDp() }
+            val gainWidth = with(density) { gains.maxOf { measurer.measure(it, label).size.width }.toDp() }
             levels.forEachIndexed { band, level ->
-                val hz = info.centerHz[band]
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (hz >= 1000) stringResource(R.string.unit_khz, (hz / 1000).toString()) else stringResource(R.string.unit_hz, hz), Modifier.width(64.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(frequencies[band], Modifier.width(frequencyWidth), style = label, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Slider(level.toFloat(), { value -> val moved = levels.toMutableList().also { it[band] = value.toInt() }; onChange(settings.copy(equalizerLevels = moved, equalizerCustom = moved, equalizerUsesCustom = true)) },
                         Modifier.weight(1f), enabled = settings.equalizer, valueRange = info.minLevel.toFloat()..info.maxLevel.toFloat())
-                    Text(stringResource(R.string.unit_db, level / 100f), Modifier.width(64.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.unit_db, level / 100f), Modifier.width(gainWidth), style = label, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End)
                 }
             }
         }
