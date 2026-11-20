@@ -12,6 +12,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.dash.offline.DashDownloader
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import io.github.yyan115.opentune.R
@@ -21,8 +22,9 @@ import io.github.yyan115.opentune.core.StreamManifest
 import io.github.yyan115.opentune.core.Track
 import io.github.yyan115.opentune.playback.AudioSources
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import org.json.JSONObject
@@ -41,14 +43,11 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
         /** The share of the progress bar that the arrival of the segments takes. The rest is the writing of the file. */
         private const val SEGMENT_SHARE = 85
 
-        /** How many downloads transfer data at the same time. The others wait for their turn. */
-        const val PARALLEL_DOWNLOADS = 2
-
         /** The key of the progress data that says a download waits for its turn. */
         const val WAITING = "waiting"
 
-        // WorkManager starts every download that it may run, so the downloads take turns here.
-        private val turns = Semaphore(PARALLEL_DOWNLOADS)
+        // WorkManager starts every download that it may run. They wait for the ones that were queued before them, and only one transfers at a time.
+        private val transfer = Mutex()
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -59,7 +58,17 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
         if (app.settings.state.value.offline) return@withContext Result.retry()
         if (!app.downloadFiles.canWrite()) return@withContext Result.failure(workDataOf("error" to "storage"))
         setProgress(workDataOf(WAITING to true))
-        turns.withPermit { download(track) }
+        waitForTurn()
+        transfer.withLock { download(track) }
+    }
+
+    /** Waits until every download that was queued before this one is finished. */
+    private suspend fun waitForTurn() {
+        val me = DownloadOrder.Entry(id.toString(), DownloadOrder.orderOf(tags) ?: Long.MAX_VALUE, active = true)
+        WorkManager.getInstance(applicationContext).getWorkInfosByTagFlow("audio-download").first { infos ->
+            val all = infos.map { DownloadOrder.Entry(it.id.toString(), DownloadOrder.orderOf(it.tags) ?: Long.MAX_VALUE, active = !it.state.isFinished) }
+            DownloadOrder.waitsFor(me, all).isEmpty()
+        }
     }
 
     private suspend fun download(track: Track): Result {
