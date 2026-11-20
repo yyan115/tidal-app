@@ -21,6 +21,8 @@ android {
         versionCode = versionParts[0] * 1_000_000 + versionParts[1] * 1_000 + versionParts[2]
         versionName = releaseVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // A test that stops answering fails after four minutes with its stack, so that it does not hold the whole run until the time limit of the job.
+        testInstrumentationRunnerArguments["timeout_msec"] = "240000"
     }
     fun signingValue(name: String) = providers.environmentVariable("OPENTUNE_$name")
     val releaseKeyPath = signingValue("KEYSTORE").orNull
