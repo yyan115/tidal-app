@@ -47,9 +47,17 @@ class PlayerGesturesTest {
         assertEquals(Swipe.Stay, PlayerGestures.swipe(-50f, 2.5f, 360f, hasNext = true, hasPrevious = true))
     }
 
-    @Test fun aSwipeTowardATrackThatDoesNotExistStays() {
-        assertEquals(Swipe.Stay, PlayerGestures.swipe(-200f, -3f, 360f, hasNext = false, hasPrevious = true))
-        assertEquals(Swipe.Stay, PlayerGestures.swipe(200f, 3f, 360f, hasNext = true, hasPrevious = false))
+    @Test fun aSwipeTowardATrackThatDoesNotExistReachesTheEndOrTheStart() {
+        assertEquals(Swipe.End, PlayerGestures.swipe(-200f, -3f, 360f, hasNext = false, hasPrevious = true))
+        assertEquals(Swipe.Start, PlayerGestures.swipe(200f, 3f, 360f, hasNext = true, hasPrevious = false))
+        assertEquals(Swipe.End, PlayerGestures.swipe(-120f, 0f, 360f, hasNext = false, hasPrevious = false))
+        assertEquals(Swipe.Start, PlayerGestures.swipe(120f, 0f, 360f, hasNext = false, hasPrevious = false))
+    }
+
+    @Test fun aShortSwipeTowardATrackThatDoesNotExistStaysAndSaysNothing() {
+        assertEquals(Swipe.Stay, PlayerGestures.swipe(-30f, -0.2f, 360f, hasNext = false, hasPrevious = true))
+        assertEquals(Swipe.Stay, PlayerGestures.swipe(30f, 0.2f, 360f, hasNext = true, hasPrevious = false))
+        assertEquals(Swipe.Stay, PlayerGestures.swipe(-10f, -3f, 360f, hasNext = false, hasPrevious = false))
     }
 
     @Test fun anUnknownWidthNeverChangesTheTrack() {

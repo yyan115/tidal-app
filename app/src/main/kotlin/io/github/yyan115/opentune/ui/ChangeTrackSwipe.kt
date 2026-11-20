@@ -25,9 +25,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
-/** What a swipe on the cover or on the small player can do: play the next or the previous track, when there is one. */
+/**
+ * What a swipe on the cover or on the small player can do: play the next or the previous track, when there is one.
+ * A swipe toward a track that does not exist calls [onEnd] after the last track and [onStart] before the first one.
+ */
 @Immutable
-data class ChangeTrack(val hasNext: Boolean, val hasPrevious: Boolean, val onNext: () -> Unit, val onPrevious: () -> Unit)
+data class ChangeTrack(val hasNext: Boolean, val hasPrevious: Boolean, val onNext: () -> Unit, val onPrevious: () -> Unit, val onEnd: () -> Unit = {}, val onStart: () -> Unit = {})
 
 /**
  * Lets a swipe to the left play the next track and a swipe to the right play the previous one. The content follows the finger.
@@ -60,6 +63,8 @@ fun SwipeToChangeTrack(trackKey: Any?, change: ChangeTrack, modifier: Modifier =
                 when (PlayerGestures.swipe(offset.value, velocity / width, width.toFloat(), change.hasNext, change.hasPrevious)) {
                     Swipe.Next -> { entering = 1f; offset.animateTo(-width.toFloat(), tween(110)); change.onNext() }
                     Swipe.Previous -> { entering = -1f; offset.animateTo(width.toFloat(), tween(110)); change.onPrevious() }
+                    Swipe.End -> { change.onEnd(); offset.animateTo(0f, spring(dampingRatio = 1f, stiffness = 500f)) }
+                    Swipe.Start -> { change.onStart(); offset.animateTo(0f, spring(dampingRatio = 1f, stiffness = 500f)) }
                     Swipe.Stay -> offset.animateTo(0f, spring(dampingRatio = 1f, stiffness = 500f))
                 }
                 // The track normally changes within a moment. If it does not, the content comes back.
