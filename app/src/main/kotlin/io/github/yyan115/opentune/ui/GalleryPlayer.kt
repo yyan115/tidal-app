@@ -24,7 +24,12 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.unit.toSize
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
@@ -71,6 +76,9 @@ fun PlayControl(playing: Boolean, buffering: Boolean = false, size: Dp = 72.dp, 
 /** The playback position in milliseconds. The activity provides the position of the player and a preview provides a fixed one. */
 val LocalPlaybackPosition = staticCompositionLocalOf<StateFlow<Long>> { MutableStateFlow(0L) }
 
+/** The radius of the corners of the small player. The full player starts with the same corners. */
+private val MINI_PLAYER_RADIUS = 7.dp
+
 /**
  * The mini player. A swipe to the left plays the next track and a swipe to the right plays the previous one.
  * A drag upward opens the full player, which follows the finger. Stopping playback is an action of the full player and of screen readers.
@@ -84,8 +92,9 @@ fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, 
     val drag = rememberDraggableState { sheet?.dragBy(it) }
     SwipeToChangeTrack(track.id, change, Modifier.testTag("mini-player").semantics { customActions = listOf(CustomAccessibilityAction(stop) { onDismiss(); true }) }
         .draggable(drag, Orientation.Vertical, enabled = sheet != null, onDragStarted = { sheet?.dragStarted() }, onDragStopped = { velocity -> sheet?.let { onSheetReleased(it.released(velocity)) } })) {
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(7.dp),
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
+        .onGloballyPositioned { sheet?.mini = Rect(it.positionOnScreen(), it.size.toSize()) },
+        color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(MINI_PLAYER_RADIUS),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
         Column {
             Row(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 10.dp, end = 2.dp, top = 5.dp, bottom = 5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -134,11 +143,20 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onC
             withFrameNanos { }
             WindowCompat.getInsetsController(window, window.decorView).apply { isAppearanceLightStatusBars = light; isAppearanceLightNavigationBars = light }
         }
-        // The player follows a finger that drags it down, and it moves back when the finger lifts too early.
-        Surface(Modifier.fillMaxSize().graphicsLayer { translationY = size.height * (1f - sheet.progress) }
+        // The player grows out of the small player and shrinks back into it. It follows a finger that drags it down, and it moves back when the finger lifts too early.
+        val miniRadius = with(LocalDensity.current) { MINI_PLAYER_RADIUS.toPx() }
+        Surface(Modifier.fillMaxSize().testTag("player-container")
+            .onGloballyPositioned { sheet.origin = it.positionOnScreen() }
+            .graphicsLayer {
+                shape = PlayerMorph.shape(sheet.covered(size), PlayerMorph.radius(sheet.progress, miniRadius))
+                clip = true
+                alpha = PlayerMorph.surfaceAlpha(sheet.progress)
+            }
             .draggable(drag, Orientation.Vertical, onDragStarted = { sheet.dragStarted() }, onDragStopped = { velocity -> if (!sheet.released(velocity)) onClose() }),
             color = MaterialTheme.colorScheme.background) {
-            BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
+            BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()
+                // The content rises with the top edge of the player, and shows once the player is large enough for it.
+                .graphicsLayer { alpha = PlayerMorph.contentAlpha(sheet.progress); translationY = sheet.covered(Size(size.width, size.height + sheet.origin.y)).top }) {
                 val large = LocalDensity.current.fontScale > 1.3f
                 val landscape = maxWidth > maxHeight && maxWidth >= 480.dp && !large
                 // The controls stay at the bottom of the screen. Only a very short screen scrolls the whole page.
