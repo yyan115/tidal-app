@@ -474,10 +474,10 @@
     <string name="download_played_enable">Enable</string>
     <string name="repeats_window">Time window</string>
     <string name="repeats_custom">Custom</string>
-    <string name="repeats_duration">Duration</string>
-    <string name="repeats_range">1 hour to 365 days</string>
-    <string name="repeats_unit_hours">Hours</string>
-    <string name="repeats_unit_days">Days</string>
+    <string name="repeats_range">1 minute to 365 days</string>
+    <string name="repeats_days">Days</string>
+    <string name="repeats_hours">Hours</string>
+    <string name="repeats_minutes">Minutes</string>
     <string name="repeats_excluded">Avoided tracks</string>
     <string name="repeats_none">No avoided tracks</string>
     <string name="repeats_played">Played %1$s</string>
@@ -522,6 +522,10 @@
     <string name="scrobble_token_ok">The token belongs to %1$s</string>
     <string name="scrobble_unreachable">The server could not be reached</string>
     <string name="scrobble_token_valid">The token is valid</string>
+    <plurals name="window_minutes">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
     <plurals name="window_hours">
         <item quantity="one">%1$d hour</item>
         <item quantity="other">%1$d hours</item>

@@ -22,16 +22,16 @@ import org.junit.runner.RunWith
 class SettingsPagesTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val model get() = ViewModelProvider(compose.activity)[MainViewModel::class.java]
-    private val hours get() = model.state.value.settings.avoidRepeatHours
+    private val minutes get() = model.state.value.settings.avoidRepeatMinutes
 
     @Before fun openSettings() {
-        compose.runOnIdle { model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false, avoidRepeatHours = 0) } }
+        compose.runOnIdle { model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false, avoidRepeatMinutes = 0) } }
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("device-list").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription("Settings").performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("settings-list").fetchSemanticsNodes().isNotEmpty() }
     }
 
-    @After fun reset() { compose.runOnIdle { model.settings { it.copy(avoidRepeatHours = 0) } } }
+    @After fun reset() { compose.runOnIdle { model.settings { it.copy(avoidRepeatMinutes = 0) } } }
 
     private fun top(text: String) = compose.onNodeWithText(text).fetchSemanticsNode().boundsInRoot.top
     private fun scrollTo(text: String) = compose.onNodeWithTag("settings-list").performScrollToNode(hasText(text))
@@ -72,38 +72,57 @@ class SettingsPagesTest {
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("repeats-list").fetchSemanticsNodes().isNotEmpty() }
     }
 
-    @Test fun aCustomTimeIsEnteredInHoursOrDaysAndOnlyAValidNumberApplies() {
+    private fun field(tag: String) = compose.onNodeWithTag(tag)
+
+    @Test fun aCustomTimeIsEnteredAsDaysHoursAndMinutesAndOnlyAValidTimeApplies() {
         openAvoidRepeats()
         compose.onNodeWithText("Custom").performClick()
-        compose.waitUntil(5_000) { hours == 48 }
-        // The entry is on the screen at once, also on a small one where it starts below the options.
-        compose.onNodeWithTag("repeats-custom").assertIsDisplayed()
-        compose.onNodeWithTag("repeats-unit").assertIsDisplayed()
-        compose.onNodeWithTag("repeats-custom").assertTextContains("2")
-        compose.onNodeWithTag("repeats-custom").performTextReplacement("3")
-        compose.waitUntil(5_000) { hours == 72 }
-        compose.onNodeWithText("Hours").performClick()
-        compose.onNodeWithTag("repeats-custom").assertTextContains("72")
-        assertEquals("Changing the unit keeps the span", 72, hours)
-        compose.onNodeWithTag("repeats-custom").performTextReplacement("9999")
+        compose.waitUntil(5_000) { minutes == 2 * 24 * 60 }
+        // The fields are on the screen at once, also on a small one where they start below the options.
+        listOf("repeats-days", "repeats-hours", "repeats-minutes").forEach { field(it).assertIsDisplayed() }
+        field("repeats-days").assertTextContains("2")
+        field("repeats-hours").assertTextContains("0")
+        field("repeats-minutes").assertTextContains("0")
+        field("repeats-hours").performTextReplacement("6")
+        compose.waitUntil(5_000) { minutes == (2 * 24 + 6) * 60 }
+        field("repeats-minutes").performTextReplacement("90")
+        compose.waitUntil(5_000) { minutes == (2 * 24 + 6) * 60 + 90 }
+        // The fields go to zero one after the other. The last step would give a window of zero, so the window stays at the step before it.
+        field("repeats-minutes").performTextReplacement("0"); field("repeats-hours").performTextReplacement("0")
+        compose.waitUntil(5_000) { minutes == 2 * 24 * 60 }
+        field("repeats-days").performTextReplacement("0")
         compose.waitForIdle()
-        assertEquals("A number above 365 days leaves the window as it was", 72, hours)
-        compose.onNodeWithTag("repeats-custom").performTextReplacement("0")
+        assertEquals("A time of zero leaves the window as it was", 2 * 24 * 60, minutes)
+        field("repeats-days").performTextReplacement("366")
         compose.waitForIdle()
-        assertEquals("Zero leaves the window as it was", 72, hours)
-        compose.onNodeWithTag("repeats-custom").performTextReplacement("36")
-        compose.waitUntil(5_000) { hours == 36 }
-        compose.onNodeWithText("Days").performClick()
-        compose.waitUntil(5_000) { hours == 48 }
-        compose.onNodeWithTag("repeats-custom").assertTextContains("2")
+        assertEquals("More than 365 days leaves the window as it was", 2 * 24 * 60, minutes)
+        field("repeats-days").performTextReplacement("365")
+        compose.waitUntil(5_000) { minutes == 365 * 24 * 60 }
+        field("repeats-hours").performTextReplacement("1")
+        compose.waitForIdle()
+        assertEquals("One hour more than 365 days leaves the window as it was", 365 * 24 * 60, minutes)
+        field("repeats-days").performTextReplacement("0"); field("repeats-hours").performTextReplacement("0"); field("repeats-minutes").performTextReplacement("5")
+        compose.waitUntil(5_000) { minutes == 5 }
+        compose.onNodeWithText("1 minute to 365 days").assertExists()
+    }
+
+    @Test fun aTimeInMinutesAlone() {
+        openAvoidRepeats()
+        compose.onNodeWithText("Custom").performClick()
+        compose.waitUntil(5_000) { minutes == 2 * 24 * 60 }
+        field("repeats-days").performTextReplacement("0")
+        field("repeats-minutes").performTextReplacement("45")
+        compose.waitUntil(5_000) { minutes == 45 }
     }
 
     @Test fun aCustomTimeOpensAsCustomAndAPresetOpensAsItself() {
-        compose.runOnIdle { model.settings { it.copy(avoidRepeatHours = 36) } }
+        compose.runOnIdle { model.settings { it.copy(avoidRepeatMinutes = 2160) } }
         openAvoidRepeats()
-        compose.onNodeWithTag("repeats-custom").assertTextContains("36")
+        field("repeats-days").assertTextContains("1")
+        field("repeats-hours").assertTextContains("12")
+        field("repeats-minutes").assertTextContains("0")
         compose.onNodeWithText("1 day").performClick()
-        compose.waitUntil(5_000) { hours == 24 }
-        compose.onAllNodesWithTag("repeats-custom").assertCountEquals(0)
+        compose.waitUntil(5_000) { minutes == 24 * 60 }
+        compose.onAllNodesWithTag("repeats-days").assertCountEquals(0)
     }
 }

@@ -47,14 +47,14 @@ class BackupTest {
     @Test fun theSettingsOfPlaybackAndTheEqualizerSurviveABackupAndRestore() {
         val before = app.settings.state.value
         try {
-            app.settings.update { it.copy(autoplay = false, avoidRepeatHours = 36, visualizer = true, checkUpdates = false,
+            app.settings.update { it.copy(autoplay = false, avoidRepeatMinutes = 2160, visualizer = true, checkUpdates = false,
                 equalizerCustom = listOf(300, -200, 0, 150, 450), equalizerUsesCustom = true) }
             val text = BackupManager(app).toJson().toString()
-            app.settings.update { it.copy(autoplay = true, avoidRepeatHours = 0, visualizer = false, checkUpdates = true, equalizerCustom = emptyList(), equalizerUsesCustom = false) }
+            app.settings.update { it.copy(autoplay = true, avoidRepeatMinutes = 0, visualizer = false, checkUpdates = true, equalizerCustom = emptyList(), equalizerUsesCustom = false) }
             BackupManager(app).restore(JSONObject(text))
             val restored = app.settings.state.value
             assertFalse(restored.autoplay)
-            assertEquals(36, restored.avoidRepeatHours)
+            assertEquals(36 * 60, restored.avoidRepeatMinutes)
             assertTrue(restored.visualizer)
             assertFalse(restored.checkUpdates)
             assertEquals(listOf(300, -200, 0, 150, 450), restored.equalizerCustom)
@@ -65,11 +65,11 @@ class BackupTest {
     @Test fun aBackupOfAnEarlierVersionLeavesTheNewerSettingsAsTheyAre() {
         val before = app.settings.state.value
         try {
-            app.settings.update { it.copy(autoplay = false, avoidRepeatHours = 6, checkUpdates = false) }
+            app.settings.update { it.copy(autoplay = false, avoidRepeatMinutes = 360, checkUpdates = false) }
             BackupManager(app).restore(JSONObject("""{"format":"opentune-backup","version":1,"settings":{"theme":"dark"}}"""))
             val restored = app.settings.state.value
             assertFalse(restored.autoplay)
-            assertEquals(6, restored.avoidRepeatHours)
+            assertEquals(6 * 60, restored.avoidRepeatMinutes)
             assertFalse(restored.checkUpdates)
         } finally { app.settings.update { before } }
     }

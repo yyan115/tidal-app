@@ -1,27 +1,26 @@
 package io.github.yyan115.opentune.data
 
-/** The time window of the avoid-repeats setting, counted in hours. A custom window is a number of hours or days. */
+/** The time window of the avoid-repeats setting, counted in minutes. A custom window is entered as days, hours and minutes. */
 object RepeatWindow {
     const val MAX_DAYS = 365
-    private const val MAX_HOURS = MAX_DAYS * 24
+    const val MAX_MINUTES = MAX_DAYS * 24 * 60
 
-    /** The windows that can be chosen without typing. Zero turns the setting off. */
-    val presets = listOf(0, 1, 6, 24, 168)
+    /** The windows that can be chosen without typing: off, an hour, six hours, a day and a week. */
+    val presets = listOf(0, 60, 360, 1440, 10_080)
 
-    /** The window in hours for [value] hours or days, or null when it is not a number from 1 hour to 365 days. */
-    fun hours(value: Int?, days: Boolean): Int? {
-        if (value == null || value < 1) return null
-        val hours = if (days) value.toLong() * 24 else value.toLong()
-        return if (hours <= MAX_HOURS) hours.toInt() else null
+    /** A window as days, hours and minutes. */
+    data class Parts(val days: Int, val hours: Int, val minutes: Int)
+
+    /** The window of [days], [hours] and [minutes] in minutes, or null when it is not from 1 minute to 365 days. */
+    fun minutes(days: Int, hours: Int, minutes: Int): Int? {
+        if (days < 0 || hours < 0 || minutes < 0) return null
+        val total = days.toLong() * 1440 + hours.toLong() * 60 + minutes.toLong()
+        return if (total in 1..MAX_MINUTES) total.toInt() else null
     }
 
-    /** Whether a window of [hours] is shown in days. This holds for a whole number of days. */
-    fun inDays(hours: Int): Boolean = hours > 0 && hours % 24 == 0
+    /** The window of [total] minutes as days, then hours, then minutes. */
+    fun parts(total: Int): Parts = Parts(total / 1440, total / 60 % 24, total % 60)
 
-    /** The number to show for a window of [hours], in days when [days] is true. */
-    fun number(hours: Int, days: Boolean): Int = if (days) hours / 24 else hours
-
-    /** The same span of time counted in the other unit. Days round up, so the window is never shorter than it was. */
-    fun convert(value: Int, toDays: Boolean): Int =
-        if (toDays) ((value + 23) / 24).coerceIn(1, MAX_DAYS) else (value.toLong() * 24).coerceAtMost(MAX_HOURS.toLong()).toInt()
+    /** A window that an earlier version kept in hours. */
+    fun fromHours(hours: Int): Int = (hours.toLong() * 60).coerceIn(0, MAX_MINUTES.toLong()).toInt()
 }

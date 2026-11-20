@@ -31,7 +31,7 @@ class ScreenStateKeptTest {
     private var playlistId: String? = null
 
     @Before fun setUp() {
-        compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false, avoidRepeatHours = 0) } }
+        compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false, avoidRepeatMinutes = 0) } }
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("device-list").fetchSemanticsNodes().isNotEmpty() }
     }
 
