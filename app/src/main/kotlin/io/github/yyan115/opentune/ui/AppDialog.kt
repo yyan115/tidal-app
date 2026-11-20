@@ -15,11 +15,13 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -43,8 +45,9 @@ fun AppDialog(
         Surface(Modifier.widthIn(min = 280.dp, max = 560.dp).testTag("app-dialog"), shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 0.dp) {
             Column(Modifier.padding(24.dp)) {
+                // The title has the size of the headline of the theme, which is the size that Material gives to the title of a dialog.
                 if (title != null) CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-                    ProvideTextStyle(AppFonts.title(22, 28)) { Box(Modifier.padding(bottom = 12.dp)) { title() } }
+                    ProvideTextStyle(MaterialTheme.typography.headlineSmall) { Box(Modifier.padding(bottom = 16.dp)) { title() } }
                 }
                 // The text slot scrolls when it is taller than the screen, as for the settings of the scrobbling dialog.
                 if (text != null) Box(Modifier.weight(1f, fill = false).heightIn(min = 0.dp)) {
@@ -52,10 +55,13 @@ fun AppDialog(
                         ProvideTextStyle(MaterialTheme.typography.bodyMedium) { text() }
                     }
                 }
-                if (confirmButton != null || dismissButton != null) FlowRow(Modifier.padding(top = 24.dp).align(Alignment.End),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    dismissButton?.invoke()
-                    confirmButton?.invoke()
+                // With two actions the second one is drawn with an outline, so that the two read as a choice. A single action is a plain button.
+                if (confirmButton != null || dismissButton != null) CompositionLocalProvider(LocalDialogChoice provides (confirmButton != null && dismissButton != null)) {
+                    FlowRow(Modifier.padding(top = 24.dp).align(Alignment.End),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        dismissButton?.invoke()
+                        confirmButton?.invoke()
+                    }
                 }
             }
         }
@@ -73,8 +79,12 @@ fun DialogConfirm(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: B
     Button(onClick, modifier.heightIn(min = 40.dp), enabled, shape = MaterialTheme.shapes.small, colors = colors, content = content)
 }
 
-/** An action of a dialog that is not the main one, such as Cancel. It is a plain text button. */
+/** Whether the dialog offers a choice between two actions. */
+private val LocalDialogChoice = compositionLocalOf { false }
+
+/** An action of a dialog that is not the main one, such as Cancel. Next to a main action it has an outline, and on its own it is a plain text button. */
 @Composable
 fun DialogDismiss(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, content: @Composable RowScope.() -> Unit) {
-    TextButton(onClick, modifier.heightIn(min = 40.dp), enabled, shape = MaterialTheme.shapes.small, content = content)
+    if (LocalDialogChoice.current) OutlinedButton(onClick, modifier.heightIn(min = 40.dp).testTag("dialog-outlined-action"), enabled, shape = MaterialTheme.shapes.small, content = content)
+    else TextButton(onClick, modifier.heightIn(min = 40.dp), enabled, shape = MaterialTheme.shapes.small, content = content)
 }
