@@ -26,6 +26,19 @@ object Readability {
         return (maxOf(a, b) + 0.05) / (minOf(a, b) + 0.05)
     }
 
+    /** A list that scrolls to an item places the items on its way outside its own area. They are not on the screen, whatever their position says. */
+    private fun insideItsParents(node: androidx.compose.ui.semantics.SemanticsNode): Boolean {
+        val centre = node.boundsInRoot.center
+        return generateSequence(node.parent) { it.parent }.all { parent -> parent.boundsInRoot.isEmpty || parent.boundsInRoot.contains(centre) }
+    }
+
+    /** A control that is switched off is drawn dimmed on purpose, and accessibility rules leave it out. */
+    private fun isDisabled(node: androidx.compose.ui.semantics.SemanticsNode): Boolean =
+        generateSequence(node) { it.parent }.any { it.config.contains(SemanticsProperties.Disabled) }
+
+    private fun hasDialog(node: androidx.compose.ui.semantics.SemanticsNode): Boolean =
+        node.config.contains(SemanticsProperties.IsDialog) || node.children.any(::hasDialog)
+
     private fun texts(node: androidx.compose.ui.semantics.SemanticsNode): List<androidx.compose.ui.semantics.SemanticsNode> =
         (if (node.config.contains(SemanticsProperties.Text)) listOf(node) else emptyList()) + node.children.flatMap(::texts)
 
@@ -34,6 +47,16 @@ object Readability {
      * so a dialog or a sheet, which is a window of its own, is looked at in the same way as the rest. A text is found by its place on the screen.
      */
     fun problems(compose: ComposeTestRule, minimum: Double = 2.5, keep: String? = null): List<String> {
+        // The picture and the tree of the screen are read one after the other, so a text that moves in between would be judged by the wrong pixels.
+        // Only what is wrong at the same place in two readings counts.
+        val first = problemsOnce(compose, minimum, keep)
+        if (first.isEmpty()) return first
+        Thread.sleep(400)
+        val second = problemsOnce(compose, minimum, null).toSet()
+        return first.filter { it in second }
+    }
+
+    private fun problemsOnce(compose: ComposeTestRule, minimum: Double, keep: String?): List<String> {
         compose.waitForIdle()
         val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
         instrumentation.uiAutomation.waitForIdle(300, 5_000)
@@ -44,17 +67,21 @@ object Readability {
             java.io.File(directory, "$keep.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         }
         val roots = compose.onAllNodes(isRoot(), useUnmergedTree = true)
-        return (0 until roots.fetchSemanticsNodes().size).flatMap { index ->
+        val nodes = roots.fetchSemanticsNodes().map { it }
+        // A window that is created later lies above the earlier ones. A dialog that fills the screen hides what is under it, so only it and the windows above it are looked at.
+        val top = nodes.indexOfLast { root -> hasDialog(root) && root.size.width >= bitmap.width * 0.95f && root.size.height >= bitmap.height * 0.95f }.coerceAtLeast(0)
+        return (top until nodes.size).flatMap { index ->
             texts(roots[index].fetchSemanticsNode()).mapNotNull { node -> problemOf(node, bitmap, minimum) }
         }
     }
 
     private fun problemOf(node: androidx.compose.ui.semantics.SemanticsNode, bitmap: android.graphics.Bitmap, minimum: Double): String? {
-        if (node.config.contains(SemanticsProperties.InvisibleToUser)) return null
+        // A list keeps items that it measured for a scroll but did not place, and they are not on the screen.
+        if (!node.layoutInfo.isPlaced || node.config.contains(SemanticsProperties.InvisibleToUser) || isDisabled(node) || !insideItsParents(node)) return null
         val (foreground, background) = coloursOf(node, bitmap) ?: return null
         val ratio = contrast(foreground, background)
         val text = node.config.getOrNull(SemanticsProperties.Text)?.joinToString { it.text }.orEmpty()
-        return if (ratio < minimum && text.isNotBlank()) "\"${text.take(40)}\" has contrast %.1f (text #%06X on #%06X)".format(ratio, foreground and 0xFFFFFF, background and 0xFFFFFF) else null
+        return if (ratio < minimum && text.isNotBlank()) "\"${text.take(40)}\" has contrast %.1f (text #%06X on #%06X) at ${node.positionOnScreen} ${node.size} shown ${node.boundsInRoot}".format(ratio, foreground and 0xFFFFFF, background and 0xFFFFFF) else null
     }
 
     /** The colour of the text of the node that [matcher] finds, as it is on the screen, and the colour behind it. */
@@ -72,6 +99,9 @@ object Readability {
 
     /** The colour of the text and the colour behind it, or null when too little of the text is on the screen to look at. */
     private fun coloursOf(node: androidx.compose.ui.semantics.SemanticsNode, bitmap: android.graphics.Bitmap): Pair<Int, Int>? {
+        // The bounds in the window are cut to what shows. A text that something covers or that a list cuts off has no picture to look at.
+        val shown = node.boundsInRoot
+        if (shown.width < node.size.width * 0.9f || shown.height < node.size.height * 0.9f) return null
         val origin = node.positionOnScreen
         val bounds = androidx.compose.ui.geometry.Rect(origin.x, origin.y, origin.x + node.size.width, origin.y + node.size.height)
         // A text that a list has composed ahead, outside the screen, or that the screen cuts off, has no picture to look at.
