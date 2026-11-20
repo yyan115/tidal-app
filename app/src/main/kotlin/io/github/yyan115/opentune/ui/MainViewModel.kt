@@ -286,6 +286,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 app.sessions.clearPkce()
                 ui.update { it.copy(pkceLogin = null, signedIn = true, signingIn = false, error = null) }
                 notify(app.getString(R.string.settings_connected)); sync()
+                // The permissions page comes once, after the first sign-in.
+                settings { if (it.setupShown) it else it.copy(setupPending = true) }
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 ui.update { it.copy(signingIn = false, error = userMessage(error)) }
@@ -525,10 +527,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** Answers the first-launch screen. The listener either signed in or chose to use local music only. */
-    fun finishWelcome() { settings { it.copy(welcomeDone = true, setupPending = it.setupPending || !it.welcomeDone) } }
+    fun finishWelcome() { settings { it.copy(welcomeDone = true) } }
 
     /** The permissions page was answered. */
-    fun finishSetup() { settings { it.copy(setupPending = false) } }
+    fun finishSetup() { settings { it.copy(setupPending = false, setupShown = true) } }
+
+    /**
+     * Saves new downloads in the folder that the listener picked. Downloads that exist stay where they are, and the library keeps their addresses.
+     * A folder that cannot hold files is refused.
+     */
+    fun setDownloadFolder(tree: Uri) = viewModelScope.launch(Dispatchers.IO) {
+        try {
+            app.contentResolver.takePersistableUriPermission(tree, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            if (!app.downloadFiles.usable(tree)) { notify(app.getString(R.string.notify_download_folder_unusable)); return@launch }
+            settings { it.copy(downloadFolder = tree.toString()) }
+            notify(app.getString(R.string.notify_download_folder_changed))
+        } catch (error: Exception) { if (error is CancellationException) throw error; notify(app.getString(R.string.notify_download_folder_unusable)) }
+    }
+
+    fun useDefaultDownloadFolder() { settings { it.copy(downloadFolder = "") }; notify(app.getString(R.string.notify_download_folder_default)) }
 
     fun addDeviceFolder(tree: Uri) = viewModelScope.launch(Dispatchers.IO) {
         try { app.folders.add(tree) }

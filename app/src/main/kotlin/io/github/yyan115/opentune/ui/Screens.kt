@@ -385,6 +385,7 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
     var playedWarning by remember { mutableStateOf(false) }
     val backup = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(vm::exportBackup) }
     val restore = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importBackup) }
+    val downloadFolder = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()) { uri -> uri?.let(vm::setDownloadFolder) }
     val settings = state.settings
     LazyColumn(Modifier.fillMaxSize().testTag("settings-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { SectionTitle(stringResource(R.string.settings_account)) }
@@ -403,7 +404,16 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
             item { SwitchRow(OpenTuneIcons.SignalCellularAlt, stringResource(R.string.settings_mobile_downloads), !settings.downloadOnWifi, { value ->
                 if (value) mobileDataWarning = true else vm.settings { it.copy(downloadOnWifi = true) }
             }) }
-            item { SettingRow(OpenTuneIcons.Folder, stringResource(R.string.settings_download_folder), io.github.yyan115.opentune.data.DownloadFiles.FOLDER) }
+            item { SettingRow(OpenTuneIcons.Folder, stringResource(R.string.settings_download_folder),
+                io.github.yyan115.opentune.data.DownloadFolder.summary(settings.downloadFolder, stringResource(R.string.volume_internal), stringResource(R.string.volume_card), stringResource(R.string.setup_folder_chosen)),
+                { downloadFolder.launch(null) }, trailing = { Icon(OpenTuneIcons.ChevronRight, null) }) }
+            // The default folder is offered again once another folder is chosen.
+            if (!io.github.yyan115.opentune.data.DownloadFolder.isDefault(settings.downloadFolder)) item {
+                SettingRow(OpenTuneIcons.Refresh, stringResource(R.string.settings_download_folder_default), io.github.yyan115.opentune.data.DownloadFolder.DEFAULT, vm::useDefaultDownloadFolder)
+            }
+            item { SettingRow(OpenTuneIcons.Notifications, stringResource(R.string.settings_notifications), stringResource(R.string.settings_notifications_text),
+                { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)) },
+                trailing = { Icon(OpenTuneIcons.ChevronRight, null) }) }
         }
         item { SectionTitle(stringResource(R.string.settings_appearance)) }
         item { SettingRow(OpenTuneIcons.Contrast, stringResource(R.string.settings_theme), stringResource(if (settings.theme == SYSTEM_THEME) R.string.theme_system else themeFor(settings.theme, false).nameRes), { theme = true }) }

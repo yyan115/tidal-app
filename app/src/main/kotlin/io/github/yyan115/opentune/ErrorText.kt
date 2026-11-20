@@ -61,6 +61,7 @@ fun Context.problemText(error: Throwable): String = when (error) {
 fun downloadErrorCode(error: Throwable): String = when (error) {
     is ServiceException -> "problem:${error.problem.name}:${error.status}"
     is ProtectedStreamException -> "problem:${Problem.PROTECTED_STREAM.name}:0"
+    is io.github.yyan115.opentune.data.DownloadFolderUnavailableException -> "folder"
     is IOException -> "interrupted"
     else -> "save"
 }
@@ -72,6 +73,7 @@ fun Context.downloadErrorText(code: String?): String {
         if (problem != null) return problemText(ServiceException(parts.getOrNull(1)?.toIntOrNull() ?: 0, parts[0], problem))
     }
     return when (code) {
+        "folder" -> getString(R.string.download_error_folder)
         "interrupted" -> getString(R.string.download_error_interrupted)
         "save" -> getString(R.string.download_error_save)
         else -> getString(R.string.download_failed)

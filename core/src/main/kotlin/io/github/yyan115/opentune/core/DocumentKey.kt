@@ -20,6 +20,17 @@ object DocumentKey {
     /** The key of an address. An address that is not a document keeps its own text. */
     fun of(uri: String): String = document.find(uri)?.let { "${it.groupValues[1]}|${decode(it.groupValues[2])}" } ?: uri
 
+    private val tree = Regex("^content://([^/]+)/tree/([^/?#]+)")
+
+    /** The volume and the folders of a folder that the listener picked, or null for a provider that does not use paths. */
+    fun treeLocation(uri: String): DocumentLocation? {
+        val match = tree.find(uri) ?: return null
+        val id = decode(match.groupValues[2])
+        val volume = id.substringBefore(':', "")
+        if (volume.isEmpty() || ':' !in id) return null
+        return DocumentLocation(volume, id.substringAfter(':').split('/').filter(String::isNotEmpty))
+    }
+
     /** The volume and the path of a document on external storage, or null for a provider that does not use paths. */
     fun location(uri: String): DocumentLocation? {
         val match = document.find(uri) ?: return null
