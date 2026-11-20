@@ -14,11 +14,13 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import androidx.work.WorkInfo
 import io.github.yyan115.opentune.R
+import io.github.yyan115.opentune.data.DownloadOrder
 import io.github.yyan115.opentune.data.DownloadWorker
 import io.github.yyan115.opentune.downloadErrorText
 
 /** The downloads that are in the queue: the ones that run or wait, and the ones that failed. */
 fun queuedDownloads(state: AppState): List<WorkInfo> = state.downloads.filter { !it.state.isFinished || it.state == WorkInfo.State.FAILED }
+    .sortedBy { DownloadOrder.orderOf(it.tags) ?: Long.MAX_VALUE }
 
 /** The queue of downloads. Each download can be cancelled, and a failed one can be tried again. */
 @UnstableApi

@@ -22,11 +22,14 @@ object DownloadRequests {
     /** The network that a download needs: an unmetered one, such as Wi-Fi, or any connection. */
     fun networkTypeFor(wifiOnly: Boolean): NetworkType = if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED
 
-    /** Queues the download of a track. The work waits for an unmetered network unless [wifiOnly] is false. */
-    fun enqueue(context: Context, track: Track, wifiOnly: Boolean, policy: ExistingWorkPolicy = ExistingWorkPolicy.KEEP) {
+    /**
+     * Queues the download of a track. The work waits for an unmetered network unless [wifiOnly] is false.
+     * The downloads run one at a time in the order of their [order], which is the order in which they were queued.
+     */
+    fun enqueue(context: Context, track: Track, wifiOnly: Boolean, policy: ExistingWorkPolicy = ExistingWorkPolicy.KEEP, order: Long = DownloadOrder.next()) {
         val request = OneTimeWorkRequestBuilder<DownloadWorker>().setInputData(workDataOf("track" to JsonCodec.encodeTrack(track).toString()))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(networkTypeFor(wifiOnly)).build())
-            .addTag("audio-download").addTag("track:${track.id}").build()
+            .addTag("audio-download").addTag("track:${track.id}").addTag(DownloadOrder.tag(order)).build()
         WorkManager.getInstance(context).enqueueUniqueWork("download:${track.id}", policy, request)
     }
 
@@ -35,9 +38,10 @@ object DownloadRequests {
      * so that turning on mobile data lets them start. A download that runs is left alone.
      */
     fun applyNetworkRule(app: OpenTuneApp, wifiOnly: Boolean) {
+        // The downloads keep their place in the order.
         WorkManager.getInstance(app).getWorkInfosByTag("audio-download").get().filter { it.state == WorkInfo.State.ENQUEUED }.forEach { work ->
             val track = work.tags.firstOrNull { it.startsWith("track:") }?.removePrefix("track:")?.let(app.library::get) ?: return@forEach
-            enqueue(app, track, wifiOnly, ExistingWorkPolicy.REPLACE)
+            enqueue(app, track, wifiOnly, ExistingWorkPolicy.REPLACE, DownloadOrder.orderOf(work.tags) ?: DownloadOrder.next())
         }
     }
 
