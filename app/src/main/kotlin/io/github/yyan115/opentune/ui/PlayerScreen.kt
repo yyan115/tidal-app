@@ -99,7 +99,8 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
         dragged = null; dragStart = -1; dragOffset = 0f
     }
     ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        LazyColumn(Modifier.fillMaxWidth().navigationBarsPadding().testTag("queue-list"), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
+        // The sheet always has its full height, so that it does not grow and shrink with the queue, and an empty queue has the same sheet as a long one.
+        LazyColumn(Modifier.fillMaxWidth().fillMaxHeight().navigationBarsPadding().testTag("queue-list"), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "title") { SectionTitle(stringResource(R.string.queue_title), if (queue.isNotEmpty()) stringResource(R.string.action_clear) else null, { confirmClear = true }) }
             if (queue.isNotEmpty()) item(key = "tools") {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -108,8 +109,9 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
                     }
                     Spacer(Modifier.weight(1f))
                     if (state.playback.shuffle) Row(Modifier.padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(OpenTuneIcons.Shuffle, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                        Text(stringResource(R.string.queue_shuffled), Modifier.padding(start = 6.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        // A status is drawn in the colour of secondary text, because the colour of an action tells the listener that it can be pressed.
+                        Icon(OpenTuneIcons.Shuffle, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.queue_shuffled), Modifier.padding(start = 6.dp).testTag("queue-shuffled"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

@@ -51,6 +51,27 @@ object Readability {
 
     private fun problemOf(node: androidx.compose.ui.semantics.SemanticsNode, bitmap: android.graphics.Bitmap, minimum: Double): String? {
         if (node.config.contains(SemanticsProperties.InvisibleToUser)) return null
+        val (foreground, background) = coloursOf(node, bitmap) ?: return null
+        val ratio = contrast(foreground, background)
+        val text = node.config.getOrNull(SemanticsProperties.Text)?.joinToString { it.text }.orEmpty()
+        return if (ratio < minimum && text.isNotBlank()) "\"${text.take(40)}\" has contrast %.1f (text #%06X on #%06X)".format(ratio, foreground and 0xFFFFFF, background and 0xFFFFFF) else null
+    }
+
+    /** The colour of the text of the node that [matcher] finds, as it is on the screen, and the colour behind it. */
+    fun coloursOfText(compose: ComposeTestRule, matcher: androidx.compose.ui.test.SemanticsMatcher): Pair<Int, Int> {
+        compose.waitForIdle()
+        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        instrumentation.uiAutomation.waitForIdle(300, 5_000)
+        val bitmap = instrumentation.uiAutomation.takeScreenshot()
+        return coloursOf(compose.onNode(matcher, useUnmergedTree = true).fetchSemanticsNode(), bitmap) ?: error("The text is not on the screen")
+    }
+
+    /** How far two colours are from each other, as the largest difference in one channel. */
+    fun distance(first: Int, second: Int): Int = maxOf(kotlin.math.abs(((first shr 16) and 0xFF) - ((second shr 16) and 0xFF)),
+        kotlin.math.abs(((first shr 8) and 0xFF) - ((second shr 8) and 0xFF)), kotlin.math.abs((first and 0xFF) - (second and 0xFF)))
+
+    /** The colour of the text and the colour behind it, or null when too little of the text is on the screen to look at. */
+    private fun coloursOf(node: androidx.compose.ui.semantics.SemanticsNode, bitmap: android.graphics.Bitmap): Pair<Int, Int>? {
         val origin = node.positionOnScreen
         val bounds = androidx.compose.ui.geometry.Rect(origin.x, origin.y, origin.x + node.size.width, origin.y + node.size.height)
         // A text that a list has composed ahead, outside the screen, or that the screen cuts off, has no picture to look at.
@@ -67,8 +88,6 @@ object Readability {
         val dominant = counts.maxByOrNull { entry -> entry.value }!!.key
         val background = pixels.first { (it and 0xF0F0F0) == dominant }
         val foreground = pixels.maxByOrNull { kotlin.math.abs(luminance(it) - luminance(background)) } ?: background
-        val ratio = contrast(foreground, background)
-        val text = node.config.getOrNull(SemanticsProperties.Text)?.joinToString { it.text }.orEmpty()
-        return if (ratio < minimum && text.isNotBlank()) "\"${text.take(40)}\" has contrast %.1f (text #%06X on #%06X)".format(ratio, foreground and 0xFFFFFF, background and 0xFFFFFF) else null
+        return foreground to background
     }
 }
