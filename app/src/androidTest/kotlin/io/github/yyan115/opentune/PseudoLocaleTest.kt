@@ -71,6 +71,8 @@ class PseudoLocaleTest {
     }
 
     @After fun restoreLanguage() {
+        // A page that stays pending would hide the screens of every test that follows.
+        app.settings.update { it.copy(setupPending = false) }
         scenario?.close()
         app.getSystemService(LocaleManager::class.java).applicationLocales = LocaleList.getEmptyLocaleList()
         app.library.playlists().filter { it.title == "Evening" }.forEach { app.library.deletePlaylist(it.id) }
@@ -108,7 +110,8 @@ class PseudoLocaleTest {
         app.settings.update { it.copy(setupPending = true) }
         await("the permissions page") { compose.onAllNodesWithTag("setup").fetchSemanticsNodes().isNotEmpty() }
         sweep("Permissions")
-        compose.onNodeWithTag("setup-continue").performClick()
+        // The button is below the fold when the text is long.
+        compose.onNodeWithTag("setup-continue").performScrollTo().performClick()
         await("the On device screen") { compose.onAllNodesWithTag("device-list").fetchSemanticsNodes().isNotEmpty() }
         sweep("On device")
         inWindow("New playlist") {

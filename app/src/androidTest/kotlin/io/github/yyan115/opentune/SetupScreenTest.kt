@@ -56,7 +56,7 @@ class SetupScreenTest {
 
     @Test fun aChosenFolderReplacesTheDefaultText() {
         show(folder = "content://com.android.externalstorage.documents/tree/primary%3AMusic%2FLossless")
-        compose.onNodeWithText("Music/Lossless").assertIsDisplayed()
+        compose.onNodeWithText("Music/Lossless").performScrollTo().assertIsDisplayed()
         compose.onAllNodesWithText("Saved in Music/OpenTune unless you choose another folder").assertCountEquals(0)
     }
 
