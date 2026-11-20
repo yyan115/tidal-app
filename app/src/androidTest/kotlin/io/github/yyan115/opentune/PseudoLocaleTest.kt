@@ -104,12 +104,11 @@ class PseudoLocaleTest {
         await("the welcome screen") { compose.onAllNodesWithTag("welcome").fetchSemanticsNodes().isNotEmpty() }
         sweep("Welcome")
         compose.onNodeWithTag("welcome-local").performClick()
-        // The permissions page follows the first screen when a permission of this version of Android is missing.
-        if (io.github.yyan115.opentune.ui.Permissions.missing(activity).isNotEmpty()) {
-            await("the permissions page") { compose.onAllNodesWithTag("setup").fetchSemanticsNodes().isNotEmpty() }
-            sweep("Permissions")
-            compose.onNodeWithTag("setup-continue").performClick()
-        }
+        // The permissions page follows the first sign-in and not the choice of local music, so it is opened by hand here.
+        app.settings.update { it.copy(setupPending = true) }
+        await("the permissions page") { compose.onAllNodesWithTag("setup").fetchSemanticsNodes().isNotEmpty() }
+        sweep("Permissions")
+        compose.onNodeWithTag("setup-continue").performClick()
         await("the On device screen") { compose.onAllNodesWithTag("device-list").fetchSemanticsNodes().isNotEmpty() }
         sweep("On device")
         inWindow("New playlist") {

@@ -113,10 +113,9 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
 
     // The permissions page follows the first screen when there is anything to ask. It stays until the listener continues.
     val setupPending = state.settings.setupPending
-    val setup by rememberSaveable(setupPending) { mutableStateOf(setupPending && Permissions.missing(context).isNotEmpty()) }
-    LaunchedEffect(setupPending, setup) { if (setupPending && !setup) vm.finishSetup() }
+    val setup = setupPending
     if (welcome) WelcomeScreen(onSignIn = openLogin, onLocalOnly = vm::finishWelcome)
-    else if (setup) SetupScreen(onContinue = vm::finishSetup)
+    else if (setup) SetupScreen(state.settings.downloadFolder, onFolderPicked = vm::setDownloadFolder, onContinue = vm::finishSetup)
     else Row(Modifier.fillMaxSize().then(if (landscape) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Start)) else Modifier)) {
     if (rail && navigation) OpenTuneRail(destinations, destination, select)
     // The header is part of this column and not of the scaffold, so that it is measured before the screen, in the same pass. In the content of the
