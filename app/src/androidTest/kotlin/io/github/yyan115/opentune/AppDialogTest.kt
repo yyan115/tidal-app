@@ -4,6 +4,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import org.junit.Assert.assertTrue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -66,5 +71,42 @@ class AppDialogTest {
     @Test fun aDialogWithoutActionsShowsNoEmptySpaceForThem() {
         compose.setContent { OpenTuneTheme("dark") { AppDialog(onDismissRequest = {}, title = { Text("Audio quality") }, text = { Text("Pick one") }) } }
         compose.onNodeWithText("Pick one").assertIsDisplayed()
+    }
+
+    private fun styleOf(text: String) = run {
+        val results = mutableListOf<TextLayoutResult>()
+        compose.onNodeWithText(text).fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult].action!!.invoke(results)
+        results.first().layoutInput.style
+    }
+
+    @Test fun theTitleIsLargerAndBolderThanTheTextInEveryTheme() {
+        var themeId by mutableStateOf(appThemes.first().id)
+        compose.setContent {
+            OpenTuneTheme(themeId) {
+                AppDialog(onDismissRequest = {}, title = { Text("Download played tracks") }, text = { Text("Every track that plays is downloaded.") },
+                    confirmButton = { DialogConfirm(onClick = {}) { Text("Enable") } }, dismissButton = { DialogDismiss(onClick = {}) { Text("Cancel") } })
+            }
+        }
+        for (theme in appThemes) {
+            themeId = theme.id; compose.waitForIdle()
+            val title = styleOf("Download played tracks"); val body = styleOf("Every track that plays is downloaded.")
+            assertEquals("The title of ${theme.id} has the size of a Material headline", 24.sp, title.fontSize)
+            assertTrue("The title of ${theme.id} is at least 1.5 times the size of the text", title.fontSize.value >= body.fontSize.value * 1.5f)
+            assertTrue("The title of ${theme.id} is not lighter than the text", (title.fontWeight ?: FontWeight.Normal).weight >= (body.fontWeight ?: FontWeight.Normal).weight)
+        }
+    }
+
+    @Test fun theSecondActionHasAnOutlineOnlyNextToAMainAction() {
+        var both by mutableStateOf(true)
+        compose.setContent {
+            OpenTuneTheme("dark") {
+                AppDialog(onDismissRequest = {}, title = { Text("Title") }, text = { Text("Text") },
+                    confirmButton = if (both) ({ DialogConfirm(onClick = {}) { Text("Enable") } }) else null, dismissButton = { DialogDismiss(onClick = {}) { Text("Cancel") } })
+            }
+        }
+        compose.onNodeWithTag("dialog-outlined-action").assertIsDisplayed()
+        both = false; compose.waitForIdle()
+        compose.onNodeWithTag("dialog-outlined-action").assertDoesNotExist()
+        compose.onNodeWithText("Cancel").assertIsDisplayed()
     }
 }
