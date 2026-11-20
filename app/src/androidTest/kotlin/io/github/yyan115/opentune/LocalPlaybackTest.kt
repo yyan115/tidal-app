@@ -218,7 +218,7 @@ class LocalPlaybackTest {
         // One place needs no navigation, and its filter does the work of a search.
         compose.onAllNodesWithTag("nav-device").assertCountEquals(0)
         compose.onAllNodesWithTag("nav-search").assertCountEquals(0)
-        compose.onNodeWithText("Filter").performTextInput("Night")
+        compose.onNode(hasText("Search") and hasSetTextAction()).performTextInput("Night")
         compose.onNodeWithText("Night Walk").assertIsDisplayed()
         screenshot("filter-local")
         compose.onNodeWithText("Add files").assertIsDisplayed()

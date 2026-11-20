@@ -99,7 +99,7 @@
     <string name="library_refresh">Refresh library</string>
     <string name="library_saved_tracks">Saved tracks</string>
     <string name="library_mixes">Mixes</string>
-    <string name="library_filter">Filter</string>
+    <string name="library_filter">Search</string>
     <string name="library_filter_clear">Clear filter</string>
     <string name="library_sort_by">Sort by %1$s</string>
     <string name="library_no_saved">No saved tracks</string>
