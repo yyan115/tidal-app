@@ -56,7 +56,6 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
         title = track.title
         if (track.onDevice || app.library.get(track.id)?.onDevice == true) return@withContext Result.success()
         if (app.settings.state.value.offline) return@withContext Result.retry()
-        if (!app.downloadFiles.canWrite()) return@withContext Result.failure(workDataOf("error" to "storage"))
         setProgress(workDataOf(WAITING to true))
         waitForTurn()
         transfer.withLock { download(track) }
@@ -174,7 +173,6 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
             .setProgress(100, percent, percent == 0).setOngoing(true).setOnlyAlertOnce(true).setCategory(Notification.CATEGORY_PROGRESS)
             .addAction(Notification.Action.Builder(android.graphics.drawable.Icon.createWithResource(applicationContext, R.drawable.ic_notification), applicationContext.getString(R.string.download_cancel), cancel).build()).build()
         val notificationId = 2100 + (id.hashCode() and 1023)
-        return if (android.os.Build.VERSION.SDK_INT >= 29) ForegroundInfo(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        else ForegroundInfo(notificationId, notification)
+        return ForegroundInfo(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
     }
 }

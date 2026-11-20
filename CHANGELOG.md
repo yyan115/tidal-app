@@ -13,6 +13,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Changed
 
+- OpenTune needs Android 10 or later, so that it saves downloads without any storage permission
 - Swipe on the small player or the cover changes the track
 - Stop playback moved to the menu of the full player
 - Tracks added to the queue play before the rest of the album or playlist

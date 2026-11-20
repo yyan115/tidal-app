@@ -16,7 +16,7 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "io.github.yyan115.opentune"
-        minSdk = 26
+        minSdk = 29
         targetSdk = 36
         versionCode = versionParts[0] * 1_000_000 + versionParts[1] * 1_000 + versionParts[2]
         versionName = releaseVersion

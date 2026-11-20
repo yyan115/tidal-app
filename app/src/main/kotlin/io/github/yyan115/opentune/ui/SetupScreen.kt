@@ -28,7 +28,6 @@ fun SetupScreen(onContinue: () -> Unit) {
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh++ }
     val entries = buildList {
         if (Permissions.notificationsApply()) add(Entry(Manifest.permission.POST_NOTIFICATIONS, R.string.setup_notifications, R.string.setup_notifications_text, OpenTuneIcons.Notifications))
-        if (Permissions.storageApplies()) add(Entry(Manifest.permission.WRITE_EXTERNAL_STORAGE, R.string.setup_storage, R.string.setup_storage_text, OpenTuneIcons.Folder))
     }
     Surface(Modifier.fillMaxSize().testTag("setup"), color = MaterialTheme.colorScheme.background) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(vertical = 24.dp)) {

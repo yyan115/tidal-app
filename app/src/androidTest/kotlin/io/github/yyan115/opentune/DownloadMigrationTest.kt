@@ -1,14 +1,12 @@
 package io.github.yyan115.opentune
 
 import android.net.Uri
-import android.os.Build
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.dash.offline.DashDownloader
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.rule.GrantPermissionRule
 import io.github.yyan115.opentune.core.StreamInfo
 import io.github.yyan115.opentune.core.Track
 import io.github.yyan115.opentune.data.DownloadFiles
@@ -18,7 +16,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -31,7 +28,6 @@ import java.nio.ByteBuffer
 @UnstableApi
 @RunWith(AndroidJUnit4::class)
 class DownloadMigrationTest {
-    @get:Rule val storage: GrantPermissionRule = if (Build.VERSION.SDK_INT <= 28) GrantPermissionRule.grant(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) else GrantPermissionRule.grant()
     private val app get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as OpenTuneApp
     private val directory get() = File(app.filesDir, "migration-test")
     private val track = Track("2100001", "Migration Walk", "Test Artist", "Test Album", trackNumber = 3, localUri = "opentune-offline://${AudioSources.safeId("2100001")}", quality = "FLAC")

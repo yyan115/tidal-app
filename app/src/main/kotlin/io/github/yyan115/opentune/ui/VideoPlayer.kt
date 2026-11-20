@@ -7,7 +7,6 @@ import android.app.Activity
 import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.ContextWrapper
-import android.os.Build
 import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -51,9 +50,7 @@ private tailrec fun Context.findActivity(): ComponentActivity? = when (this) {
 
 /** Whether this activity can show a picture-in-picture window. */
 fun Activity.enterVideoPip() {
-    if (Build.VERSION.SDK_INT >= 26) runCatching {
-        enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9)).build())
-    }
+    runCatching { enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9)).build()) }
 }
 
 /**
@@ -138,7 +135,7 @@ fun VideoPlayerOverlay(release: Release, offline: Boolean, onClose: () -> Unit) 
                     IconButton(onClick = onClose) { Icon(OpenTuneIcons.Close, stringResource(R.string.video_close), tint = Color.White) }
                     Text(listOf(release.title, release.artist).filter(String::isNotBlank).joinToString(" · "), Modifier.weight(1f), color = Color.White,
                         fontFamily = AppFonts.body, fontSize = 13.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                    if (Build.VERSION.SDK_INT >= 26 && activity != null) IconButton(onClick = { activity.enterVideoPip() }) { Icon(OpenTuneIcons.Fullscreen, stringResource(R.string.video_pip), tint = Color.White) }
+                    if (activity != null) IconButton(onClick = { activity.enterVideoPip() }) { Icon(OpenTuneIcons.Fullscreen, stringResource(R.string.video_pip), tint = Color.White) }
                 }
                 IconButton(onClick = { if (playing) player.pause() else player.play() }, modifier = Modifier.align(Alignment.Center).size(72.dp)
                     .semantics { contentDescription = if (playing) pauseLabel else playLabel }) {

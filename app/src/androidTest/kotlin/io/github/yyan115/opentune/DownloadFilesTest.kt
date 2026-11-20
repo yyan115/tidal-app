@@ -1,18 +1,15 @@
 package io.github.yyan115.opentune
 
 import android.content.ContentUris
-import android.os.Build
 import android.provider.MediaStore
 import androidx.media3.common.util.UnstableApi
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.rule.GrantPermissionRule
 import io.github.yyan115.opentune.core.Problem
 import io.github.yyan115.opentune.core.ServiceException
 import io.github.yyan115.opentune.core.Track
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.IOException
@@ -23,9 +20,6 @@ import java.io.IOException
 class DownloadFilesTest {
     private val app get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as OpenTuneApp
     private val audio get() = InstrumentationRegistry.getInstrumentation().context.assets.open("night-walk.flac").use { it.readBytes() }
-
-    /** Android 9 and older ask for storage access to write to the music folder. Later versions need no permission. */
-    @get:Rule val storage: GrantPermissionRule = if (Build.VERSION.SDK_INT <= 28) GrantPermissionRule.grant(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) else GrantPermissionRule.grant()
 
     @Test fun aFileIsWrittenToTheDownloadFolderReadBackAndRemoved() = runBlocking {
         val bytes = audio
@@ -42,9 +36,7 @@ class DownloadFilesTest {
     @Test fun aFailedWriteLeavesNoFile() = runBlocking {
         val name = "OpenTune test - Failed.flac"
         try { app.downloadFiles.create(name, "audio/flac") { it.write(1); throw IOException("The write failed") }; fail("The failure was swallowed") } catch (_: IOException) { }
-        if (Build.VERSION.SDK_INT >= 29) {
-            app.contentResolver.query(MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), arrayOf(MediaStore.Audio.Media._ID), "${MediaStore.Audio.Media.DISPLAY_NAME}=?", arrayOf(name), null)!!.use { assertEquals(0, it.count) }
-        } else assertFalse(java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MUSIC), "OpenTune/$name").exists())
+        app.contentResolver.query(MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), arrayOf(MediaStore.Audio.Media._ID), "${MediaStore.Audio.Media.DISPLAY_NAME}=?", arrayOf(name), null)!!.use { assertEquals(0, it.count) }
     }
 
     @Test fun twoFilesWithTheSameNameBothStay() = runBlocking {

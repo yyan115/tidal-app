@@ -26,7 +26,7 @@ Stream your TIDAL library in lossless quality, with synced lyrics, offline liste
 
 ## Install
 
-Download the APK from the [newest release](https://github.com/yyan115/tidal-app/releases) and open it. OpenTune needs Android 8 or later. Android may ask you to allow installs from your browser or file manager.
+Download the APK from the [newest release](https://github.com/yyan115/tidal-app/releases) and open it. OpenTune needs Android 10 or later. Android may ask you to allow installs from your browser or file manager.
 
 To receive updates automatically, add `https://github.com/yyan115/tidal-app` to [Obtainium](https://obtainium.imranr.dev/) and turn on **Include prereleases**.
 
@@ -75,7 +75,7 @@ OpenTune has no ads, analytics, crash reporting or server of its own. It connect
 
 - You sign in on TIDAL's website in your browser. OpenTune never receives your password.
 - Account tokens are stored encrypted with a key held in the Android Keystore.
-- OpenTune asks for notifications, and on Android 8 and 9 for storage, to save downloads. It requests no location, contacts or microphone permissions. It reads only the files and folders that you pick with the system file picker.
+- OpenTune asks for notifications on Android 13 and later, to show the progress of downloads. It requests no storage, location, contacts or microphone permissions. It reads only the files and folders that you pick with the system file picker.
 - Android backup and device transfer exclude OpenTune data.
 
 TIDAL still receives your account and streaming requests.

@@ -356,15 +356,12 @@
         <item quantity="other">%d waiting</item>
     </plurals>
     <string name="download_failed">Download failed</string>
-    <string name="download_error_storage">Allow storage access to save downloads</string>
     <string name="migrate_title">Moving downloads</string>
     <string name="migrate_text">%1$d of %2$d</string>
     <string name="settings_download_folder">Download folder</string>
     <string name="setup_title">Permissions</string>
     <string name="setup_notifications">Notifications</string>
     <string name="setup_notifications_text">Playback controls and download progress</string>
-    <string name="setup_storage">Storage</string>
-    <string name="setup_storage_text">Saves downloads to Music/OpenTune</string>
     <string name="setup_allow">Allow</string>
     <string name="setup_allowed">Allowed</string>
     <string name="setup_continue">Continue</string>
