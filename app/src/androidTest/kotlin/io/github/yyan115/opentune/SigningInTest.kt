@@ -10,7 +10,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import io.github.yyan115.opentune.ui.OpenTuneTheme
 import io.github.yyan115.opentune.ui.SigningIn
+import io.github.yyan115.opentune.ui.appThemes
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
@@ -29,5 +32,16 @@ class SigningInTest {
         compose.onNodeWithText("Below").performClick()
         compose.waitForIdle()
         assertFalse("A touch must not pass through the spinner", clicked)
+    }
+
+    @Test fun theCaptionCanBeReadInEveryTheme() {
+        var theme by mutableStateOf(appThemes.first().id)
+        compose.setContent { OpenTuneTheme(theme) { Box { Text("Behind"); SigningIn() } } }
+        for (next in appThemes.map { it.id }) {
+            theme = next
+            compose.waitForIdle()
+            val problems = Readability.problems(compose).filterNot { it.startsWith("\"Behind\"") }
+            assertTrue("The caption is hard to read in $next: $problems", problems.isEmpty())
+        }
     }
 }
