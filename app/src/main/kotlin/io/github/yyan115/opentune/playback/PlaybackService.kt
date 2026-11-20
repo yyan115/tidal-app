@@ -173,7 +173,7 @@ class PlaybackService : MediaLibraryService() {
         scope.launch { runCatching { app.scrobbler.flush() } }
         // The position moves without an event, so it is written about every ten seconds while the player plays.
         scope.launch { while (true) { delay(10_000); if (player.isPlaying) saveQueue(wait = false) } }
-        if (Build.VERSION.SDK_INT >= 23) audioManager.registerAudioDeviceCallback(deviceCallback, Handler(Looper.getMainLooper()))
+        audioManager.registerAudioDeviceCallback(deviceCallback, Handler(Looper.getMainLooper()))
         runCatching { connectivity.registerDefaultNetworkCallback(networkCallback, Handler(Looper.getMainLooper())) }
 
         val activity = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -405,7 +405,7 @@ class PlaybackService : MediaLibraryService() {
     override fun onDestroy() {
         if (player.mediaItemCount > 0) saveQueue(wait = true)
         finishListening()
-        if (Build.VERSION.SDK_INT >= 23) audioManager.unregisterAudioDeviceCallback(deviceCallback)
+        audioManager.unregisterAudioDeviceCallback(deviceCallback)
         runCatching { connectivity.unregisterNetworkCallback(networkCallback) }
         app.sources.onGains = null
         WidgetState.write(this, null); NowPlayingWidget.refresh(this)

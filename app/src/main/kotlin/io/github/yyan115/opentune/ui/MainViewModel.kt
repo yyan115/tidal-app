@@ -178,7 +178,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             app.library.localTracks().filter { it.isDownload && it.localUri?.startsWith("opentune-offline:") == false }
                 .filter { !app.downloadFiles.readable(Uri.parse(it.localUri.orEmpty())) }.forEach { app.library.removeLocal(it.id) }
-            if (app.downloadFiles.canWrite() && app.library.localTracks().any { it.localUri?.startsWith("opentune-offline:") == true }) {
+            if (app.library.localTracks().any { it.localUri?.startsWith("opentune-offline:") == true }) {
                 WorkManager.getInstance(application).enqueueUniqueWork("migrate-downloads", ExistingWorkPolicy.KEEP, OneTimeWorkRequestBuilder<MigrateDownloadsWorker>().build())
             }
         }
