@@ -75,7 +75,7 @@ private fun SyncedLyrics(lyrics: Lyrics, onSeek: (Long) -> Unit) {
             LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(top = maxHeight * 0.3f, bottom = maxHeight * 0.6f, start = 8.dp, end = 8.dp)) {
                 itemsIndexed(lyrics.lines, key = { index, line -> "$index:${line.timeMs}" }) { index, line ->
                     val active = index == current
-                    val color by animateColorAsState(if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .5f), label = "line-color")
+                    val color by animateColorAsState(if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .7f), label = "line-color")
                     val scale by animateFloatAsState(if (active) 1f else .82f, label = "line-scale")
                     Text(line.text.ifBlank { "♪" }, Modifier.fillMaxWidth().clickable { onSeek(line.timeMs) }.padding(vertical = 9.dp)
                         .graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = TransformOrigin(if (lyrics.rightToLeft) 1f else 0f, .5f) },
