@@ -231,6 +231,8 @@
     <string name="track_remove_file">Remove from library</string>
     <string name="queue_move_down">Move %1$s down</string>
     <string name="queue_shuffled">Shuffled</string>
+    <string name="queue_end">End of queue</string>
+    <string name="queue_start">Start of queue</string>
     <string name="queue_now_playing">Now playing</string>
     <string name="queue_reorder">Reorder %1$s</string>
 

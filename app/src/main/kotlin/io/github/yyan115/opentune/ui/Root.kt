@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -90,6 +91,8 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     val navigation = destinations.size > 1
     val welcome = !state.settings.welcomeDone && !state.signedIn
     val snackbar = remember { SnackbarHostState() }
+    val endOfQueue = stringResource(R.string.queue_end)
+    val startOfQueue = stringResource(R.string.queue_start)
     val inDetail = state.detail != null || state.routes.isNotEmpty()
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> vm.import(uris) }
     val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
@@ -162,7 +165,9 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
             bottomBar = {
                 Column {
                     if (state.playback.track != null) MiniPlayer(state.playback, position, onOpen = { nowPlaying = true }, onPlay = vm::togglePlay, onNext = vm::next, onDismiss = { vm.stopPlayback(); nowPlaying = false },
-                        onPrevious = vm::previous, sheet = sheet, onSheetReleased = { nowPlaying = it })
+                        onPrevious = vm::previous, sheet = sheet, onSheetReleased = { nowPlaying = it },
+                        onEnd = { sheetScope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(endOfQueue) } },
+                        onStart = { sheetScope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(startOfQueue) } })
                     if (!settings && !downloadQueue && !landscape && !largeText && navigation) OpenTuneNavigation(destinations, destination, select)
                     else Spacer(Modifier.navigationBarsPadding())
                 }
@@ -228,8 +233,6 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
                 SettingRow(if (saved) OpenTuneIcons.Favorite else OpenTuneIcons.FavoriteBorder, if (saved) stringResource(R.string.track_unsave) else stringResource(R.string.track_save), onClick = { vm.favorite(track); trackMenu = null })
                 SettingRow(OpenTuneIcons.PlaylistPlay, stringResource(R.string.track_play_next), onClick = { vm.queue(track, true); trackMenu = null })
                 SettingRow(OpenTuneIcons.QueueMusic, stringResource(R.string.track_add_queue), onClick = { vm.queue(track); trackMenu = null })
-                // The menu of the full player can stop playback, because a swipe on the small player now changes the track.
-                if (nowPlaying && track.id == state.playback.track?.id) SettingRow(OpenTuneIcons.Close, stringResource(R.string.player_stop), onClick = { vm.stopPlayback(); nowPlaying = false; trackMenu = null })
                 SettingRow(OpenTuneIcons.PlaylistAdd, stringResource(R.string.playlist_add), onClick = { addToPlaylist = track; trackMenu = null })
                 state.detail?.takeIf { vm.canEdit(it) }?.let { release ->
                     playlistPosition?.let { position ->
@@ -263,6 +266,8 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
                 // A file that came with a folder returns at the next scan, so it leaves with its folder. A download or a file that was added by hand can be removed.
                 if (stored != null && (!stored.isFile || stored.id !in state.folderFiles)) SettingRow(OpenTuneIcons.RemoveCircleOutline,
                     stringResource(if (stored.isFile) R.string.track_remove_file else R.string.track_remove_local), onClick = { removeTrack = stored; trackMenu = null })
+                // The menu of the full player can stop playback, and the action sits last in the menu, because a swipe on the small player now changes the track.
+                if (nowPlaying && track.id == state.playback.track?.id) SettingRow(OpenTuneIcons.Close, stringResource(R.string.player_stop), onClick = { vm.stopPlayback(); nowPlaying = false; trackMenu = null })
             }
         }
     }

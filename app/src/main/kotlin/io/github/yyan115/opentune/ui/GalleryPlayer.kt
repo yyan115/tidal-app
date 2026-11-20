@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,10 +77,10 @@ val LocalPlaybackPosition = staticCompositionLocalOf<StateFlow<Long>> { MutableS
  */
 @Composable
 fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onDismiss: () -> Unit = {},
-    onPrevious: () -> Unit = {}, sheet: PlayerSheet? = null, onSheetReleased: (Boolean) -> Unit = {}) {
+    onPrevious: () -> Unit = {}, sheet: PlayerSheet? = null, onSheetReleased: (Boolean) -> Unit = {}, onEnd: () -> Unit = {}, onStart: () -> Unit = {}) {
     val track = state.track ?: return
     val stop = stringResource(R.string.player_stop)
-    val change = ChangeTrack(hasNext = state.nextIndex >= 0, hasPrevious = state.index > 0, onNext = onNext, onPrevious = onPrevious)
+    val change = ChangeTrack(hasNext = state.nextIndex >= 0, hasPrevious = state.index > 0, onNext = onNext, onPrevious = onPrevious, onEnd = onEnd, onStart = onStart)
     val drag = rememberDraggableState { sheet?.dragBy(it) }
     SwipeToChangeTrack(track.id, change, Modifier.testTag("mini-player").semantics { customActions = listOf(CustomAccessibilityAction(stop) { onDismiss(); true }) }
         .draggable(drag, Orientation.Vertical, enabled = sheet != null, onDragStarted = { sheet?.dragStarted() }, onDragStopped = { velocity -> sheet?.let { onSheetReleased(it.released(velocity)) } })) {
@@ -99,7 +100,6 @@ fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, 
                     if (state.buffering) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 1.5.dp)
                     else Icon(if (state.playing) OpenTuneIcons.Pause else OpenTuneIcons.PlayArrow, stringResource(if (state.playing) R.string.player_pause else R.string.player_play), Modifier.size(21.dp))
                 }
-                IconButton(onClick = onNext, enabled = state.nextIndex >= 0) { Icon(OpenTuneIcons.SkipNext, stringResource(R.string.player_next), Modifier.size(20.dp)) }
             }
             LinearProgressIndicator(progress = { if (state.duration > 0) (position.value.toFloat() / state.duration).coerceIn(0f, 1f) else 0f },
                 modifier = Modifier.fillMaxWidth().height(1.dp), gapSize = 0.dp, drawStopIndicator = {})
@@ -113,7 +113,13 @@ fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, 
 fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onClose: () -> Unit, onQueue: () -> Unit, onMenu: (Track) -> Unit, onDownload: (Track) -> Unit,
     onAlbum: (Track) -> Unit = {}, onArtist: (Track) -> Unit = {}, initialLyrics: Boolean = false) {
     val track = state.playback.track ?: return
-    val changeTrack = ChangeTrack(hasNext = state.playback.nextIndex >= 0, hasPrevious = state.playback.index > 0, onNext = vm::next, onPrevious = vm::previous)
+    val queueMessages = remember { SnackbarHostState() }
+    val atEnd = stringResource(R.string.queue_end)
+    val atStart = stringResource(R.string.queue_start)
+    val messageScope = rememberCoroutineScope()
+    fun say(text: String) { messageScope.launch { queueMessages.currentSnackbarData?.dismiss(); queueMessages.showSnackbar(text) } }
+    val changeTrack = ChangeTrack(hasNext = state.playback.nextIndex >= 0, hasPrevious = state.playback.index > 0, onNext = vm::next, onPrevious = vm::previous,
+        onEnd = { say(atEnd) }, onStart = { say(atStart) })
     val drag = rememberDraggableState { sheet.dragBy(it) }
     var lyrics by rememberSaveable { mutableStateOf(initialLyrics) }
     var timer by remember { mutableStateOf(false) }
@@ -176,6 +182,8 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onC
                         }
                     }
                 }
+                // The full player is a window of its own, so it shows its own messages.
+                SnackbarHost(queueMessages, Modifier.align(Alignment.BottomCenter))
             }
         }
     }

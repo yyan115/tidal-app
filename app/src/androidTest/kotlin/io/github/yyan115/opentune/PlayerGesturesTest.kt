@@ -113,4 +113,52 @@ class PlayerGesturesTest {
         compose.onNode(hasText("Add to queue") and hasClickAction()).assertIsDisplayed()
         compose.onAllNodesWithText("Stop playback").assertCountEquals(0)
     }
+
+    @Test fun theSmallPlayerHasNoNextButtonBecauseASwipeChangesTheTrack() {
+        compose.onAllNodesWithContentDescription("Next track").assertCountEquals(0)
+        compose.onNodeWithTag("mini-player").performTouchInput { swipeLeft() }
+        compose.waitUntil(5_000) { model.state.value.playback.index == 1 }
+    }
+
+    @Test fun aSwipeOnTheSmallPlayerBeforeTheFirstTrackAndAfterTheLastOneSaysSo() {
+        compose.onNodeWithTag("mini-player").performTouchInput { swipeRight() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Start of queue").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals("The track stays", 0, model.state.value.playback.index)
+        compose.onNodeWithTag("mini-player").performTouchInput { swipeLeft() }
+        compose.waitUntil(5_000) { model.state.value.playback.index == 1 }
+        compose.onNodeWithTag("mini-player").performTouchInput { swipeLeft() }
+        compose.waitUntil(5_000) { model.state.value.playback.index == 2 }
+        compose.onNodeWithTag("mini-player").performTouchInput { swipeLeft() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("End of queue").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals("The track stays", 2, model.state.value.playback.index)
+    }
+
+    @Test fun aSwipeOnTheCoverOfTheFullPlayerSaysSoInsideTheFullPlayer() {
+        compose.onNodeWithTag("mini-player").performClick()
+        compose.waitUntil(5_000) { playerIsOpen() }
+        compose.onNodeWithTag("player-cover").performTouchInput { swipeRight() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Start of queue").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Start of queue").assertIsDisplayed()
+        assertEquals(0, model.state.value.playback.index)
+        compose.runOnIdle { model.play(tracks, 2) }
+        compose.waitUntil(10_000) { model.state.value.playback.index == 2 }
+        compose.onNodeWithTag("player-cover").performTouchInput { swipeLeft() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("End of queue").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("End of queue").assertIsDisplayed()
+    }
+
+    @Test fun theStopActionIsTheLastRowOfTheMenuOfTheFullPlayer() {
+        compose.onNodeWithTag("mini-player").performClick()
+        compose.waitUntil(5_000) { playerIsOpen() }
+        compose.onNodeWithContentDescription("Track options").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Stop playback").fetchSemanticsNodes().isNotEmpty() }
+        val text = androidx.compose.ui.semantics.SemanticsProperties.Text
+        fun rows(node: androidx.compose.ui.semantics.SemanticsNode): List<androidx.compose.ui.semantics.SemanticsNode> =
+            (if (node.config.contains(androidx.compose.ui.semantics.SemanticsActions.OnClick) && node.config.contains(text)) listOf(node) else emptyList()) + node.children.flatMap(::rows)
+        // The menu is a window of its own, over the full player.
+        val menu = compose.onAllNodes(isRoot()).fetchSemanticsNodes().first { root -> rows(root).any { it.config[text].joinToString { t -> t.text } == "Stop playback" } && rows(root).none { it.config[text].joinToString { t -> t.text } == "Lyrics" } }
+        val rows = rows(menu)
+        val lowest = rows.maxByOrNull { it.boundsInRoot.top }!!
+        assertEquals("Stop playback", lowest.config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString { it.text })
+    }
 }

@@ -26,12 +26,13 @@ object PlayerGestures {
         else -> progress >= 0.5f
     }
 
-    enum class Swipe { Next, Previous, Stay }
+    /** [End] and [Start] are swipes that go far enough to change the track toward a track that does not exist: after the last one and before the first one. */
+    enum class Swipe { Next, Previous, Stay, End, Start }
 
     /**
      * What a swipe on the cover or on the small player does when the finger lifts.
      * [offset] is how far the finger moved, negative to the left, in the same unit as [width]. [velocity] is in widths per second.
-     * A swipe to the left plays the next track and a swipe to the right plays the previous one. A swipe toward a track that does not exist stays.
+     * A swipe to the left plays the next track and a swipe to the right plays the previous one. A swipe toward a track that does not exist is the [Swipe.End] or the [Swipe.Start] of the queue.
      */
     fun swipe(offset: Float, velocity: Float, width: Float, hasNext: Boolean, hasPrevious: Boolean): Swipe {
         if (width <= 0f) return Swipe.Stay
@@ -43,7 +44,8 @@ object PlayerGestures {
             !far -> Swipe.Stay
             toward == Swipe.Next && hasNext -> Swipe.Next
             toward == Swipe.Previous && hasPrevious -> Swipe.Previous
-            else -> Swipe.Stay
+            toward == Swipe.Next -> Swipe.End
+            else -> Swipe.Start
         }
     }
 
