@@ -16,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -47,11 +48,6 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     var settingsPage by rememberSaveable { mutableStateOf<String?>(null) }
     var downloadQueue by rememberSaveable { mutableStateOf(false) }
     var nowPlaying by rememberSaveable { mutableStateOf(initialPlayer) }
-    // The lists of the main screens keep their place when an album or a playlist opens over them, because their state lives here and not in the screen that is replaced.
-    val homeList = rememberLazyListState()
-    val searchList = rememberLazyListState()
-    val deviceList = rememberLazyListState()
-    val libraryLists = List(5) { rememberLazyListState() }
     val sheetScope = rememberCoroutineScope()
     // How far the full player is open. A drag of the small player or of the full player moves it, and so do the buttons that open and close it.
     val sheet = remember { PlayerSheet(nowPlaying, sheetScope) }
@@ -81,6 +77,14 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     val destinations = if (state.signedIn) listOf(Destination.Home, Destination.Search, Destination.Library, Destination.Device) else listOf(Destination.Device)
     val destination = Destination.entries.firstOrNull { it.name == destinationName }?.takeIf { it in destinations } ?: destinations.first()
     val settingsPageOpen = SettingsPage.entries.firstOrNull { it.name == settingsPage }
+    // Everything that a screen remembers is kept while the screen is on the stack of screens, so it is still there when Settings, the player
+    // or another page closes over it. A screen that was closed is forgotten, and it starts again from the top the next time.
+    val saveable = rememberSaveableStateHolder()
+    val kept = remember { mutableSetOf<String>() }
+    val pageKeys = state.routes.map { it.key }
+    val top = ScreenStack.top(destination.name.lowercase(), settings, settingsPageOpen, downloadQueue, state.detail?.id, pageKeys)
+    val onStack = ScreenStack.onStack(destination.name.lowercase(), settings, settingsPageOpen, downloadQueue, state.detail?.id, pageKeys)
+    LaunchedEffect(onStack) { kept.filter { it !in onStack }.forEach { saveable.removeState(it); kept.remove(it) } }
     val closeSettings = { settings = false; settingsPage = null; downloadQueue = false }
     val select: (Destination) -> Unit = { destinationName = it.name; closeSettings(); vm.closeAll() }
     val navigation = destinations.size > 1
@@ -112,8 +116,9 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     else if (setup) SetupScreen(onContinue = vm::finishSetup)
     else Row(Modifier.fillMaxSize().then(if (landscape) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Start)) else Modifier)) {
     if (rail && navigation) OpenTuneRail(destinations, destination, select)
-    Scaffold(modifier = Modifier.weight(1f),
-        topBar = {
+    // The header is part of this column and not of the scaffold, so that it is measured before the screen, in the same pass. In the content of the
+    // scaffold it was measured after the screen, and a screen that opened was measured first with the height of the header before it.
+    Column(Modifier.weight(1f)) {
             val title = if (downloadQueue) stringResource(R.string.downloads_queue_title) else if (settings) stringResource(settingsPageOpen?.title ?: R.string.nav_settings) else state.detail?.let {
                 when (it.type) { ReleaseType.ALBUM -> stringResource(R.string.type_album); ReleaseType.ARTIST -> stringResource(R.string.type_artist); ReleaseType.PLAYLIST -> stringResource(R.string.type_playlist); ReleaseType.MIX -> stringResource(R.string.type_mix); ReleaseType.VIDEO -> stringResource(R.string.type_video); ReleaseType.FOLDER -> stringResource(R.string.type_folder) }
             } ?: stringResource(destination.title)
@@ -152,35 +157,39 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
                     if (settingsPageOpen == SettingsPage.Statistics) IconButton(onClick = { statsInfo = true }) { Icon(OpenTuneIcons.Info, stringResource(R.string.stats_info_label)) }
                 }
             }
-        },
-        bottomBar = {
-            Column {
-                if (state.playback.track != null) MiniPlayer(state.playback, position, onOpen = { nowPlaying = true }, onPlay = vm::togglePlay, onNext = vm::next, onDismiss = { vm.stopPlayback(); nowPlaying = false },
-                    onPrevious = vm::previous, sheet = sheet, onSheetReleased = { nowPlaying = it })
-                if (!settings && !downloadQueue && !landscape && !largeText && navigation) OpenTuneNavigation(destinations, destination, select)
-                else Spacer(Modifier.navigationBarsPadding())
-            }
-        },
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
-            when {
-                downloadQueue -> DownloadQueuePage(state, vm)
-                settings -> when (settingsPageOpen) {
-                    SettingsPage.Repeats -> AvoidRepeatsPage(state, vm)
-                    SettingsPage.Statistics -> StatisticsPage(vm)
-                    SettingsPage.Licenses -> LicencesPage { settingsPage = it.name }
-                    SettingsPage.Apache, SettingsPage.Inter, SettingsPage.Serif, SettingsPage.Space, SettingsPage.Mono -> LicenceDocumentPage(settingsPageOpen)
-                    null -> SettingsScreen(state, vm, openLogin) { settingsPage = it.name }
+        Scaffold(modifier = Modifier.weight(1f), contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
+            bottomBar = {
+                Column {
+                    if (state.playback.track != null) MiniPlayer(state.playback, position, onOpen = { nowPlaying = true }, onPlay = vm::togglePlay, onNext = vm::next, onDismiss = { vm.stopPlayback(); nowPlaying = false },
+                        onPrevious = vm::previous, sheet = sheet, onSheetReleased = { nowPlaying = it })
+                    if (!settings && !downloadQueue && !landscape && !largeText && navigation) OpenTuneNavigation(destinations, destination, select)
+                    else Spacer(Modifier.navigationBarsPadding())
                 }
-                state.routes.isNotEmpty() -> PageScreen(state.routes.last(), state, vm, pagesVm, openTrackMenu)
-                state.detail != null -> DetailScreen(state, vm, { track, index -> trackMenu = track; playlistPosition = index }, onAddSongs = { addSongs = true })
-                destination == Destination.Home -> ListenScreen(state, vm, importAudio, openLogin, { filter -> libraryFilter = filter; destinationName = Destination.Library.name },
-                    { destinationName = Destination.Device.name }, openTrackMenu, { nowPlaying = true }, homeList)
-                destination == Destination.Search -> SearchScreen(state, vm, openLogin, openTrackMenu, searchList)
-                destination == Destination.Library -> LibraryScreen(state, vm, openLogin, { newPlaylistTrack = null; playlistTitle = ""; newPlaylist = true }, openTrackMenu,
-                    libraryFilter, { libraryFilter = it }, libraryLists[libraryFilter.coerceIn(0, 4)])
-                else -> OnDeviceScreen(state, vm, importAudio, addFolder, openLogin, { newPlaylistTrack = null; playlistTitle = ""; newPlaylist = true }, { downloadQueue = true }, openTrackMenu, deviceList)
+            },
+            snackbarHost = { SnackbarHost(snackbar) },
+        ) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding)) {
+                saveable.SaveableStateProvider(top) {
+                SideEffect { kept.add(top) }
+                when {
+                    downloadQueue -> DownloadQueuePage(state, vm)
+                    settings -> when (settingsPageOpen) {
+                        SettingsPage.Repeats -> AvoidRepeatsPage(state, vm)
+                        SettingsPage.Statistics -> StatisticsPage(vm)
+                        SettingsPage.Licenses -> LicencesPage { settingsPage = it.name }
+                        SettingsPage.Apache, SettingsPage.Inter, SettingsPage.Serif, SettingsPage.Space, SettingsPage.Mono -> LicenceDocumentPage(settingsPageOpen)
+                        null -> SettingsScreen(state, vm, openLogin) { settingsPage = it.name }
+                    }
+                    state.routes.isNotEmpty() -> PageScreen(state.routes.last(), state, vm, pagesVm, openTrackMenu)
+                    state.detail != null -> DetailScreen(state, vm, { track, index -> trackMenu = track; playlistPosition = index }, onAddSongs = { addSongs = true })
+                    destination == Destination.Home -> ListenScreen(state, vm, importAudio, openLogin, { filter -> libraryFilter = filter; destinationName = Destination.Library.name },
+                        { destinationName = Destination.Device.name }, openTrackMenu, { nowPlaying = true })
+                    destination == Destination.Search -> SearchScreen(state, vm, openLogin, openTrackMenu)
+                    destination == Destination.Library -> LibraryScreen(state, vm, openLogin, { newPlaylistTrack = null; playlistTitle = ""; newPlaylist = true }, openTrackMenu,
+                        libraryFilter, { libraryFilter = it })
+                    else -> OnDeviceScreen(state, vm, importAudio, addFolder, openLogin, { newPlaylistTrack = null; playlistTitle = ""; newPlaylist = true }, { downloadQueue = true }, openTrackMenu)
+                }
+                }
             }
         }
     }
