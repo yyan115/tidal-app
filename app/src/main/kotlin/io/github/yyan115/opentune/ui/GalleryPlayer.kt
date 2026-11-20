@@ -227,7 +227,7 @@ private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> U
             stringResource(if (saved) R.string.track_unsave else R.string.track_save), Modifier.size(22.dp), tint = if (saved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
     }
     player.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-    PlaybackSlider(vm, track.id, player.duration)
+    PlaybackSlider(vm::seek, track.id, player.duration)
     Row(Modifier.fillMaxWidth().padding(vertical = if (compact) 12.dp else 18.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         IconToggleButton(player.shuffle, onCheckedChange = { vm.toggleShuffle() }) { Icon(OpenTuneIcons.Shuffle, stringResource(R.string.player_shuffle), Modifier.size(20.dp), tint = if (player.shuffle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
         IconButton(onClick = vm::previous) { Icon(OpenTuneIcons.SkipPrevious, stringResource(R.string.player_previous), Modifier.size(29.dp)) }
@@ -354,15 +354,16 @@ private fun SpectrumBars(playing: Boolean, modifier: Modifier) {
 @OptIn(ExperimentalMaterial3Api::class)
 @UnstableApi
 @Composable
-private fun PlaybackSlider(vm: MainViewModel, trackId: String, duration: Long) {
+internal fun PlaybackSlider(onSeek: (Long) -> Unit, trackId: String, duration: Long) {
     val position by LocalPlaybackPosition.current.collectAsStateWithLifecycle()
     var seeking by remember(trackId) { mutableStateOf<Float?>(null) }
     val sliderColors = SliderDefaults.colors(activeTrackColor = MaterialTheme.colorScheme.primary, inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant)
     Slider(value = seeking ?: position.toFloat().coerceIn(0f, duration.coerceAtLeast(1).toFloat()), onValueChange = { seeking = it },
         valueRange = 0f..duration.coerceAtLeast(1).toFloat(), enabled = duration > 0,
-        onValueChangeFinished = { seeking?.let { vm.seek(it.toLong()) }; seeking = null }, modifier = Modifier.fillMaxWidth().height(38.dp),
-        thumb = { Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)) },
-        track = { SliderDefaults.Track(it, Modifier.height(2.dp), colors = sliderColors, thumbTrackGapSize = 0.dp, drawStopIndicator = null) }, colors = sliderColors)
+        onValueChangeFinished = { seeking?.let { onSeek(it.toLong()) }; seeking = null }, modifier = Modifier.fillMaxWidth().height(38.dp),
+        // The slider gives the thumb a box that is taller than the dot, and a dot with no alignment sits at the top of it, above the line.
+        thumb = { Box(Modifier.fillMaxHeight(), contentAlignment = Alignment.Center) { Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).testTag("seek-thumb")) } },
+        track = { SliderDefaults.Track(it, Modifier.height(2.dp).testTag("seek-track"), colors = sliderColors, thumbTrackGapSize = 0.dp, drawStopIndicator = null) }, colors = sliderColors)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(formatDuration(seeking?.toLong() ?: position), fontFamily = AppFonts.mono, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(formatDuration(duration), fontFamily = AppFonts.mono, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
