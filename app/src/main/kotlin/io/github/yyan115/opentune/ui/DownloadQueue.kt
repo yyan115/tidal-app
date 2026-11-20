@@ -26,9 +26,11 @@ fun queuedDownloads(state: AppState): List<WorkInfo> = state.downloads.filter { 
     .sortedBy { DownloadOrder.orderOf(it.tags) ?: Long.MAX_VALUE }
 
 /** Whether a download of the queue transfers data now. Downloads take turns, so a download that Android runs may still wait for its turn. */
+@UnstableApi
 fun isTransferring(work: WorkInfo): Boolean = work.state == WorkInfo.State.RUNNING && !work.progress.getBoolean(DownloadWorker.WAITING, false)
 
 /** The download that transfers data now, if there is one. */
+@UnstableApi
 fun currentDownload(state: AppState): WorkInfo? = queuedDownloads(state).firstOrNull(::isTransferring)
 
 /** The id of the track of a download. */
