@@ -28,6 +28,7 @@ import io.github.yyan115.opentune.data.DownloadWorker
 import io.github.yyan115.opentune.data.MigrateDownloadsWorker
 import io.github.yyan115.opentune.data.Settings
 import io.github.yyan115.opentune.playback.PlaybackCommands
+import io.github.yyan115.opentune.playback.PlaybackFailures
 import io.github.yyan115.opentune.playback.PlaybackService
 import io.github.yyan115.opentune.playback.manualMarks
 import kotlinx.coroutines.CancellationException
@@ -54,7 +55,7 @@ data class PlaybackState(
     val playing: Boolean = false, val buffering: Boolean = false,
     val duration: Long = 0,
     val shuffle: Boolean = false, val repeat: Int = Player.REPEAT_MODE_OFF,
-    val quality: String = "", val error: String? = null,
+    val quality: String = "", val error: String? = null, val noConnection: Boolean = false,
     val nextIndex: Int = -1, val source: String = "",
 ) { val track: Track? get() = queue.getOrNull(index) }
 
@@ -144,8 +145,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     override fun onPlayerError(error: PlaybackException) {
                         val cause = generateSequence<Throwable>(error) { it.cause }.last()
                         val unreadable = ui.value.playback.track?.isFile == true && generateSequence<Throwable>(error) { it.cause }.any { it is java.io.FileNotFoundException || it is SecurityException }
-                        ui.update { it.copy(playback = it.playback.copy(error = when {
+                        val noConnection = !unreadable && PlaybackFailures.isNoConnection(error)
+                        ui.update { it.copy(playback = it.playback.copy(noConnection = noConnection, error = when {
                             unreadable -> app.getString(R.string.error_file_unreadable)
+                            noConnection -> app.getString(R.string.error_no_connection)
                             cause is ServiceException || cause is ProtectedStreamException -> app.problemText(cause)
                             else -> app.getString(R.string.error_playback_stopped)
                         })) }
@@ -408,7 +411,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         preferences.edit().putString("source", source).apply()
         ui.update { it.copy(playback = it.playback.copy(source = source)) }
         val player = controller ?: run { notify(app.getString(R.string.notify_service_starting)); return }
-        ui.update { it.copy(playback = it.playback.copy(error = null)) }
+        ui.update { it.copy(playback = it.playback.copy(error = null, noConnection = false)) }
         if (shuffle != null && player.shuffleModeEnabled != shuffle) player.shuffleModeEnabled = shuffle
         val shuffled = shuffle ?: player.shuffleModeEnabled
         val start = index.coerceIn(tracks.indices)
@@ -854,7 +857,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         ui.update { it.copy(playback = it.playback.copy(queue = queue, index = player.currentMediaItemIndex.coerceAtLeast(0),
             playing = player.isPlaying, buffering = player.playbackState == Player.STATE_BUFFERING,
             shuffle = player.shuffleModeEnabled, repeat = player.repeatMode, quality = quality, nextIndex = player.nextMediaItemIndex,
-            error = if (player.playerError == null) null else it.playback.error)) }
+            error = if (player.playerError == null) null else it.playback.error, noConnection = player.playerError != null && it.playback.noConnection)) }
     }
 
     private fun restoreQueue() {

@@ -92,7 +92,7 @@ fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, 
                 TrackArtwork(track, null, Modifier.size(35.dp))
                 Column(Modifier.weight(1f).padding(start = 12.dp, end = 4.dp)) {
                     Text(track.title, fontFamily = AppFonts.body, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(if (state.error != null) stringResource(R.string.player_stopped) else track.artist, Modifier.padding(top = 2.dp),
+                    Text(if (state.noConnection) stringResource(R.string.error_no_connection) else if (state.error != null) stringResource(R.string.player_stopped) else track.artist, Modifier.padding(top = 2.dp),
                         fontFamily = AppFonts.body, fontSize = 10.sp, lineHeight = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         color = if (state.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
