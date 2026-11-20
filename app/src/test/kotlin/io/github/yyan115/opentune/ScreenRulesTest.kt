@@ -45,4 +45,26 @@ class ScreenRulesTest {
         val found = sources.flatMap { file -> code(file).filter { Regex("""topBar\s*=""").containsMatchIn(it.second) }.map { "${file.name}:${it.first}" } }
         assertTrue("Put the header above the scaffold, in the same column: $found", found.isEmpty())
     }
+
+    /**
+     * The width of a text follows its characters and its size, so a text never has a fixed width or a fixed height. A number in a column of numbers uses a width that grows.
+     * Icons, spacers and buttons can have a fixed size, because their content does not change with the text size.
+     */
+    @Test fun noTextHasAFixedWidthOrHeight() {
+        // The width or height must come after the opening of the Text and before the end of its statement. A spacer next to a text on the same line is not the text.
+        val fixed = Regex("""\bText\([^;]*?\.(width|height)\(\d+(\.\d+)?\.dp\)""")
+        val offenders = sources.flatMap { file -> code(file).filter { (_, line) -> fixed.containsMatchIn(line) }.map { (number, _) -> "${file.name}:$number" } }
+        assertEquals("These texts have a fixed width or height: $offenders", emptyList<String>(), offenders)
+    }
+
+    /**
+     * A colour that does not come from the theme cannot follow the theme, so only a drawing over a picture or a video may have one: the picture does not change with the theme.
+     * Each of those places is listed here, so that a new one is a decision and not an accident.
+     */
+    @Test fun fixedColoursAreOnlyOverPicturesAndVideo() {
+        val fixed = Regex("""Color\(0x|Color\.(White|Black|Red|Green|Blue|Gray|Yellow|Cyan|Magenta)\b""")
+        val allowed = mapOf("GalleryHome.kt" to 2, "OpenTuneIcons.kt" to 2, "PageScreens.kt" to 2, "PlayerScreen.kt" to 1, "VideoPlayer.kt" to 10)
+        val found = sources.filter { it.name !in setOf("Themes.kt", "Theme.kt") }.associate { file -> file.name to code(file).count { (_, line) -> fixed.containsMatchIn(line) } }.filterValues { it > 0 }
+        assertEquals("Fixed colours outside the theme: $found. A drawing over a picture or a video is added to the list of this test, anything else uses the theme.", allowed, found)
+    }
 }

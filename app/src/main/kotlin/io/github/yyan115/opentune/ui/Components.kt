@@ -150,7 +150,7 @@ fun TrackRow(track: Track, playing: Boolean = false, onPlay: () -> Unit, onMenu:
 private fun TrackRowContent(track: Track, playing: Boolean, onPlay: () -> Unit, onMenu: () -> Unit, index: Int?) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onPlay).padding(start = 24.dp, end = 8.dp, top = 11.dp, bottom = 11.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        if (index != null) Text("%02d".format(index + 1), Modifier.width(32.dp), fontFamily = AppFonts.mono, fontSize = 10.sp,
+        if (index != null) Text("%02d".format(index + 1), Modifier.widthIn(min = 32.dp), fontFamily = AppFonts.mono, fontSize = 10.sp,
             color = if (playing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
         else TrackArtwork(track, null, Modifier.size(48.dp))
         Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
