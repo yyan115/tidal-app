@@ -117,8 +117,9 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     else Row(Modifier.fillMaxSize().then(if (landscape) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Start)) else Modifier)) {
     if (rail && navigation) OpenTuneRail(destinations, destination, select)
     // The header is part of this column and not of the scaffold, so that it is measured before the screen, in the same pass. In the content of the
-    // scaffold it was measured after the screen, and a screen that opened was measured first with the height of the header before it.
-    Column(Modifier.weight(1f)) {
+    // scaffold it was measured after the screen, so a screen that opened was measured while the header still had the height of the screen it replaced.
+    // The surface gives the header the colours of the theme, as the scaffold does for its own content.
+    Surface(Modifier.weight(1f), color = MaterialTheme.colorScheme.background) { Column(Modifier.fillMaxSize()) {
             val title = if (downloadQueue) stringResource(R.string.downloads_queue_title) else if (settings) stringResource(settingsPageOpen?.title ?: R.string.nav_settings) else state.detail?.let {
                 when (it.type) { ReleaseType.ALBUM -> stringResource(R.string.type_album); ReleaseType.ARTIST -> stringResource(R.string.type_artist); ReleaseType.PLAYLIST -> stringResource(R.string.type_playlist); ReleaseType.MIX -> stringResource(R.string.type_mix); ReleaseType.VIDEO -> stringResource(R.string.type_video); ReleaseType.FOLDER -> stringResource(R.string.type_folder) }
             } ?: stringResource(destination.title)
@@ -192,7 +193,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
                 }
             }
         }
-    }
+    } }
     }
 
     if (navigationMenu) ModalBottomSheet(onDismissRequest = { navigationMenu = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
