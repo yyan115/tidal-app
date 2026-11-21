@@ -45,9 +45,21 @@ class TrackMenuRowsTest {
         downloadUri?.let(app.downloadFiles::delete)
     }
 
+    /** Saves a picture of the screen, so that a failed wait shows what the screen held. */
+    private fun screenshot(name: String) {
+        val output = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+        val directory = (output?.let(::File) ?: File(compose.activity.getExternalFilesDir(null), "screenshots")).apply { mkdirs() }
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: return
+        File(directory, "$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        bitmap.recycle()
+    }
+
     private fun openMenuOf(title: String) {
-        compose.waitUntil(10_000) { compose.onAllNodesWithText(title).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("device-list").performScrollToNode(hasText(title))
+        // The list shows only the rows on the screen, and on a small screen with the rows that other tests left behind the track is below the screen.
+        // The scroll goes to the track whether the row exists yet or not, and it repeats until the library holds the track.
+        try {
+            compose.waitUntil(10_000) { runCatching { compose.onNodeWithTag("device-list").performScrollToNode(hasText(title)) }.isSuccess }
+        } catch (failure: androidx.compose.ui.test.ComposeTimeoutException) { screenshot("menu-list-without-${title.replace(' ', '-')}"); throw failure }
         compose.onAllNodesWithContentDescription(text(R.string.track_options).replace("%1\$s", title)).onFirst().performClick()
     }
 
