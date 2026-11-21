@@ -98,7 +98,7 @@ fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, 
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
         Column {
             Row(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 10.dp, end = 2.dp, top = 5.dp, bottom = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                TrackArtwork(track, null, Modifier.size(35.dp))
+                TrackArtwork(track, null, Modifier.size(35.dp).testTag("mini-artwork").onGloballyPositioned { sheet?.miniArtwork = Rect(it.positionOnScreen(), it.size.toSize()) })
                 Column(Modifier.weight(1f).padding(start = 12.dp, end = 4.dp)) {
                     Text(track.title, fontFamily = AppFonts.body, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(if (state.noConnection) stringResource(R.string.error_no_connection) else if (state.error != null) stringResource(R.string.player_stopped) else track.artist, Modifier.padding(top = 2.dp),
@@ -155,8 +155,8 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onC
             .draggable(drag, Orientation.Vertical, onDragStarted = { sheet.dragStarted() }, onDragStopped = { velocity -> if (!sheet.released(velocity)) onClose() }),
             color = MaterialTheme.colorScheme.background) {
             BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()
-                // The content rises with the top edge of the player, and shows once the player is large enough for it.
-                .graphicsLayer { alpha = PlayerMorph.contentAlpha(sheet.progress); translationY = sheet.covered(Size(size.width, size.height + sheet.origin.y)).top }) {
+                // The content shows once the player is large enough for it. The cover is not a part of this fade, it grows out of the small player.
+                .graphicsLayer { alpha = PlayerMorph.contentAlpha(sheet.progress) }) {
                 val large = LocalDensity.current.fontScale > 1.3f
                 val landscape = maxWidth > maxHeight && maxWidth >= 480.dp && !large
                 // The controls stay at the bottom of the screen. Only a very short screen scrolls the whole page.
@@ -176,7 +176,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onC
                     if (landscape) {
                         Row(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                             if (lyrics) LyricsPanel(state, vm, Modifier.width(landscapeArtworkSize * 1.3f).height(landscapeArtworkSize))
-                            else PlayerArtwork(track, stringResource(R.string.player_artwork, track.album), Modifier.size(landscapeArtworkSize), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, changeTrack)
+                            else PlayerArtwork(sheet, track, stringResource(R.string.player_artwork, track.album), Modifier.size(landscapeArtworkSize), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, changeTrack)
                             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                                 PlayerHeading(track, true, onAlbum, onArtist)
                                 GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, true)
@@ -186,7 +186,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onC
                         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
                             PlayerHeading(track, true, onAlbum, onArtist)
                             if (lyrics) LyricsPanel(state, vm, Modifier.fillMaxWidth().height(if (large) 220.dp else 260.dp))
-                            else PlayerArtwork(track, stringResource(R.string.player_artwork, track.album), Modifier.size(if (large) 104.dp else 180.dp).align(Alignment.CenterHorizontally).padding(vertical = 8.dp), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, changeTrack)
+                            else PlayerArtwork(sheet, track, stringResource(R.string.player_artwork, track.album), Modifier.size(if (large) 104.dp else 180.dp).align(Alignment.CenterHorizontally).padding(vertical = 8.dp), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, changeTrack)
                             GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, true)
                         }
                     } else {
@@ -194,7 +194,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onC
                             PlayerHeading(track, dense, onAlbum, onArtist)
                             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                                 if (lyrics) LyricsPanel(state, vm, Modifier.fillMaxSize())
-                                else PlayerArtwork(track, stringResource(R.string.player_artwork, track.album), Modifier.size(minOf(maxWidth - 20.dp, maxHeight - 8.dp).coerceAtLeast(0.dp)), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, changeTrack)
+                                else PlayerArtwork(sheet, track, stringResource(R.string.player_artwork, track.album), Modifier.size(minOf(maxWidth - 20.dp, maxHeight - 8.dp).coerceAtLeast(0.dp)), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, changeTrack)
                             }
                             GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, dense)
                         }
@@ -294,8 +294,13 @@ private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> U
 
 /** The cover of the playing track. With the visualizer on, the cover dims and the bars of the music move over it. */
 @Composable
-private fun PlayerArtwork(track: Track, description: String, modifier: Modifier, visualizer: Boolean, playing: Boolean, change: ChangeTrack) {
-    SwipeToChangeTrack(track.id, change, modifier.testTag("player-cover")) {
+private fun PlayerArtwork(sheet: PlayerSheet?, track: Track, description: String, modifier: Modifier, visualizer: Boolean, playing: Boolean, change: ChangeTrack) {
+    // The cover grows out of the small picture of the small player and shrinks back into it, in step with the player that opens and closes.
+    val grow = if (sheet == null) Modifier else Modifier.onGloballyPositioned { sheet.cover = Rect(it.positionOnScreen(), it.size.toSize()) }.graphicsLayer {
+        val place = PlayerMorph.cover(sheet.progress, sheet.miniArtwork, sheet.cover)
+        scaleX = place.scale; scaleY = place.scale; translationX = place.dx; translationY = place.dy
+    }
+    SwipeToChangeTrack(track.id, change, modifier.then(grow).testTag("player-cover")) {
         Box(Modifier.fillMaxSize()) {
             TrackArtwork(track, description, Modifier.fillMaxSize().graphicsLayer { alpha = if (visualizer) VISUALIZER_COVER_ALPHA else 1f }, large = true)
             if (visualizer) SpectrumBars(playing, Modifier.matchParentSize().padding(12.dp).testTag("spectrum"))

@@ -55,4 +55,28 @@ class PlayerMorphTest {
         assertEquals(screen, PlayerMorph.rect(1.4f, mini, screen))
         assertEquals(mini, PlayerMorph.rect(-.2f, mini, screen))
     }
+
+    private val thumb = Rect(80f, 2120f, 200f, 2240f)
+    private val cover = Rect(60f, 500f, 1020f, 1460f)
+
+    @Test fun theCoverStartsOnTheSmallPictureAndEndsInItsOwnPlace() {
+        val start = PlayerMorph.cover(0f, thumb, cover)
+        assertEquals(thumb.width / cover.width, start.scale, 0.0001f)
+        assertEquals(thumb.center.x, cover.center.x + start.dx, 0.01f)
+        assertEquals(thumb.center.y, cover.center.y + start.dy, 0.01f)
+        assertEquals(PlayerMorph.CoverPlace(1f, 0f, 0f), PlayerMorph.cover(1f, thumb, cover))
+    }
+
+    @Test fun theCoverGrowsAndMovesInOneDirectionOnly() {
+        val places = steps.map { PlayerMorph.cover(it, thumb, cover) }
+        places.zipWithNext { a, b ->
+            assertTrue(b.scale >= a.scale)
+            assertTrue(Math.abs(b.dx) <= Math.abs(a.dx) + 0.001f && Math.abs(b.dy) <= Math.abs(a.dy) + 0.001f)
+        }
+    }
+
+    @Test fun withoutKnownPlacesTheCoverStaysWhereItIs() {
+        assertEquals(PlayerMorph.CoverPlace(1f, 0f, 0f), PlayerMorph.cover(0f, Rect.Zero, cover))
+        assertEquals(PlayerMorph.CoverPlace(1f, 0f, 0f), PlayerMorph.cover(0f, thumb, Rect.Zero))
+    }
 }

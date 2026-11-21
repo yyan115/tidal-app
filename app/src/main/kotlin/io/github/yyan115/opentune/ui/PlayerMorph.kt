@@ -18,8 +18,9 @@ object PlayerMorph {
     /** The surface of the player is solid from this progress on. Before it, the small player shows through. */
     private const val SURFACE_SOLID_AT = 0.25f
 
-    /** The content of the full player starts to show at this progress. */
-    private const val CONTENT_FROM = 0.35f
+    /** The content of the full player starts to show at this progress and is whole at [CONTENT_TO]. */
+    private const val CONTENT_FROM = 0.2f
+    private const val CONTENT_TO = 0.7f
 
     /** The part of the screen that the player covers. When the small player is not known, the player grows from the bottom edge of the screen. */
     fun rect(progress: Float, mini: Rect, screen: Rect): Rect {
@@ -37,7 +38,18 @@ object PlayerMorph {
         override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline = Outline.Rounded(RoundRect(rect, CornerRadius(radius)))
     }
 
+    /** How the large cover is placed so that it grows out of the small picture of the small player: its size and the move of its middle. */
+    data class CoverPlace(val scale: Float, val dx: Float, val dy: Float)
+
+    /** The place of the cover at [progress], when it lies at [to] at the end and the small picture lies at [from]. Without both places it stays where it is. */
+    fun cover(progress: Float, from: Rect, to: Rect): CoverPlace {
+        if (from.isEmpty || to.isEmpty) return CoverPlace(1f, 0f, 0f)
+        val p = progress.coerceIn(0f, 1f)
+        val start = from.width / to.width
+        return CoverPlace(start + (1f - start) * p, (from.center.x - to.center.x) * (1f - p) + 0f, (from.center.y - to.center.y) * (1f - p) + 0f)
+    }
+
     fun surfaceAlpha(progress: Float): Float = (progress / SURFACE_SOLID_AT).coerceIn(0f, 1f)
 
-    fun contentAlpha(progress: Float): Float = ((progress - CONTENT_FROM) / (1f - CONTENT_FROM)).coerceIn(0f, 1f)
+    fun contentAlpha(progress: Float): Float = ((progress - CONTENT_FROM) / (CONTENT_TO - CONTENT_FROM)).coerceIn(0f, 1f)
 }

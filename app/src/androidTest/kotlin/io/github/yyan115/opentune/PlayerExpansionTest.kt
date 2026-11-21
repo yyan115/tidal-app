@@ -106,4 +106,32 @@ class PlayerExpansionTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("player-container").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("mini-player").assertIsDisplayed()
     }
+
+    @Test fun theCoverGrowsOutOfTheSmallPictureWhileTheFingerDragsAndHasItsPlaceOnceTheFullPlayerIsOpen() {
+        val height = screenHeight()
+        compose.onNodeWithTag("mini-player").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("Close player").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+        val final = compose.onNodeWithTag("player-cover").fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithContentDescription("Close player").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("player-container").fetchSemanticsNodes().isEmpty() }
+        val thumb = compose.onNodeWithTag("mini-artwork", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("The small picture is much smaller than the cover: ${thumb.width} and ${final.width}", thumb.width < final.width * 0.3f)
+        compose.onNodeWithTag("mini-player").performTouchInput { down(center); moveBy(Offset(0f, -height * .12f)) }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("player-cover").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle(); screenshot("morph-1")
+        compose.onNodeWithTag("mini-player").performTouchInput { moveBy(Offset(0f, -height * .13f)) }
+        compose.waitForIdle(); screenshot("morph-2")
+        compose.onNodeWithTag("mini-player").performTouchInput { moveBy(Offset(0f, -height * .3f)) }
+        compose.waitForIdle()
+        val half = compose.onNodeWithTag("player-cover").fetchSemanticsNode().boundsInRoot
+        screenshot("morph-3")
+        assertTrue("Halfway the cover is larger than the small picture (${thumb.width}) and smaller than its own size (${final.width}): ${half.width}", half.width > thumb.width * 1.5f && half.width < final.width * 0.95f)
+        assertTrue("Halfway the middle of the cover is between the two places: ${half.center.y} between ${final.center.y} and ${thumb.center.y}", half.center.y < thumb.center.y && half.center.y > final.center.y)
+        compose.onNodeWithTag("mini-player").performTouchInput { up() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("Close player").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+        val settled = compose.onNodeWithTag("player-cover").fetchSemanticsNode().boundsInRoot
+        assertTrue("Once the player is open the cover has its own place and size: $settled and $final", Math.abs(settled.width - final.width) < 2f && Math.abs(settled.center.y - final.center.y) < 2f)
+    }
 }
