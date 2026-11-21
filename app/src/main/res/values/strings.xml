@@ -522,8 +522,8 @@
     </plurals>
     <string name="stats_duration">%1$d h %2$d min</string>
     <string name="stats_summary">%1$s · %2$s</string>
-    <string name="stats_top_tracks">Top tracks</string>
-    <string name="stats_top_artists">Top artists</string>
+    <string name="stats_tracks">Tracks</string>
+    <string name="stats_artists">Artists</string>
     <string name="stats_times">%1$d×</string>
     <string name="scrobble_token_ok">The token belongs to %1$s</string>
     <string name="scrobble_unreachable">The server could not be reached</string>

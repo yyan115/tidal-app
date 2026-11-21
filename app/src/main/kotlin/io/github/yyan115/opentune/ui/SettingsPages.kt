@@ -3,6 +3,7 @@ package io.github.yyan115.opentune.ui
 import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
@@ -175,7 +176,7 @@ fun StatisticsPage(vm: MainViewModel) {
     val ranges = listOf(7 to pluralStringResource(R.plurals.stats_days, 7, 7), 30 to pluralStringResource(R.plurals.stats_days, 30, 30), 365 to stringResource(R.string.stats_year), 0 to stringResource(R.string.stats_all))
     Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
         // A period is one choice of several, so the control is a single-choice segmented button, which fills the selected segment.
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag("stats-range")) {
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(bottom = 12.dp).testTag("stats-range")) {
             ranges.forEachIndexed { index, (value, label) ->
                 SegmentedButton(days == value, { days = value }, SegmentedButtonDefaults.itemShape(index, ranges.size), icon = {},
                     colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primary, activeContentColor = MaterialTheme.colorScheme.onPrimary,
@@ -188,27 +189,45 @@ fun StatisticsPage(vm: MainViewModel) {
             when {
                 current == null -> CircularProgressIndicator(Modifier.align(Alignment.Center))
                 current.plays == 0 -> Text(stringResource(R.string.stats_empty), Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-                    Text(stringResource(R.string.stats_summary, pluralStringResource(R.plurals.stats_listens, current.plays, current.plays), stringResource(R.string.stats_duration, current.hours.toInt(), current.minutes.toInt())), style = MaterialTheme.typography.titleMedium)
-                    UpperLabel(stringResource(R.string.stats_top_tracks), Modifier.padding(top = 18.dp, bottom = 4.dp))
-                    current.tracks.take(10).forEach { entry ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(entry.track.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(entry.track.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            Text(stringResource(R.string.stats_times, entry.plays), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    UpperLabel(stringResource(R.string.stats_top_artists), Modifier.padding(top = 18.dp, bottom = 4.dp))
-                    current.artists.take(10).forEach { (name, plays) ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                            Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(stringResource(R.string.stats_times, plays), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
+                else -> StatisticsLists(current)
             }
         }
+    }
+}
+
+/** The summary of a period, and a list of every track or of every artist, as the listener picks. Only the rows that show are drawn, so a long list stays smooth. */
+@Composable
+fun StatisticsLists(stats: ListeningStats) {
+    var tab by rememberSaveable { mutableIntStateOf(0) }
+    val tabs = listOf(stringResource(R.string.stats_tracks), stringResource(R.string.stats_artists))
+    Column(Modifier.fillMaxSize()) {
+        Text(stringResource(R.string.stats_summary, pluralStringResource(R.plurals.stats_listens, stats.plays, stats.plays), stringResource(R.string.stats_duration, stats.hours.toInt(), stats.minutes.toInt())), style = MaterialTheme.typography.titleMedium)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag("stats-tabs")) {
+            tabs.forEachIndexed { index, label ->
+                SegmentedButton(tab == index, { tab = index }, SegmentedButtonDefaults.itemShape(index, tabs.size), icon = {},
+                    colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primary, activeContentColor = MaterialTheme.colorScheme.onPrimary,
+                        activeBorderColor = MaterialTheme.colorScheme.primary)) { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
+        }
+        androidx.compose.foundation.lazy.LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("stats-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
+            if (tab == 0) itemsIndexed(stats.tracks, key = { _, entry -> entry.track.id }) { index, entry -> StatisticsRow(index + 1, entry.track.title, entry.track.artist, entry.plays) }
+            else itemsIndexed(stats.artists, key = { _, entry -> entry.first }) { index, (name, plays) -> StatisticsRow(index + 1, name, null, plays) }
+        }
+    }
+}
+
+/** A row of the statistics: the place, the name with its artist, and the number of plays in a column of its own, so that a long name is cut before it. */
+@Composable
+private fun StatisticsRow(place: Int, name: String, artist: String?, plays: Int) {
+    Column {
+        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(place.toString(), Modifier.widthIn(min = 32.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(Modifier.weight(1f)) {
+                Text(name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (artist != null) Text(artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text(stringResource(R.string.stats_times, plays), Modifier.padding(start = 16.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }

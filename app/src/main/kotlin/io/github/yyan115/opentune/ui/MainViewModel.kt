@@ -681,9 +681,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun listeningStats(days: Int): ListeningStats = withContext(Dispatchers.IO) {
         val since = if (days <= 0) 0L else System.currentTimeMillis() - days * 86_400_000L
         val (plays, listened) = app.library.listeningTotals(since)
-        val tracks = app.library.topTracks(since, 500)
+        val tracks = app.library.topTracks(since, Int.MAX_VALUE)
         val artists = tracks.groupBy { it.track.artist }.map { (name, entries) -> name to entries.sumOf { it.plays } }.sortedByDescending { it.second }
-        ListeningStats(plays, listened / 3_600_000, listened / 60_000 % 60, tracks.take(25), artists)
+        ListeningStats(plays, listened / 3_600_000, listened / 60_000 % 60, tracks, artists)
     }
 
     /** A track that the avoid-repeats window excludes, with the time of its last play. */
