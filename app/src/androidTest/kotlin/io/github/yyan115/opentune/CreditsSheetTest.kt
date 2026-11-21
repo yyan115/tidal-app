@@ -59,4 +59,18 @@ class CreditsSheetTest {
             assertTrue("The credits sheet is hard to read in ${theme.id}: $problems", problems.isEmpty())
         }
     }
+
+    @Test fun theAlbumLineAndTheRolesAreNotSmallText() {
+        val credits = io.github.yyan115.opentune.ui.CreditsUi("Night Walk · Harbour Lights", loading = false,
+            credits = listOf(io.github.yyan115.opentune.core.Credit("Producer", listOf(io.github.yyan115.opentune.core.Contributor("Some Person", "1")))))
+        compose.setContent { OpenTuneTheme("dark") { CreditsSheet(credits, {}, {}) } }
+        compose.waitForIdle()
+        fun sizeOf(text: String): Float {
+            val layouts = ArrayList<androidx.compose.ui.text.TextLayoutResult>()
+            compose.onNodeWithText(text, useUnmergedTree = true).fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action?.invoke(layouts)
+            return layouts.first().layoutInput.style.fontSize.value
+        }
+        assertTrue("The album line is at least 14 sp: ${sizeOf("Night Walk · Harbour Lights")}", sizeOf("Night Walk · Harbour Lights") >= 14f)
+        assertTrue("The role is at least 12 sp: ${sizeOf("PRODUCER")}", sizeOf("PRODUCER") >= 12f)
+    }
 }

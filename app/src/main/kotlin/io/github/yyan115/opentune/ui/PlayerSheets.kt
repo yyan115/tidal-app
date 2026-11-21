@@ -11,7 +11,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -80,8 +81,13 @@ fun EqualizerSheet(settings: Settings, onChange: (Settings) -> Unit, onClose: ()
             val customName = stringResource(R.string.eq_custom)
             val chosen = if (settings.equalizerUsesCustom) customName else presets.firstOrNull { it.second == levels }?.first ?: customName
             var presetMenu by remember { mutableStateOf(false) }
-            // The height of an entry follows the text size, so it is read from the first entry when the list is first shown.
+            // The height of an entry follows the text size. A hidden entry that takes no room in the sheet is measured before the menu opens,
+            // so that the menu has its height from its first frame and does not open above the field and then jump below it.
             var entryHeight by remember { mutableIntStateOf(0) }
+            Box(Modifier.clearAndSetSemantics { }.layout { measurable, constraints ->
+                entryHeight = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0)).height
+                layout(0, 0) { }
+            }) { DropdownMenuItem(text = { Text(" ") }, onClick = { }) }
             val density = LocalDensity.current
             // The field is as inactive as the bands while the equalizer is off, and the list shows four and a half entries at a time, so that it opens below the field and the half entry shows that the list scrolls.
             ExposedDropdownMenuBox(presetMenu && settings.equalizer, { presetMenu = it && settings.equalizer }, Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
@@ -93,8 +99,7 @@ fun EqualizerSheet(settings: Settings, onChange: (Settings) -> Unit, onClose: ()
                     val limit = if (entryHeight == 0) Modifier else Modifier.heightIn(max = with(density) { (entryHeight * VISIBLE_ENTRIES).toDp() }).verticalScroll(scroll)
                     Column(limit) {
                         presets.forEachIndexed { index, (name, preset) ->
-                            DropdownMenuItem(text = { Text(name) }, modifier = if (index > 0 || entryHeight > 0) Modifier else Modifier.onSizeChanged { entryHeight = it.height },
-                                onClick = { onChange(settings.copy(equalizerLevels = preset, equalizerUsesCustom = false)); presetMenu = false })
+                            DropdownMenuItem(text = { Text(name) }, onClick = { onChange(settings.copy(equalizerLevels = preset, equalizerUsesCustom = false)); presetMenu = false })
                         }
                         DropdownMenuItem(text = { Text(customName) }, onClick = {
                             val custom = List(info.bands) { settings.equalizerCustom.getOrNull(it) ?: levels[it] }

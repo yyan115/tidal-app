@@ -29,6 +29,7 @@ import io.github.yyan115.opentune.data.MigrateDownloadsWorker
 import io.github.yyan115.opentune.data.Settings
 import io.github.yyan115.opentune.playback.PlaybackCommands
 import io.github.yyan115.opentune.playback.PlaybackFailures
+import io.github.yyan115.opentune.playback.PlaybackQuality
 import io.github.yyan115.opentune.playback.PlaybackService
 import io.github.yyan115.opentune.playback.manualMarks
 import kotlinx.coroutines.CancellationException
@@ -167,7 +168,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 controller?.let { player ->
                     clock.value = player.currentPosition.coerceAtLeast(0)
                     ui.update { it.copy(playback = it.playback.copy(
-                        quality = it.playback.track?.let { track -> app.sources.quality(track.id) ?: track.quality }.orEmpty(),
+                        quality = it.playback.track?.let { track -> PlaybackQuality.of(app.sources.quality(track.id), track.quality, it.local.firstOrNull { saved -> saved.id == track.id }?.quality) }.orEmpty(),
                         duration = player.duration.takeIf { d -> d > 0 } ?: it.playback.track?.durationMs ?: 0)) }
                 }
             }

@@ -77,10 +77,8 @@ fun SourceDetailsSheet(label: String, track: Track?, vm: MainViewModel?, onClose
     val volume = stored?.localUri?.let { DocumentKey.location(it)?.volume ?: if (facts != null) "primary" else null }
     ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.source_title), Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium)
-                TextButton(onClick = onClose) { Text(stringResource(R.string.action_done)) }
-            }
+            // The sheet closes by a drag down, by Back and by a tap outside, as the credits do, so it has no button for it.
+            Text(stringResource(R.string.source_title), Modifier.fillMaxWidth(), style = MaterialTheme.typography.headlineMedium)
             val rows = buildList {
                 if (track != null) add(Triple("source-origin", stringResource(R.string.source_origin), stringResource(when { track.isFile -> R.string.source_origin_file; track.onDevice -> R.string.source_origin_download; else -> R.string.source_origin_stream })))
                 add(Triple("source-codec", stringResource(R.string.source_codec), source.codec.ifBlank { notReported }))
@@ -95,7 +93,7 @@ fun SourceDetailsSheet(label: String, track: Track?, vm: MainViewModel?, onClose
                     facts?.size?.let { add(Triple("source-size", stringResource(R.string.source_size), android.text.format.Formatter.formatFileSize(context, it))) }
                 }
                 if (track != null && track.onDevice && track.durationMs > 0) add(Triple("source-duration", stringResource(R.string.source_duration), formatDuration(track.durationMs)))
-                if (track != null && track.onDevice) add(Triple("source-added", stringResource(R.string.source_added), DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(track.addedAt))))
+                if (track != null && track.onDevice) add(Triple("source-added", stringResource(R.string.source_added), DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(track.addedAt))))
             }
             rows.forEach { (tag, title, value) ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -104,7 +102,6 @@ fun SourceDetailsSheet(label: String, track: Track?, vm: MainViewModel?, onClose
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
-            Text(stringResource(R.string.source_note), Modifier.padding(top = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

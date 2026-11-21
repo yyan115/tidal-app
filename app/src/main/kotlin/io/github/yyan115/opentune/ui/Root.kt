@@ -68,6 +68,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     var deletePlaylist by remember { mutableStateOf(false) }
     var removeTrack by remember { mutableStateOf<Track?>(null) }
     var detailsTrack by remember { mutableStateOf<Track?>(null) }
+    var confirmStop by remember { mutableStateOf(false) }
     var navigationMenu by rememberSaveable { mutableStateOf(false) }
     var statsInfo by remember { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
@@ -266,7 +267,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
                 if (stored != null && (!stored.isFile || stored.id !in state.folderFiles)) SettingRow(OpenTuneIcons.RemoveCircleOutline,
                     stringResource(if (stored.isFile) R.string.track_remove_file else R.string.track_remove_local), onClick = { removeTrack = stored; trackMenu = null })
                 // The menu of the full player can stop playback, and the action sits last in the menu, because a swipe on the small player now changes the track.
-                if (nowPlaying && track.id == state.playback.track?.id) SettingRow(OpenTuneIcons.Close, stringResource(R.string.player_stop), onClick = { vm.stopPlayback(); nowPlaying = false; trackMenu = null })
+                if (nowPlaying && track.id == state.playback.track?.id) SettingRow(OpenTuneIcons.Close, stringResource(R.string.player_stop), onClick = { confirmStop = true; trackMenu = null })
             }
         }
     }
@@ -300,6 +301,9 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
         text = { Text(stringResource(R.string.playlist_delete_text)) },
         confirmButton = { DialogConfirm(destructive = true, onClick = { vm.deletePlaylist(release); deletePlaylist = false }) { Text(stringResource(R.string.action_delete)) } },
         dismissButton = { DialogDismiss(onClick = { deletePlaylist = false }) { Text(stringResource(R.string.action_cancel)) } }) }
+    if (confirmStop) AppDialog(onDismissRequest = { confirmStop = false }, title = { Text(stringResource(R.string.player_stop_title)) }, text = { Text(stringResource(R.string.player_stop_text)) },
+        confirmButton = { DialogConfirm(destructive = true, onClick = { vm.stopPlayback(); nowPlaying = false; confirmStop = false }) { Text(stringResource(R.string.player_stop_confirm)) } },
+        dismissButton = { DialogDismiss(onClick = { confirmStop = false }) { Text(stringResource(R.string.action_cancel)) } })
     removeTrack?.let { track -> AppDialog(onDismissRequest = { removeTrack = null }, title = { Text(stringResource(R.string.track_remove_title)) },
         text = { Text(if (track.isFile) stringResource(R.string.track_remove_local_text) else stringResource(R.string.track_remove_download_text)) },
         confirmButton = { DialogConfirm(destructive = true, onClick = { vm.removeLocal(track); removeTrack = null }) { Text(stringResource(R.string.action_remove)) } },

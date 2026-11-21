@@ -4,6 +4,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
@@ -71,5 +72,16 @@ class CurrentDownloadCardTest {
             assertTrue("The card is hard to read in ${item.id}: $problems", problems.isEmpty())
         }
         compose.onNodeWithText("Downloading · 64% · 12 waiting").assertIsDisplayed()
+    }
+
+    @Test fun theBarHasNoDotAtItsEnd() {
+        show(40, 0)
+        compose.waitForIdle()
+        val image = compose.onNode(hasProgressBarRangeInfo(androidx.compose.ui.semantics.ProgressBarRangeInfo(.4f, 0f..1f))).captureToImage().asAndroidBitmap()
+        val y = image.height / 2
+        // The part of the track that is not filled has one colour from its middle to its end. A dot at the end would break it.
+        val middle = image.getPixel((image.width * 0.7f).toInt(), y)
+        val end = image.getPixel(image.width - 3, y)
+        assertEquals("The end of the bar is the colour of the rest of the track", middle, end)
     }
 }

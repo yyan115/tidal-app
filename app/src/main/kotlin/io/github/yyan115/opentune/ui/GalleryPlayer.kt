@@ -268,13 +268,13 @@ private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> U
     // The next track sits above the actions, so that the actions stay the lowest element of the screen.
     if (!compact) player.queue.getOrNull(player.nextIndex)?.let { next ->
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        Row(Modifier.fillMaxWidth().clickable(onClick = onQueue).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        // The card is a preview of the next song. The button below has the count and is the only way to the queue.
+        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             TrackArtwork(next, null, Modifier.size(34.dp))
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 UpperLabel(stringResource(R.string.player_next_in_queue))
                 Text(next.title, fontFamily = AppFonts.body, fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Icon(OpenTuneIcons.PlaylistPlay, stringResource(R.string.player_open_queue), Modifier.size(21.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
