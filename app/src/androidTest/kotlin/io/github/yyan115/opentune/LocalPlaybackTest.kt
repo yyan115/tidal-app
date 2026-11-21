@@ -358,7 +358,11 @@ class LocalPlaybackTest {
     /** The queue opens at part of the screen, and on a small screen the rows of a test lie below that. A drag on the handle makes the sheet full. */
     private fun expandTheQueue() {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("queue-sheet").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithContentDescription("Drag handle").performTouchInput { swipe(center, center.copy(y = center.y - 1500f), 300) }
+        val screen = compose.onAllNodes(isRoot()).fetchSemanticsNodes().maxOf { it.boundsInRoot.height }
+        // The finger stays inside the screen, because a touch outside of it may not reach the sheet on every version of Android.
+        val handleY = compose.onNodeWithContentDescription("Drag handle").fetchSemanticsNode().boundsInRoot.center.y
+        compose.onNodeWithContentDescription("Drag handle").performTouchInput { swipe(center, center.copy(y = center.y - handleY + 2f), 400) }
+        compose.waitUntil(5_000) { compose.onNodeWithTag("queue-sheet").fetchSemanticsNode().positionOnScreen.y < screen * 0.3f }
         compose.waitForIdle()
     }
 
