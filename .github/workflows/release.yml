@@ -17,7 +17,7 @@ name: Release
 #      titled "Release X.Y.Z". Merge it when the checks pass.
 #   2. A run of this workflow on main with the same version. "dry_run" builds and tests without creating a release.
 #      The workflow runs the checks, verifies VERSION and the changelog entry, builds and signs the APK, checks its certificate,
-#      attests its provenance, installs the previous release on Android 8 and 16 emulators, installs the new APK over it, starts
+#      attests its provenance, installs the previous release on Android 10 and 16 emulators, installs the new APK over it, starts
 #      both and fails when the app stops or logs a crash, and then creates a draft release with the APK and SHA256SUMS.
 #      Versions below 1.0.0 are marked as prereleases. A draft is invisible to downloaders and to the update check in the app.
 #   3. Download the APK from the draft, install it over the current version on a phone, check sign-in, playback and a download,
@@ -152,7 +152,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api: [26, 36]
+        api: [29, 36]
     permissions:
       contents: read
     env:

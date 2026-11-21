@@ -59,7 +59,7 @@ fun ConnectCard(onLogin: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @UnstableApi
 @Composable
-fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu: (Track) -> Unit, listState: LazyListState = rememberLazyListState()) {
+fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu: (Track) -> Unit) {
     var filter by rememberSaveable { mutableIntStateOf(0) }
     val filters = rememberLazyListState()
     LaunchedEffect(filter) { filters.animateScrollToItem(filter) }
@@ -79,7 +79,7 @@ fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu
     val songs = (local + if (state.settings.offline) emptyList() else state.search.tracks).distinctBy(Track::id)
     val result = state.search
     val open: (Release) -> Unit = { release -> vm.rememberSearch(query); keyboard?.hide(); vm.open(release) }
-    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Spacer(Modifier.height(12.dp)) }
         item { OutlinedTextField(query, vm::search, Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             placeholder = { Text(stringResource(R.string.search_hint)) }, leadingIcon = { Icon(OpenTuneIcons.Search, null) },
@@ -186,7 +186,7 @@ private enum class LibrarySort(@androidx.annotation.StringRes val label: Int) { 
 @UnstableApi
 @Composable
 fun LibraryScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onNewPlaylist: () -> Unit,
-    onMenu: (Track) -> Unit, filter: Int, onFilter: (Int) -> Unit, listState: LazyListState = rememberLazyListState()) {
+    onMenu: (Track) -> Unit, filter: Int, onFilter: (Int) -> Unit) {
     val columns = if (LocalDensity.current.fontScale > 1.3f) 1 else 2
     val filters = rememberLazyListState()
     LaunchedEffect(filter) { filters.animateScrollToItem(filter) }
@@ -222,7 +222,7 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onNew
         LibrarySort.Title -> sortedBy { title(it).lowercase() }
         LibrarySort.Artist -> sortedWith(compareBy({ artist(it).lowercase() }, { title(it).lowercase() }))
     }
-    LazyColumn(Modifier.fillMaxSize().testTag("library-list"), listState, contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize().testTag("library-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Spacer(Modifier.height(8.dp)) }
         item { LazyRow(modifier = Modifier.testTag("library-filters"), state = filters, contentPadding = PaddingValues(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(libraryTabs) { index, label -> FilterTab(filter == index, { onFilter(index) }, label) }
@@ -383,8 +383,10 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
     var clearHistory by remember { mutableStateOf(false) }
     var mobileDataWarning by remember { mutableStateOf(false) }
     var playedWarning by remember { mutableStateOf(false) }
+    var changeFolder by remember { mutableStateOf(false) }
     val backup = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(vm::exportBackup) }
     val restore = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importBackup) }
+    val downloadFolder = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()) { uri -> uri?.let(vm::setDownloadFolder) }
     val settings = state.settings
     LazyColumn(Modifier.fillMaxSize().testTag("settings-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { SectionTitle(stringResource(R.string.settings_account)) }
@@ -403,7 +405,10 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
             item { SwitchRow(OpenTuneIcons.SignalCellularAlt, stringResource(R.string.settings_mobile_downloads), !settings.downloadOnWifi, { value ->
                 if (value) mobileDataWarning = true else vm.settings { it.copy(downloadOnWifi = true) }
             }) }
-            item { SettingRow(OpenTuneIcons.Folder, stringResource(R.string.settings_download_folder), io.github.yyan115.opentune.data.DownloadFiles.FOLDER) }
+            // A plain row, like the Theme row. A tap asks first, so that nobody changes where downloads go by accident.
+            item { SettingRow(OpenTuneIcons.Folder, stringResource(R.string.settings_download_folder),
+                io.github.yyan115.opentune.data.DownloadFolder.summary(settings.downloadFolder, stringResource(R.string.volume_internal), stringResource(R.string.volume_card), stringResource(R.string.setup_folder_chosen)),
+                { changeFolder = true }) }
         }
         item { SectionTitle(stringResource(R.string.settings_appearance)) }
         item { SettingRow(OpenTuneIcons.Contrast, stringResource(R.string.settings_theme), stringResource(if (settings.theme == SYSTEM_THEME) R.string.theme_system else themeFor(settings.theme, false).nameRes), { theme = true }) }
@@ -414,7 +419,7 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
         item { SettingRow(OpenTuneIcons.RemoveCircleOutline, stringResource(R.string.settings_clear_history), stringResource(R.string.settings_clear_history_text), { clearHistory = true }) }
         item { SectionTitle(stringResource(R.string.settings_experimental)) }
         item { Text(stringResource(R.string.settings_experimental_text), Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        item { SettingRow(OpenTuneIcons.Shuffle, stringResource(R.string.settings_repeats), if (settings.avoidRepeatHours == 0) stringResource(R.string.settings_off) else repeatWindowText(settings.avoidRepeatHours),
+        item { SettingRow(OpenTuneIcons.Shuffle, stringResource(R.string.settings_repeats), if (settings.avoidRepeatMinutes == 0) stringResource(R.string.settings_off) else repeatWindowText(settings.avoidRepeatMinutes),
             { onOpenPage(SettingsPage.Repeats) }, trailing = { Icon(OpenTuneIcons.ChevronRight, null) }) }
         item { SettingRow(OpenTuneIcons.Equalizer, stringResource(R.string.eq_title), stringResource(if (settings.equalizer) R.string.settings_on else R.string.settings_off), { equalizer = true }) }
         item { SettingRow(OpenTuneIcons.Lyrics, stringResource(R.string.scrobble_title), if (settings.scrobble) stringResource(R.string.settings_scrobble_on, settings.scrobbleServer.removePrefix("https://")) else stringResource(R.string.settings_off), { scrobbling = true }) }
@@ -440,6 +445,9 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
     if (normalization) NormalizationDialog(settings.normalization, { value -> vm.settings { it.copy(normalization = value) } }) { normalization = false }
     if (equalizer) EqualizerSheet(settings, { next -> vm.settings { next } }) { equalizer = false }
     if (scrobbling) ScrobbleDialog(settings, vm) { scrobbling = false }
+    if (changeFolder) AppDialog(onDismissRequest = { changeFolder = false }, title = { Text(stringResource(R.string.settings_download_folder_change_title)) },
+        confirmButton = { DialogConfirm(onClick = { changeFolder = false; downloadFolder.launch(null) }) { Text(stringResource(R.string.settings_download_folder_change)) } },
+        dismissButton = { DialogDismiss(onClick = { changeFolder = false }) { Text(stringResource(R.string.action_cancel)) } })
     if (playedWarning) AppDialog(onDismissRequest = { playedWarning = false }, title = { Text(stringResource(R.string.download_played_title)) },
         text = { Text(stringResource(R.string.download_played_text)) },
         confirmButton = { DialogConfirm(onClick = { vm.settings { it.withDownloadPlayed(true) }; playedWarning = false }) { Text(stringResource(R.string.download_played_enable)) } },

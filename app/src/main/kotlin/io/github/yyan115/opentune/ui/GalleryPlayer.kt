@@ -24,11 +24,17 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.unit.toSize
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,28 +76,32 @@ fun PlayControl(playing: Boolean, buffering: Boolean = false, size: Dp = 72.dp, 
 /** The playback position in milliseconds. The activity provides the position of the player and a preview provides a fixed one. */
 val LocalPlaybackPosition = staticCompositionLocalOf<StateFlow<Long>> { MutableStateFlow(0L) }
 
+/** The radius of the corners of the small player. The full player starts with the same corners. */
+private val MINI_PLAYER_RADIUS = 7.dp
+
 /**
  * The mini player. A swipe to the left plays the next track and a swipe to the right plays the previous one.
  * A drag upward opens the full player, which follows the finger. Stopping playback is an action of the full player and of screen readers.
  */
 @Composable
 fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, onPlay: () -> Unit, onNext: () -> Unit, onDismiss: () -> Unit = {},
-    onPrevious: () -> Unit = {}, sheet: PlayerSheet? = null, onSheetReleased: (Boolean) -> Unit = {}) {
+    onPrevious: () -> Unit = {}, sheet: PlayerSheet? = null, onSheetReleased: (Boolean) -> Unit = {}, onEnd: () -> Unit = {}, onStart: () -> Unit = {}) {
     val track = state.track ?: return
     val stop = stringResource(R.string.player_stop)
-    val change = ChangeTrack(hasNext = state.nextIndex >= 0, hasPrevious = state.index > 0, onNext = onNext, onPrevious = onPrevious)
+    val change = ChangeTrack(hasNext = state.nextIndex >= 0, hasPrevious = state.index > 0, onNext = onNext, onPrevious = onPrevious, onEnd = onEnd, onStart = onStart)
     val drag = rememberDraggableState { sheet?.dragBy(it) }
     SwipeToChangeTrack(track.id, change, Modifier.testTag("mini-player").semantics { customActions = listOf(CustomAccessibilityAction(stop) { onDismiss(); true }) }
         .draggable(drag, Orientation.Vertical, enabled = sheet != null, onDragStarted = { sheet?.dragStarted() }, onDragStopped = { velocity -> sheet?.let { onSheetReleased(it.released(velocity)) } })) {
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(7.dp),
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
+        .onGloballyPositioned { sheet?.mini = Rect(it.positionOnScreen(), it.size.toSize()) },
+        color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(MINI_PLAYER_RADIUS),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f))) {
         Column {
             Row(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 10.dp, end = 2.dp, top = 5.dp, bottom = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                TrackArtwork(track, null, Modifier.size(35.dp))
+                TrackArtwork(track, null, Modifier.size(35.dp).testTag("mini-artwork").onGloballyPositioned { sheet?.miniArtwork = Rect(it.positionOnScreen(), it.size.toSize()) })
                 Column(Modifier.weight(1f).padding(start = 12.dp, end = 4.dp)) {
                     Text(track.title, fontFamily = AppFonts.body, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(if (state.error != null) stringResource(R.string.player_stopped) else track.artist, Modifier.padding(top = 2.dp),
+                    Text(if (state.noConnection) stringResource(R.string.error_no_connection) else if (state.error != null) stringResource(R.string.player_stopped) else track.artist, Modifier.padding(top = 2.dp),
                         fontFamily = AppFonts.body, fontSize = 10.sp, lineHeight = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         color = if (state.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -99,7 +109,6 @@ fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, 
                     if (state.buffering) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 1.5.dp)
                     else Icon(if (state.playing) OpenTuneIcons.Pause else OpenTuneIcons.PlayArrow, stringResource(if (state.playing) R.string.player_pause else R.string.player_play), Modifier.size(21.dp))
                 }
-                IconButton(onClick = onNext, enabled = state.nextIndex >= 0) { Icon(OpenTuneIcons.SkipNext, stringResource(R.string.player_next), Modifier.size(20.dp)) }
             }
             LinearProgressIndicator(progress = { if (state.duration > 0) (position.value.toFloat() / state.duration).coerceIn(0f, 1f) else 0f },
                 modifier = Modifier.fillMaxWidth().height(1.dp), gapSize = 0.dp, drawStopIndicator = {})
@@ -113,7 +122,13 @@ fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, 
 fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onClose: () -> Unit, onQueue: () -> Unit, onMenu: (Track) -> Unit, onDownload: (Track) -> Unit,
     onAlbum: (Track) -> Unit = {}, onArtist: (Track) -> Unit = {}, initialLyrics: Boolean = false) {
     val track = state.playback.track ?: return
-    val changeTrack = ChangeTrack(hasNext = state.playback.nextIndex >= 0, hasPrevious = state.playback.index > 0, onNext = vm::next, onPrevious = vm::previous)
+    val queueMessages = remember { SnackbarHostState() }
+    val atEnd = stringResource(R.string.queue_end)
+    val atStart = stringResource(R.string.queue_start)
+    val messageScope = rememberCoroutineScope()
+    fun say(text: String) { messageScope.launch { queueMessages.currentSnackbarData?.dismiss(); queueMessages.showSnackbar(text) } }
+    val changeTrack = ChangeTrack(hasNext = state.playback.nextIndex >= 0, hasPrevious = state.playback.index > 0, onNext = vm::next, onPrevious = vm::previous,
+        onEnd = { say(atEnd) }, onStart = { say(atStart) })
     val drag = rememberDraggableState { sheet.dragBy(it) }
     var lyrics by rememberSaveable { mutableStateOf(initialLyrics) }
     var timer by remember { mutableStateOf(false) }
@@ -128,11 +143,20 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onC
             withFrameNanos { }
             WindowCompat.getInsetsController(window, window.decorView).apply { isAppearanceLightStatusBars = light; isAppearanceLightNavigationBars = light }
         }
-        // The player follows a finger that drags it down, and it moves back when the finger lifts too early.
-        Surface(Modifier.fillMaxSize().graphicsLayer { translationY = size.height * (1f - sheet.progress) }
+        // The player grows out of the small player and shrinks back into it. It follows a finger that drags it down, and it moves back when the finger lifts too early.
+        val miniRadius = with(LocalDensity.current) { MINI_PLAYER_RADIUS.toPx() }
+        Surface(Modifier.fillMaxSize().testTag("player-container")
+            .onGloballyPositioned { sheet.origin = it.positionOnScreen() }
+            .graphicsLayer {
+                shape = PlayerMorph.shape(sheet.covered(size), PlayerMorph.radius(sheet.progress, miniRadius))
+                clip = true
+                alpha = PlayerMorph.surfaceAlpha(sheet.progress)
+            }
             .draggable(drag, Orientation.Vertical, onDragStarted = { sheet.dragStarted() }, onDragStopped = { velocity -> if (!sheet.released(velocity)) onClose() }),
             color = MaterialTheme.colorScheme.background) {
-            BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
+            BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()
+                // The content shows once the player is large enough for it. The cover is not a part of this fade, it grows out of the small player.
+                .graphicsLayer { alpha = PlayerMorph.contentAlpha(sheet.progress) }) {
                 val large = LocalDensity.current.fontScale > 1.3f
                 val landscape = maxWidth > maxHeight && maxWidth >= 480.dp && !large
                 // The controls stay at the bottom of the screen. Only a very short screen scrolls the whole page.
@@ -152,7 +176,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onC
                     if (landscape) {
                         Row(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                             if (lyrics) LyricsPanel(state, vm, Modifier.width(landscapeArtworkSize * 1.3f).height(landscapeArtworkSize))
-                            else PlayerArtwork(track, stringResource(R.string.player_artwork, track.album), Modifier.size(landscapeArtworkSize), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, changeTrack)
+                            else PlayerArtwork(sheet, track, stringResource(R.string.player_artwork, track.album), Modifier.size(landscapeArtworkSize), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, changeTrack)
                             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                                 PlayerHeading(track, true, onAlbum, onArtist)
                                 GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, true)
@@ -162,7 +186,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onC
                         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
                             PlayerHeading(track, true, onAlbum, onArtist)
                             if (lyrics) LyricsPanel(state, vm, Modifier.fillMaxWidth().height(if (large) 220.dp else 260.dp))
-                            else PlayerArtwork(track, stringResource(R.string.player_artwork, track.album), Modifier.size(if (large) 104.dp else 180.dp).align(Alignment.CenterHorizontally).padding(vertical = 8.dp), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, changeTrack)
+                            else PlayerArtwork(sheet, track, stringResource(R.string.player_artwork, track.album), Modifier.size(if (large) 104.dp else 180.dp).align(Alignment.CenterHorizontally).padding(vertical = 8.dp), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, changeTrack)
                             GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, true)
                         }
                     } else {
@@ -170,12 +194,14 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onC
                             PlayerHeading(track, dense, onAlbum, onArtist)
                             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                                 if (lyrics) LyricsPanel(state, vm, Modifier.fillMaxSize())
-                                else PlayerArtwork(track, stringResource(R.string.player_artwork, track.album), Modifier.size(minOf(maxWidth - 20.dp, maxHeight - 8.dp).coerceAtLeast(0.dp)), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, changeTrack)
+                                else PlayerArtwork(sheet, track, stringResource(R.string.player_artwork, track.album), Modifier.size(minOf(maxWidth - 20.dp, maxHeight - 8.dp).coerceAtLeast(0.dp)), state.settings.visualizer && android.os.Build.VERSION.SDK_INT >= VISUALIZER_API, state.playback.playing, changeTrack)
                             }
                             GalleryControls(state, vm, onQueue, onDownload, { source = true }, { lyrics = !lyrics }, lyrics, { timer = true }, dense)
                         }
                     }
                 }
+                // The full player is a window of its own, so it shows its own messages.
+                SnackbarHost(queueMessages, Modifier.align(Alignment.BottomCenter))
             }
         }
     }
@@ -227,7 +253,7 @@ private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> U
             stringResource(if (saved) R.string.track_unsave else R.string.track_save), Modifier.size(22.dp), tint = if (saved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
     }
     player.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-    PlaybackSlider(vm, track.id, player.duration)
+    PlaybackSlider(vm::seek, track.id, player.duration)
     Row(Modifier.fillMaxWidth().padding(vertical = if (compact) 12.dp else 18.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         IconToggleButton(player.shuffle, onCheckedChange = { vm.toggleShuffle() }) { Icon(OpenTuneIcons.Shuffle, stringResource(R.string.player_shuffle), Modifier.size(20.dp), tint = if (player.shuffle) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
         IconButton(onClick = vm::previous) { Icon(OpenTuneIcons.SkipPrevious, stringResource(R.string.player_previous), Modifier.size(29.dp)) }
@@ -242,13 +268,13 @@ private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> U
     // The next track sits above the actions, so that the actions stay the lowest element of the screen.
     if (!compact) player.queue.getOrNull(player.nextIndex)?.let { next ->
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        Row(Modifier.fillMaxWidth().clickable(onClick = onQueue).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        // The card is a preview of the next song. The button below has the count and is the only way to the queue.
+        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             TrackArtwork(next, null, Modifier.size(34.dp))
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 UpperLabel(stringResource(R.string.player_next_in_queue))
                 Text(next.title, fontFamily = AppFonts.body, fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Icon(OpenTuneIcons.PlaylistPlay, stringResource(R.string.player_open_queue), Modifier.size(21.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
@@ -268,8 +294,13 @@ private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> U
 
 /** The cover of the playing track. With the visualizer on, the cover dims and the bars of the music move over it. */
 @Composable
-private fun PlayerArtwork(track: Track, description: String, modifier: Modifier, visualizer: Boolean, playing: Boolean, change: ChangeTrack) {
-    SwipeToChangeTrack(track.id, change, modifier.testTag("player-cover")) {
+private fun PlayerArtwork(sheet: PlayerSheet?, track: Track, description: String, modifier: Modifier, visualizer: Boolean, playing: Boolean, change: ChangeTrack) {
+    // The cover grows out of the small picture of the small player and shrinks back into it, in step with the player that opens and closes.
+    val grow = if (sheet == null) Modifier else Modifier.onGloballyPositioned { sheet.cover = Rect(it.positionOnScreen(), it.size.toSize()) }.graphicsLayer {
+        val place = PlayerMorph.cover(sheet.progress, sheet.miniArtwork, sheet.cover)
+        scaleX = place.scale; scaleY = place.scale; translationX = place.dx; translationY = place.dy
+    }
+    SwipeToChangeTrack(track.id, change, modifier.then(grow).testTag("player-cover")) {
         Box(Modifier.fillMaxSize()) {
             TrackArtwork(track, description, Modifier.fillMaxSize().graphicsLayer { alpha = if (visualizer) VISUALIZER_COVER_ALPHA else 1f }, large = true)
             if (visualizer) SpectrumBars(playing, Modifier.matchParentSize().padding(12.dp).testTag("spectrum"))
@@ -354,15 +385,16 @@ private fun SpectrumBars(playing: Boolean, modifier: Modifier) {
 @OptIn(ExperimentalMaterial3Api::class)
 @UnstableApi
 @Composable
-private fun PlaybackSlider(vm: MainViewModel, trackId: String, duration: Long) {
+internal fun PlaybackSlider(onSeek: (Long) -> Unit, trackId: String, duration: Long) {
     val position by LocalPlaybackPosition.current.collectAsStateWithLifecycle()
     var seeking by remember(trackId) { mutableStateOf<Float?>(null) }
     val sliderColors = SliderDefaults.colors(activeTrackColor = MaterialTheme.colorScheme.primary, inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant)
     Slider(value = seeking ?: position.toFloat().coerceIn(0f, duration.coerceAtLeast(1).toFloat()), onValueChange = { seeking = it },
         valueRange = 0f..duration.coerceAtLeast(1).toFloat(), enabled = duration > 0,
-        onValueChangeFinished = { seeking?.let { vm.seek(it.toLong()) }; seeking = null }, modifier = Modifier.fillMaxWidth().height(38.dp),
-        thumb = { Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)) },
-        track = { SliderDefaults.Track(it, Modifier.height(2.dp), colors = sliderColors, thumbTrackGapSize = 0.dp, drawStopIndicator = null) }, colors = sliderColors)
+        onValueChangeFinished = { seeking?.let { onSeek(it.toLong()) }; seeking = null }, modifier = Modifier.fillMaxWidth().height(38.dp),
+        // The slider gives the thumb a box that is taller than the dot, and a dot with no alignment sits at the top of it, above the line.
+        thumb = { Box(Modifier.fillMaxHeight(), contentAlignment = Alignment.Center) { Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).testTag("seek-thumb")) } },
+        track = { SliderDefaults.Track(it, Modifier.height(2.dp).testTag("seek-track"), colors = sliderColors, thumbTrackGapSize = 0.dp, drawStopIndicator = null) }, colors = sliderColors)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(formatDuration(seeking?.toLong() ?: position), fontFamily = AppFonts.mono, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(formatDuration(duration), fontFamily = AppFonts.mono, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

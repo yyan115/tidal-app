@@ -1,0 +1,128 @@
+package io.github.yyan115.opentune
+
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.graphics.asAndroidBitmap
+import kotlin.math.pow
+
+/**
+ * Finds text that is hard to read, whatever the reason: a colour that does not follow the theme, a text outside of a surface, or a text that
+ * is hidden behind something. It looks at the picture of the screen, not at the code, so it also finds what nobody thought of.
+ * The colour of the background of a text is the colour that most of its pixels have, and the colour of the text is the pixel that differs most.
+ */
+object Readability {
+    private fun luminance(color: Int): Double {
+        fun channel(value: Int): Double { val c = value / 255.0; return if (c <= 0.03928) c / 12.92 else ((c + 0.055) / 1.055).pow(2.4) }
+        return 0.2126 * channel((color shr 16) and 0xFF) + 0.7152 * channel((color shr 8) and 0xFF) + 0.0722 * channel(color and 0xFF)
+    }
+
+    fun contrast(first: Int, second: Int): Double {
+        val a = luminance(first); val b = luminance(second)
+        return (maxOf(a, b) + 0.05) / (minOf(a, b) + 0.05)
+    }
+
+    /** A list that scrolls to an item places the items on its way outside its own area. They are not on the screen, whatever their position says. */
+    private fun insideItsParents(node: androidx.compose.ui.semantics.SemanticsNode): Boolean {
+        val centre = node.boundsInRoot.center
+        return generateSequence(node.parent) { it.parent }.all { parent -> parent.boundsInRoot.isEmpty || parent.boundsInRoot.contains(centre) }
+    }
+
+    /** A control that is switched off is drawn dimmed on purpose, and accessibility rules leave it out. */
+    private fun isDisabled(node: androidx.compose.ui.semantics.SemanticsNode): Boolean =
+        generateSequence(node) { it.parent }.any { it.config.contains(SemanticsProperties.Disabled) }
+
+    private fun hasDialog(node: androidx.compose.ui.semantics.SemanticsNode): Boolean =
+        node.config.contains(SemanticsProperties.IsDialog) || node.children.any(::hasDialog)
+
+    private fun texts(node: androidx.compose.ui.semantics.SemanticsNode): List<androidx.compose.ui.semantics.SemanticsNode> =
+        (if (node.config.contains(SemanticsProperties.Text)) listOf(node) else emptyList()) + node.children.flatMap(::texts)
+
+    /**
+     * The texts on the screen whose colour has less contrast than [minimum] with the colour behind them. It looks at a picture of the whole screen,
+     * so a dialog or a sheet, which is a window of its own, is looked at in the same way as the rest. A text is found by its place on the screen.
+     */
+    fun problems(compose: ComposeTestRule, minimum: Double = 2.5, keep: String? = null): List<String> {
+        // The picture and the tree of the screen are read one after the other, so a text that moves in between would be judged by the wrong pixels.
+        // Only what is wrong at the same place in two readings counts.
+        // A frame of an emulator can come out wrong, so what counts is what is wrong at the same place in three readings.
+        var found = problemsOnce(compose, minimum, keep)
+        repeat(2) {
+            if (found.isEmpty()) return found
+            Thread.sleep(400)
+            val again = problemsOnce(compose, minimum, null).toSet()
+            found = found.filter { it in again }
+        }
+        return found
+    }
+
+    private fun problemsOnce(compose: ComposeTestRule, minimum: Double, keep: String?): List<String> {
+        compose.waitForIdle()
+        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        instrumentation.uiAutomation.waitForIdle(300, 5_000)
+        val bitmap = instrumentation.uiAutomation.takeScreenshot()
+        if (keep != null) {
+            val output = androidx.test.platform.app.InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+            val directory = (output?.let { java.io.File(it) } ?: instrumentation.targetContext.getExternalFilesDir("readability")!!).apply { mkdirs() }
+            java.io.File(directory, "$keep.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        }
+        val roots = compose.onAllNodes(isRoot(), useUnmergedTree = true)
+        val nodes = roots.fetchSemanticsNodes().map { it }
+        // A window that is created later lies above the earlier ones. A dialog that fills the screen hides what is under it, so only it and the windows above it are looked at.
+        val top = nodes.indexOfLast { root -> hasDialog(root) && root.size.width >= bitmap.width * 0.95f && root.size.height >= bitmap.height * 0.95f }.coerceAtLeast(0)
+        // A picture of the screen is several megabytes, and a long run of tests would fill the memory of the test process if they stayed.
+        return try {
+            (top until nodes.size).flatMap { index -> texts(roots[index].fetchSemanticsNode()).mapNotNull { node -> problemOf(node, bitmap, minimum) } }
+        } finally { bitmap.recycle() }
+    }
+
+    private fun problemOf(node: androidx.compose.ui.semantics.SemanticsNode, bitmap: android.graphics.Bitmap, minimum: Double): String? {
+        // A list keeps items that it measured for a scroll but did not place, and they are not on the screen.
+        if (!node.layoutInfo.isPlaced || node.config.contains(SemanticsProperties.InvisibleToUser) || isDisabled(node) || !insideItsParents(node)) return null
+        val (foreground, background) = coloursOf(node, bitmap) ?: return null
+        val ratio = contrast(foreground, background)
+        val text = node.config.getOrNull(SemanticsProperties.Text)?.joinToString { it.text }.orEmpty()
+        return if (ratio < minimum && text.isNotBlank()) "\"${text.take(40)}\" has contrast %.1f (text #%06X on #%06X) at ${node.positionOnScreen} ${node.size} shown ${node.boundsInRoot}".format(ratio, foreground and 0xFFFFFF, background and 0xFFFFFF) else null
+    }
+
+    /** The colour of the text of the node that [matcher] finds, as it is on the screen, and the colour behind it. */
+    fun coloursOfText(compose: ComposeTestRule, matcher: androidx.compose.ui.test.SemanticsMatcher): Pair<Int, Int> {
+        compose.waitForIdle()
+        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        instrumentation.uiAutomation.waitForIdle(300, 5_000)
+        val bitmap = instrumentation.uiAutomation.takeScreenshot()
+        try { return coloursOf(compose.onNode(matcher, useUnmergedTree = true).fetchSemanticsNode(), bitmap) ?: error("The text is not on the screen") } finally { bitmap.recycle() }
+    }
+
+    /** How far two colours are from each other, as the largest difference in one channel. */
+    fun distance(first: Int, second: Int): Int = maxOf(kotlin.math.abs(((first shr 16) and 0xFF) - ((second shr 16) and 0xFF)),
+        kotlin.math.abs(((first shr 8) and 0xFF) - ((second shr 8) and 0xFF)), kotlin.math.abs((first and 0xFF) - (second and 0xFF)))
+
+    /** The colour of the text and the colour behind it, or null when too little of the text is on the screen to look at. */
+    private fun coloursOf(node: androidx.compose.ui.semantics.SemanticsNode, bitmap: android.graphics.Bitmap): Pair<Int, Int>? {
+        // The bounds in the window are cut to what shows. A text that something covers or that a list cuts off has no picture to look at.
+        val shown = node.boundsInRoot
+        if (shown.width < node.size.width * 0.9f || shown.height < node.size.height * 0.9f) return null
+        val origin = node.positionOnScreen
+        val bounds = androidx.compose.ui.geometry.Rect(origin.x, origin.y, origin.x + node.size.width, origin.y + node.size.height)
+        // A text that a list has composed ahead, outside the screen, or that the screen cuts off, has no picture to look at.
+        val visibleWidth = minOf(bounds.right, bitmap.width.toFloat()) - maxOf(bounds.left, 0f)
+        val visibleHeight = minOf(bounds.bottom, bitmap.height.toFloat()) - maxOf(bounds.top, 0f)
+        if (visibleWidth < bounds.width * 0.9f || visibleHeight < bounds.height * 0.9f) return null
+        val left = bounds.left.toInt().coerceIn(0, bitmap.width - 1); val top = bounds.top.toInt().coerceIn(0, bitmap.height - 1)
+        val right = bounds.right.toInt().coerceIn(left + 1, bitmap.width); val bottom = bounds.bottom.toInt().coerceIn(top + 1, bitmap.height)
+        if (right - left < 4 || bottom - top < 4) return null
+        val width = right - left; val height = bottom - top
+        val pixels = IntArray(width * height).also { bitmap.getPixels(it, 0, width, left, top, width, height) }
+        val counts = HashMap<Int, Int>()
+        pixels.forEach { counts.merge(it and 0xF0F0F0, 1, Int::plus) }
+        val dominant = counts.maxByOrNull { entry -> entry.value }!!.key
+        val background = pixels.first { (it and 0xF0F0F0) == dominant }
+        val foreground = pixels.maxByOrNull { kotlin.math.abs(luminance(it) - luminance(background)) } ?: background
+        return foreground to background
+    }
+}

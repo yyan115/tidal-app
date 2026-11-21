@@ -150,7 +150,7 @@ fun TrackRow(track: Track, playing: Boolean = false, onPlay: () -> Unit, onMenu:
 private fun TrackRowContent(track: Track, playing: Boolean, onPlay: () -> Unit, onMenu: () -> Unit, index: Int?) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onPlay).padding(start = 24.dp, end = 8.dp, top = 11.dp, bottom = 11.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        if (index != null) Text("%02d".format(index + 1), Modifier.width(32.dp), fontFamily = AppFonts.mono, fontSize = 10.sp,
+        if (index != null) Text("%02d".format(index + 1), Modifier.widthIn(min = 32.dp), fontFamily = AppFonts.mono, fontSize = 10.sp,
             color = if (playing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
         else TrackArtwork(track, null, Modifier.size(48.dp))
         Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
@@ -209,8 +209,8 @@ fun SwitchRow(icon: ImageVector, title: String, checked: Boolean, onChange: (Boo
 }
 
 @Composable
-fun UpperLabel(text: String, modifier: Modifier = Modifier) {
-    Text(text.uppercase(), modifier, fontFamily = AppFonts.body, fontSize = 10.sp, lineHeight = 16.sp,
+fun UpperLabel(text: String, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.TextUnit = 10.sp) {
+    Text(text.uppercase(), modifier, fontFamily = AppFonts.body, fontSize = size, lineHeight = size * 1.6f,
         letterSpacing = 1.5.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
@@ -235,12 +235,16 @@ fun TuneOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabl
 /** A spinner in the centre of the screen that covers it while the sign-in finishes. */
 @Composable
 fun SigningIn() {
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = .92f)).testTag("signing-in")
+    // The surface gives the text the colour of the theme. Without it the text takes the default colour, which is black.
+    Surface(Modifier.fillMaxSize().testTag("signing-in")
         // The cover takes every touch, so nothing below it changes while the sign-in runs.
-        .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }, contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator()
-            Text(stringResource(R.string.login_progress), Modifier.padding(top = 16.dp), style = MaterialTheme.typography.bodyLarge)
+        .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } },
+        color = MaterialTheme.colorScheme.surface.copy(alpha = .92f), contentColor = MaterialTheme.colorScheme.onSurface) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Text(stringResource(R.string.login_progress), Modifier.padding(top = 16.dp), style = MaterialTheme.typography.bodyLarge)
+            }
         }
     }
 }

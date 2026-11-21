@@ -173,7 +173,7 @@ class PlaybackService : MediaLibraryService() {
         scope.launch { runCatching { app.scrobbler.flush() } }
         // The position moves without an event, so it is written about every ten seconds while the player plays.
         scope.launch { while (true) { delay(10_000); if (player.isPlaying) saveQueue(wait = false) } }
-        if (Build.VERSION.SDK_INT >= 23) audioManager.registerAudioDeviceCallback(deviceCallback, Handler(Looper.getMainLooper()))
+        audioManager.registerAudioDeviceCallback(deviceCallback, Handler(Looper.getMainLooper()))
         runCatching { connectivity.registerDefaultNetworkCallback(networkCallback, Handler(Looper.getMainLooper())) }
 
         val activity = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -253,8 +253,8 @@ class PlaybackService : MediaLibraryService() {
         orderBeforeShuffle = (0 until count).map(player::getMediaItemAt)
         val first = player.currentMediaItemIndex + 1 + player.leadingManual()
         if (count - first < 2) return
-        val hours = app.settings.state.value.avoidRepeatHours
-        val recent = if (hours > 0) app.library.playedSince(System.currentTimeMillis() - hours * 3_600_000L) else emptySet()
+        val minutes = app.settings.state.value.avoidRepeatMinutes
+        val recent = if (minutes > 0) app.library.playedSince(System.currentTimeMillis() - minutes * 60_000L) else emptySet()
         player.replaceMediaItems(first, count, RepeatPolicy.deferRecent(orderBeforeShuffle.subList(first, count).shuffled(), { it.mediaId }, recent))
     }
 
@@ -405,7 +405,7 @@ class PlaybackService : MediaLibraryService() {
     override fun onDestroy() {
         if (player.mediaItemCount > 0) saveQueue(wait = true)
         finishListening()
-        if (Build.VERSION.SDK_INT >= 23) audioManager.unregisterAudioDeviceCallback(deviceCallback)
+        audioManager.unregisterAudioDeviceCallback(deviceCallback)
         runCatching { connectivity.unregisterNetworkCallback(networkCallback) }
         app.sources.onGains = null
         WidgetState.write(this, null); NowPlayingWidget.refresh(this)

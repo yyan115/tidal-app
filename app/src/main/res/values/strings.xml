@@ -99,7 +99,7 @@
     <string name="library_refresh">Refresh library</string>
     <string name="library_saved_tracks">Saved tracks</string>
     <string name="library_mixes">Mixes</string>
-    <string name="library_filter">Filter</string>
+    <string name="library_filter">Search</string>
     <string name="library_filter_clear">Clear filter</string>
     <string name="library_sort_by">Sort by %1$s</string>
     <string name="library_no_saved">No saved tracks</string>
@@ -197,6 +197,9 @@
     <!-- Tracks -->
     <string name="queue_title">Queue</string>
     <string name="queue_save">Save as playlist</string>
+    <string name="queue_yours">Your queue</string>
+    <string name="queue_next_from">Next from %1$s</string>
+    <string name="queue_next_up">Up next</string>
     <string name="queue_empty_title">The queue is empty</string>
     <string name="queue_empty_text">Play a track or add one from its menu</string>
     <string name="queue_move_up">Move %1$s up</string>
@@ -231,6 +234,8 @@
     <string name="track_remove_file">Remove from library</string>
     <string name="queue_move_down">Move %1$s down</string>
     <string name="queue_shuffled">Shuffled</string>
+    <string name="queue_end">End of queue</string>
+    <string name="queue_start">Start of queue</string>
     <string name="queue_now_playing">Now playing</string>
     <string name="queue_reorder">Reorder %1$s</string>
 
@@ -242,6 +247,7 @@
     <string name="player_pause">Pause</string>
     <string name="player_play">Play</string>
     <string name="player_stopped">Playback stopped</string>
+    <string name="error_no_connection">No connection</string>
     <string name="player_next">Next track</string>
     <string name="player_close">Close player</string>
     <string name="player_playing_from">Playing from</string>
@@ -251,7 +257,7 @@
     <string name="player_artwork">Artwork for %1$s</string>
     <string name="player_next_in_queue">Next in queue</string>
     <string name="player_open_queue">Open queue</string>
-    <string name="player_source_details">Audio source details</string>
+    <string name="player_source_details">Audio details</string>
     <string name="player_shuffle">Shuffle</string>
     <string name="player_previous">Previous track</string>
     <string name="player_repeat_one">Repeat one track</string>
@@ -288,16 +294,18 @@
     <string name="player_label_download">Download</string>
     <string name="player_downloading">Downloading</string>
     <string name="player_stop">Stop playback</string>
+    <string name="player_stop_title">Stop playback?</string>
+    <string name="player_stop_text">The queue will be cleared</string>
+    <string name="player_stop_confirm">Stop</string>
 
     <!-- Audio -->
     <string name="unit_bits">%1$s bit</string>
     <string name="unit_khz">%1$s kHz</string>
     <string name="source_not_reported">Not reported</string>
-    <string name="source_title">Audio source</string>
+    <string name="source_title">Audio details</string>
     <string name="source_codec">Codec</string>
     <string name="source_bit_depth">Bit depth</string>
     <string name="source_sample_rate">Sample rate</string>
-    <string name="source_note">Android and connected audio devices may output a different format</string>
     <string name="source_label">SOURCE</string>
     <string name="eq_title">Equalizer</string>
     <string name="eq_unavailable">This device has no equalizer that OpenTune can use</string>
@@ -318,7 +326,7 @@
     <string name="quality_high">High · AAC 320 kbps</string>
     <string name="quality_low">Low · AAC 96 kbps</string>
     <string name="source_origin">Source</string>
-    <string name="source_origin_stream">Streaming</string>
+    <string name="source_origin_stream">TIDAL</string>
     <string name="source_origin_download">Downloaded</string>
     <string name="source_origin_file">Local file</string>
     <string name="source_bitrate">Bitrate</string>
@@ -347,16 +355,27 @@
     </plurals>
     <string name="downloads_unnamed">Download</string>
     <string name="download_progress">%1$d%%</string>
+    <string name="download_current_status">Downloading · %1$d%%</string>
+    <plurals name="downloads_waiting">
+        <item quantity="one">%d waiting</item>
+        <item quantity="other">%d waiting</item>
+    </plurals>
     <string name="download_failed">Download failed</string>
-    <string name="download_error_storage">Allow storage access to save downloads</string>
     <string name="migrate_title">Moving downloads</string>
     <string name="migrate_text">%1$d of %2$d</string>
     <string name="settings_download_folder">Download folder</string>
+    <string name="settings_download_folder_change_title">Change download folder?</string>
+    <string name="settings_download_folder_change">Change</string>
+    <string name="download_error_folder">The download folder is not available. Choose another folder in Settings.</string>
     <string name="setup_title">Permissions</string>
     <string name="setup_notifications">Notifications</string>
-    <string name="setup_notifications_text">Playback controls and download progress</string>
-    <string name="setup_storage">Storage</string>
-    <string name="setup_storage_text">Saves downloads to Music/OpenTune</string>
+    <string name="setup_notifications_text">Shows download progress</string>
+    <string name="setup_intro">OpenTune requires the following permissions.</string>
+    <string name="setup_required_downloads">Required for downloads</string>
+    <string name="setup_optional">Optional</string>
+    <string name="setup_folder_text">Saved to %1$s</string>
+    <string name="setup_folder_chosen">Chosen folder</string>
+    <string name="setup_change">Change</string>
     <string name="setup_allow">Allow</string>
     <string name="setup_allowed">Allowed</string>
     <string name="setup_continue">Continue</string>
@@ -459,10 +478,12 @@
     <string name="download_played_enable">Enable</string>
     <string name="repeats_window">Time window</string>
     <string name="repeats_custom">Custom</string>
-    <string name="repeats_duration">Duration</string>
-    <string name="repeats_range">1 hour to 365 days</string>
-    <string name="repeats_unit_hours">Hours</string>
-    <string name="repeats_unit_days">Days</string>
+    <string name="repeats_error_empty">Time must not be empty</string>
+    <string name="repeats_error_zero">Time must be at least 1 minute</string>
+    <string name="repeats_error_large">Time must be 365 days or less</string>
+    <string name="repeats_days">Days</string>
+    <string name="repeats_hours">Hours</string>
+    <string name="repeats_minutes">Minutes</string>
     <string name="repeats_excluded">Avoided tracks</string>
     <string name="repeats_none">No avoided tracks</string>
     <string name="repeats_played">Played %1$s</string>
@@ -501,12 +522,16 @@
     </plurals>
     <string name="stats_duration">%1$d h %2$d min</string>
     <string name="stats_summary">%1$s · %2$s</string>
-    <string name="stats_top_tracks">Top tracks</string>
-    <string name="stats_top_artists">Top artists</string>
+    <string name="stats_tracks">Tracks</string>
+    <string name="stats_artists">Artists</string>
     <string name="stats_times">%1$d×</string>
     <string name="scrobble_token_ok">The token belongs to %1$s</string>
     <string name="scrobble_unreachable">The server could not be reached</string>
     <string name="scrobble_token_valid">The token is valid</string>
+    <plurals name="window_minutes">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
     <plurals name="window_hours">
         <item quantity="one">%1$d hour</item>
         <item quantity="other">%1$d hours</item>
@@ -561,6 +586,8 @@
     </plurals>
     <string name="notify_tidal_playlist_created">Playlist created in TIDAL</string>
     <string name="notify_account_change">Connect TIDAL and turn off offline mode to make this change</string>
+    <string name="notify_download_folder_changed">Download folder changed. New downloads are saved there.</string>
+    <string name="notify_download_folder_unusable">This folder cannot be used for downloads. Choose another folder.</string>
     <string name="notify_folder_failed">The folder could not be added. Choose another folder and try again.</string>
 
     <!-- Errors -->

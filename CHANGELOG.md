@@ -8,13 +8,38 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 - Drag gesture to open and close the full player
 - Swipe on a track to play it next or add it to the queue
-- Custom time for Avoid repeats, from 1 hour to 365 days
+- Custom time for Avoid repeats, from 1 minute to 365 days, entered as days, hours and minutes
+- Download folder setting with the system folder picker, applied to new downloads
+- Card for the download that runs, in the list of what is on the device
+- Location of a downloaded track in its details
+- "End of queue" and "Start of queue" messages when a swipe has no track to go to
+- "No connection" message in the small and the full player when a lost connection stops playback
 - Description of the Experimental section
+- Tabs for tracks and artists in Listening statistics, with every track and artist of the period
+- Confirmation before the download folder changes
+- Confirmation before playback stops and the queue is cleared
+- Date and time of when a track was added, in its audio details
 
 ### Changed
 
+- OpenTune needs Android 10 or later, so that it saves downloads without any storage permission
 - Swipe on the small player or the cover changes the track
-- Stop playback moved to the menu of the full player
+- Stop playback moved to the end of the menu of the full player
+- Small player without a Next button
+- The full player grows out of the small player and shrinks back into it
+- Queue opens at half the screen and the title, the tools and the Shuffled state stay at the top while the rows scroll
+- Queue has two parts, the tracks that were added and the rest of the album or playlist
+- The full player opens the queue from its bottom row only, and the card of the next track shows what plays next
+- Downloads run one at a time, in the order of queuing
+- Permissions page comes once, after the first sign-in, with the download folder and the optional notifications
+- Download folder is a plain row in Settings that shows the folder, and the folder is chosen after a confirmation
+- Small player is hidden in Settings
+- Audio details name the source as TIDAL, Downloaded or Local file, and a downloaded track keeps its quality label
+- Messages of Avoid repeats show only when the time is wrong
+- Credits text is larger
+- Larger title in pop-ups, and an outline on the second action
+- "Filter" renamed to "Search" in the library
+- Inactive lyric lines are easier to read
 - Tracks added to the queue play before the rest of the album or playlist
 - One dialog style that follows the theme
 - Download queue on its own page, opened from On device
@@ -28,6 +53,15 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Fixed
 
+- Equalizer menu jumping from the top to the bottom of the field when it opens for the first time
+- Dot at the end of the progress bar of a download
+- Cross of a swiped queue row missing when the row moves to the left
+- Gap between the periods and the list in Listening statistics
+- Scroll position, tabs and typed text being lost when a screen opens over another one, for example Settings over an artist page
+- Sign-in text and the page header being unreadable on dark themes
+- Credits sheet changing its height
+- Seek bar dot sitting above its line
+- "Shuffled" in the queue looking like a button
 - Lists jumping back to the top after returning from an album, artist or playlist
 - Downloads waiting for Wi-Fi not starting after Download over mobile data is turned on
 - Clear failed downloads showing when no download has failed
@@ -51,6 +85,8 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Saved tracks list ending before the last track
 - Saved tracks not following the order of the account
 - Tracks removed from the saved tracks in another app still shown as saved
+- Lists, tabs and typed text being lost when Settings, a page of Settings or another page is opened over a screen
+- Home jumping when returning to it from a page
 
 ## [0.7.0] - 2026-11-08
 

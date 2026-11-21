@@ -71,6 +71,8 @@ class PseudoLocaleTest {
     }
 
     @After fun restoreLanguage() {
+        // A page that stays pending would hide the screens of every test that follows.
+        app.settings.update { it.copy(setupPending = false) }
         scenario?.close()
         app.getSystemService(LocaleManager::class.java).applicationLocales = LocaleList.getEmptyLocaleList()
         app.library.playlists().filter { it.title == "Evening" }.forEach { app.library.deletePlaylist(it.id) }
@@ -104,12 +106,12 @@ class PseudoLocaleTest {
         await("the welcome screen") { compose.onAllNodesWithTag("welcome").fetchSemanticsNodes().isNotEmpty() }
         sweep("Welcome")
         compose.onNodeWithTag("welcome-local").performClick()
-        // The permissions page follows the first screen when a permission of this version of Android is missing.
-        if (io.github.yyan115.opentune.ui.Permissions.missing(activity).isNotEmpty()) {
-            await("the permissions page") { compose.onAllNodesWithTag("setup").fetchSemanticsNodes().isNotEmpty() }
-            sweep("Permissions")
-            compose.onNodeWithTag("setup-continue").performClick()
-        }
+        // The permissions page follows the first sign-in and not the choice of local music, so it is opened by hand here.
+        app.settings.update { it.copy(setupPending = true) }
+        await("the permissions page") { compose.onAllNodesWithTag("setup").fetchSemanticsNodes().isNotEmpty() }
+        sweep("Permissions")
+        // The button is below the fold when the text is long.
+        compose.onNodeWithTag("setup-continue").performScrollTo().performClick()
         await("the On device screen") { compose.onAllNodesWithTag("device-list").fetchSemanticsNodes().isNotEmpty() }
         sweep("On device")
         inWindow("New playlist") {
@@ -157,7 +159,7 @@ class PseudoLocaleTest {
         }
         // The pages that open from the list. The avoid-repeats page also shows its list of excluded tracks.
         for ((row, name) in listOf(R.string.settings_repeats to "Avoid repeats page", R.string.stats_title to "Statistics page", R.string.settings_licenses to "Licenses page")) {
-            if (row == R.string.settings_repeats) app.settings.update { it.copy(avoidRepeatHours = 24) }
+            if (row == R.string.settings_repeats) app.settings.update { it.copy(avoidRepeatMinutes = 1440) }
             list.performScrollToNode(hasText(s(row)))
             compose.onAllNodes(hasText(s(row)) and hasClickAction()).onFirst().performClick()
             await("the $name") { compose.onAllNodesWithTag("settings-list").fetchSemanticsNodes().isEmpty() }
@@ -171,7 +173,7 @@ class PseudoLocaleTest {
             }
             compose.onNodeWithContentDescription(s(R.string.action_back)).performClick()
             await("the settings list") { compose.onAllNodesWithTag("settings-list").fetchSemanticsNodes().isNotEmpty() }
-            if (row == R.string.settings_repeats) app.settings.update { it.copy(avoidRepeatHours = 0) }
+            if (row == R.string.settings_repeats) app.settings.update { it.copy(avoidRepeatMinutes = 0) }
         }
         finish()
     }

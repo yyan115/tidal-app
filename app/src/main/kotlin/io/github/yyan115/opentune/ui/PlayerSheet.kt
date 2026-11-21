@@ -5,6 +5,10 @@ import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.runtime.setValue
 import io.github.yyan115.opentune.core.PlayerGestures
 import kotlinx.coroutines.CoroutineScope
@@ -23,10 +27,23 @@ class PlayerSheet(open: Boolean, private val scope: CoroutineScope) {
     /** The height of the screen in pixels. A drag of this length opens or closes the player. */
     var height by mutableFloatStateOf(0f)
 
+    /** Where the small player is on the screen, in pixels. The full player grows out of it and shrinks back into it. */
+    var mini by mutableStateOf(Rect.Zero)
+
+    /** Where the small picture of the small player is, and where the large cover of the full player lies when the player is open, in pixels on the screen. */
+    var miniArtwork by mutableStateOf(Rect.Zero)
+    var cover by mutableStateOf(Rect.Zero)
+
+    /** Where the window of the full player starts on the screen, in pixels. */
+    var origin by mutableStateOf(Offset.Zero)
+
     /** The value that the player moves toward or rests at: 0 or 1. */
     var target = progress
         private set
     private var animation: Job? = null
+
+    /** The part of a window of [size] pixels that the player covers at the moment. */
+    fun covered(size: Size): Rect = PlayerMorph.rect(progress, mini.translate(-origin), Rect(Offset.Zero, size))
 
     /** A finger touched the player, so a movement in progress stops. */
     fun dragStarted() { animation?.cancel() }

@@ -103,7 +103,7 @@ class ScreenTourTest {
     }
 
     @Test fun settingsAndFirstScreen() {
-        compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", offline = false, welcomeDone = false, avoidRepeatHours = 0) } }
+        compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", offline = false, welcomeDone = false, avoidRepeatMinutes = 0) } }
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("welcome").fetchSemanticsNodes().isNotEmpty() }
         picture("20-first-screen")
         compose.runOnIdle { model.settings { it.copy(welcomeDone = true) } }
@@ -119,11 +119,11 @@ class ScreenTourTest {
         picture("24-statistics-empty")
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Avoid repeats"))
-        compose.runOnIdle { model.settings { it.copy(avoidRepeatHours = 24) } }
+        compose.runOnIdle { model.settings { it.copy(avoidRepeatMinutes = 1440) } }
         compose.onNode(hasText("Avoid repeats") and hasClickAction()).performClick()
         picture("25-avoid-repeats")
         compose.onNodeWithContentDescription("Back").performClick()
-        compose.runOnIdle { model.settings { it.copy(avoidRepeatHours = 0) } }
+        compose.runOnIdle { model.settings { it.copy(avoidRepeatMinutes = 0) } }
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Licenses"))
         compose.onNode(hasText("Licenses") and hasClickAction()).performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("licences-list").fetchSemanticsNodes().isNotEmpty() }
@@ -147,7 +147,7 @@ class ScreenTourTest {
 
     @Test fun downloadQueueAndCustomRepeatTime() {
         val track = Track("2200002", "Queued Song", "Queue Artist")
-        compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false, downloadOnWifi = true, avoidRepeatHours = 0) } }
+        compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false, downloadOnWifi = true, avoidRepeatMinutes = 0) } }
         app.library.save(track)
         val manager = WorkManager.getInstance(app)
         // The download waits for a device that is idle, which a device in a test is not, so that the queue has an entry to show.
@@ -162,17 +162,17 @@ class ScreenTourTest {
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Queued Song").fetchSemanticsNodes().isNotEmpty() }
             picture("41-download-queue")
             compose.onNodeWithContentDescription("Back").performClick()
-            compose.runOnIdle { model.settings { it.copy(avoidRepeatHours = 36) } }
+            compose.runOnIdle { model.settings { it.copy(avoidRepeatMinutes = 2160) } }
             compose.onNodeWithContentDescription("Settings").performClick()
             compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Avoid repeats"))
             compose.onNode(hasText("Avoid repeats") and hasClickAction()).performClick()
-            compose.waitUntil(10_000) { compose.onAllNodesWithTag("repeats-custom").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("repeats-days").fetchSemanticsNodes().isNotEmpty() }
             picture("42-avoid-repeats-custom-time")
         } finally {
             manager.cancelAllWorkByTag("audio-download").result.get()
             manager.pruneWork().result.get()
             app.library.removeLocal(track.id)
-            compose.runOnIdle { model.settings { it.copy(avoidRepeatHours = 0) } }
+            compose.runOnIdle { model.settings { it.copy(avoidRepeatMinutes = 0) } }
         }
     }
 

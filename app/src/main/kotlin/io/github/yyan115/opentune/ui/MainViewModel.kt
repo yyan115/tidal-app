@@ -28,6 +28,8 @@ import io.github.yyan115.opentune.data.DownloadWorker
 import io.github.yyan115.opentune.data.MigrateDownloadsWorker
 import io.github.yyan115.opentune.data.Settings
 import io.github.yyan115.opentune.playback.PlaybackCommands
+import io.github.yyan115.opentune.playback.PlaybackFailures
+import io.github.yyan115.opentune.playback.PlaybackQuality
 import io.github.yyan115.opentune.playback.PlaybackService
 import io.github.yyan115.opentune.playback.manualMarks
 import kotlinx.coroutines.CancellationException
@@ -54,8 +56,10 @@ data class PlaybackState(
     val playing: Boolean = false, val buffering: Boolean = false,
     val duration: Long = 0,
     val shuffle: Boolean = false, val repeat: Int = Player.REPEAT_MODE_OFF,
-    val quality: String = "", val error: String? = null,
+    val quality: String = "", val error: String? = null, val noConnection: Boolean = false,
     val nextIndex: Int = -1, val source: String = "",
+    /** How many songs right after the current one were added by the listener. They play before the rest. */
+    val manualAhead: Int = 0,
 ) { val track: Track? get() = queue.getOrNull(index) }
 
 enum class LyricsStatus { Idle, Loading, Ready, None, Offline, Error }
@@ -144,8 +148,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     override fun onPlayerError(error: PlaybackException) {
                         val cause = generateSequence<Throwable>(error) { it.cause }.last()
                         val unreadable = ui.value.playback.track?.isFile == true && generateSequence<Throwable>(error) { it.cause }.any { it is java.io.FileNotFoundException || it is SecurityException }
-                        ui.update { it.copy(playback = it.playback.copy(error = when {
+                        val noConnection = !unreadable && PlaybackFailures.isNoConnection(error)
+                        ui.update { it.copy(playback = it.playback.copy(noConnection = noConnection, error = when {
                             unreadable -> app.getString(R.string.error_file_unreadable)
+                            noConnection -> app.getString(R.string.error_no_connection)
                             cause is ServiceException || cause is ProtectedStreamException -> app.problemText(cause)
                             else -> app.getString(R.string.error_playback_stopped)
                         })) }
@@ -162,7 +168,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 controller?.let { player ->
                     clock.value = player.currentPosition.coerceAtLeast(0)
                     ui.update { it.copy(playback = it.playback.copy(
-                        quality = it.playback.track?.let { track -> app.sources.quality(track.id) ?: track.quality }.orEmpty(),
+                        quality = it.playback.track?.let { track -> PlaybackQuality.of(app.sources.quality(track.id), track.quality, it.local.firstOrNull { saved -> saved.id == track.id }?.quality) }.orEmpty(),
                         duration = player.duration.takeIf { d -> d > 0 } ?: it.playback.track?.durationMs ?: 0)) }
                 }
             }
@@ -175,7 +181,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             app.library.localTracks().filter { it.isDownload && it.localUri?.startsWith("opentune-offline:") == false }
                 .filter { !app.downloadFiles.readable(Uri.parse(it.localUri.orEmpty())) }.forEach { app.library.removeLocal(it.id) }
-            if (app.downloadFiles.canWrite() && app.library.localTracks().any { it.localUri?.startsWith("opentune-offline:") == true }) {
+            if (app.library.localTracks().any { it.localUri?.startsWith("opentune-offline:") == true }) {
                 WorkManager.getInstance(application).enqueueUniqueWork("migrate-downloads", ExistingWorkPolicy.KEEP, OneTimeWorkRequestBuilder<MigrateDownloadsWorker>().build())
             }
         }
@@ -283,6 +289,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 app.sessions.clearPkce()
                 ui.update { it.copy(pkceLogin = null, signedIn = true, signingIn = false, error = null) }
                 notify(app.getString(R.string.settings_connected)); sync()
+                // The permissions page comes once, after the first sign-in.
+                settings { if (it.setupShown) it else it.copy(setupPending = true) }
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 ui.update { it.copy(signingIn = false, error = userMessage(error)) }
@@ -408,7 +416,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         preferences.edit().putString("source", source).apply()
         ui.update { it.copy(playback = it.playback.copy(source = source)) }
         val player = controller ?: run { notify(app.getString(R.string.notify_service_starting)); return }
-        ui.update { it.copy(playback = it.playback.copy(error = null)) }
+        ui.update { it.copy(playback = it.playback.copy(error = null, noConnection = false)) }
         if (shuffle != null && player.shuffleModeEnabled != shuffle) player.shuffleModeEnabled = shuffle
         val shuffled = shuffle ?: player.shuffleModeEnabled
         val start = index.coerceIn(tracks.indices)
@@ -522,10 +530,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** Answers the first-launch screen. The listener either signed in or chose to use local music only. */
-    fun finishWelcome() { settings { it.copy(welcomeDone = true, setupPending = it.setupPending || !it.welcomeDone) } }
+    fun finishWelcome() { settings { it.copy(welcomeDone = true) } }
 
     /** The permissions page was answered. */
-    fun finishSetup() { settings { it.copy(setupPending = false) } }
+    fun finishSetup() { settings { it.copy(setupPending = false, setupShown = true) } }
+
+    /**
+     * Saves new downloads in the folder that the listener picked. Downloads that exist stay where they are, and the library keeps their addresses.
+     * A folder that cannot hold files is refused.
+     */
+    fun setDownloadFolder(tree: Uri) = viewModelScope.launch(Dispatchers.IO) {
+        try {
+            app.contentResolver.takePersistableUriPermission(tree, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            if (!app.downloadFiles.usable(tree)) { notify(app.getString(R.string.notify_download_folder_unusable)); return@launch }
+            settings { it.copy(downloadFolder = tree.toString()) }
+            notify(app.getString(R.string.notify_download_folder_changed))
+        } catch (error: Exception) { if (error is CancellationException) throw error; notify(app.getString(R.string.notify_download_folder_unusable)) }
+    }
+
 
     fun addDeviceFolder(tree: Uri) = viewModelScope.launch(Dispatchers.IO) {
         try { app.folders.add(tree) }
@@ -659,18 +681,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun listeningStats(days: Int): ListeningStats = withContext(Dispatchers.IO) {
         val since = if (days <= 0) 0L else System.currentTimeMillis() - days * 86_400_000L
         val (plays, listened) = app.library.listeningTotals(since)
-        val tracks = app.library.topTracks(since, 500)
+        val tracks = app.library.topTracks(since, Int.MAX_VALUE)
         val artists = tracks.groupBy { it.track.artist }.map { (name, entries) -> name to entries.sumOf { it.plays } }.sortedByDescending { it.second }
-        ListeningStats(plays, listened / 3_600_000, listened / 60_000 % 60, tracks.take(25), artists)
+        ListeningStats(plays, listened / 3_600_000, listened / 60_000 % 60, tracks, artists)
     }
 
     /** A track that the avoid-repeats window excludes, with the time of its last play. */
     data class ExcludedTrack(val track: Track, val playedAt: Long)
 
     /** The tracks that the window of [hours] hours excludes now, the latest play first. */
-    suspend fun excludedTracks(hours: Int): List<ExcludedTrack> = withContext(Dispatchers.IO) {
-        if (hours <= 0) emptyList()
-        else app.library.excludedSince(System.currentTimeMillis() - hours * 3_600_000L).mapNotNull { (id, at) -> app.library.get(id)?.let { ExcludedTrack(it, at) } }
+    suspend fun excludedTracks(minutes: Int): List<ExcludedTrack> = withContext(Dispatchers.IO) {
+        if (minutes <= 0) emptyList()
+        else app.library.excludedSince(System.currentTimeMillis() - minutes * 60_000L).mapNotNull { (id, at) -> app.library.get(id)?.let { ExcludedTrack(it, at) } }
     }
 
     /** Lets an excluded track play again at once. */
@@ -731,8 +753,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /** The ids of the tracks that played within the window of the avoid repeats setting. Empty when the setting is off. */
     private suspend fun recentlyPlayed(): Set<String> {
-        val hours = ui.value.settings.avoidRepeatHours
-        return if (hours <= 0) emptySet() else withContext(Dispatchers.IO) { app.library.playedSince(System.currentTimeMillis() - hours * 3_600_000L) }
+        val minutes = ui.value.settings.avoidRepeatMinutes
+        return if (minutes <= 0) emptySet() else withContext(Dispatchers.IO) { app.library.playedSince(System.currentTimeMillis() - minutes * 60_000L) }
     }
 
     fun playTrackRadio(track: Track) = accountAction {
@@ -853,8 +875,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val quality = player.currentMediaItem?.localConfiguration?.tag as? String ?: queue.getOrNull(player.currentMediaItemIndex)?.quality.orEmpty()
         ui.update { it.copy(playback = it.playback.copy(queue = queue, index = player.currentMediaItemIndex.coerceAtLeast(0),
             playing = player.isPlaying, buffering = player.playbackState == Player.STATE_BUFFERING,
-            shuffle = player.shuffleModeEnabled, repeat = player.repeatMode, quality = quality, nextIndex = player.nextMediaItemIndex,
-            error = if (player.playerError == null) null else it.playback.error)) }
+            shuffle = player.shuffleModeEnabled, repeat = player.repeatMode, quality = quality, nextIndex = player.nextMediaItemIndex, manualAhead = QueueOrder.leadingManual(player.manualMarks(), player.currentMediaItemIndex),
+            error = if (player.playerError == null) null else it.playback.error, noConnection = player.playerError != null && it.playback.noConnection)) }
     }
 
     private fun restoreQueue() {

@@ -77,7 +77,27 @@ class PlayerLayoutTest {
         return width.toInt() to height.toInt()
     }
 
-    @After fun restoreScreen() { shell("wm size reset"); shell("wm density reset") }
+    /**
+     * On Android 10 of the CI this test stopped once, while it waited for the app to be idle, and the test report held no sign of what the app did.
+     * When the test is still running after two and a half minutes, this thread writes the stack of the main thread and of all other threads to the log.
+     */
+    private var watchdog: Thread? = null
+
+    @Before fun watchTheMainThread() {
+        watchdog = Thread {
+            try {
+                Thread.sleep(150_000)
+                // The log cuts a line of more than about four thousand characters, so the stack of each thread is written on its own, in parts.
+                for ((thread, stack) in Thread.getAllStackTraces()) {
+                    if (thread.name != "main" && !thread.name.startsWith("Time-limited") && !thread.name.contains("Compose") && !thread.name.startsWith("androidx")) continue
+                    val text = "${thread.name} (${thread.state})\n" + stack.joinToString("\n") { "    at $it" }
+                    text.chunked(3_000).forEachIndexed { index, part -> android.util.Log.e("PlayerLayoutTest", "[${thread.name} ${index + 1}] $part") }
+                }
+            } catch (_: InterruptedException) { }
+        }.apply { isDaemon = true; start() }
+    }
+
+    @After fun restoreScreen() { watchdog?.interrupt(); shell("wm size reset"); shell("wm density reset") }
 
     @Test fun bottomRowSitsDirectlyAboveTheNavigationBarOnEveryScreen() {
         val failures = mutableListOf<String>()
@@ -87,7 +107,9 @@ class PlayerLayoutTest {
             // A tap on the mini player during that moment is lost, so the tap repeats until the player shows.
             val queue = compose.onNodeWithText(compose.activity.getString(R.string.player_queue_count, 2))
             try {
-                pollUntil("the app to use the new display") { resumedActivityUses(screen) }
+                // The system recreates the activity once for the size and once for the density. The test does not synchronise with the screen while that happens,
+                // because on a slow device the synchronisation can wait for a screen that no longer exists. Only the activity is read.
+                pollUntil("the app to use the new display", synchronise = false) { resumedActivityUses(screen) }
                 pollUntil("the player to show") {
                     if (!playerOpen() && compose.onAllNodesWithTag("mini-player").fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithTag("mini-player").performClick()
                     queue.isDisplayed()
@@ -130,11 +152,11 @@ class PlayerLayoutTest {
         return Layout((metrics.heightPixels - navigation - bottom) / metrics.density, heading, transportTop, metrics.heightPixels, navigation, bottom)
     }
 
-    private fun pollUntil(what: String, timeoutMillis: Long = 20_000, condition: () -> Boolean) {
+    private fun pollUntil(what: String, timeoutMillis: Long = 20_000, synchronise: Boolean = true, condition: () -> Boolean) {
         val end = System.currentTimeMillis() + timeoutMillis
         while (System.currentTimeMillis() < end) {
             // The test clock advances only while the test synchronises, so a wait that only sleeps never shows work that finishes in the background.
-            if (runCatching { compose.waitForIdle(); condition() }.getOrDefault(false)) return
+            if (runCatching { if (synchronise) compose.waitForIdle(); condition() }.getOrDefault(false)) return
             Thread.sleep(250)
         }
         throw AssertionError("Timed out waiting for $what")

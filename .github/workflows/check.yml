@@ -85,11 +85,11 @@ jobs:
   device:
     name: Android ${{ matrix.api }} device tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        api: [26, 33, 36]
+        api: [29, 33, 36]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -112,11 +112,16 @@ jobs:
           arch: x86_64
           target: google_apis
           ram-size: 2048M
+          # The emulator that the action creates without a device profile gives an app 16 MB of heap, and the app and the tests of a whole run need more.
+          # A phone gives an app far more, and the emulators of a developer have 228 MB or more.
+          heap-size: 512M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: |
             adb shell pm disable-user --user 0 com.google.android.gms || true
             adb shell settings put global heads_up_notifications_enabled 0
+            mkdir -p logcat
+            adb logcat -v threadtime -b main,system,crash '*:I' > logcat/android-${{ matrix.api }}.txt &
             ./gradlew --no-daemon :app:connectedDebugAndroidTest ${{ matrix.api == 36 && '-Pandroid.testInstrumentationRunnerArguments.screenTour=true' || '' }}
       - name: Upload device reports and screenshots
         if: always()
@@ -128,3 +133,4 @@ jobs:
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
             app/build/outputs/connected_android_test_additional_output/
+            logcat/

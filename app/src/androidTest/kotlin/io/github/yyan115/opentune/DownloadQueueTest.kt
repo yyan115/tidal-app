@@ -52,9 +52,11 @@ class DownloadQueueTest {
     }
 
     private fun openTheQueue() {
-        compose.waitUntil(10_000) { compose.onAllNodesWithText("Download queue").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("device-list").performScrollToNode(hasText("Download queue"))
-        compose.onNode(hasText("Download queue") and hasClickAction()).performClick()
+        // The queue opens from its row, or from the card of the download that runs, which takes the place of the row while a download transfers.
+        val entry = (hasText("Download queue") and hasClickAction()) or hasTestTag("current-download")
+        compose.waitUntil(10_000) { compose.onAllNodes(entry).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("device-list").performScrollToNode(entry)
+        compose.onAllNodes(entry).onFirst().performClick()
         compose.onNodeWithTag("download-queue").assertIsDisplayed()
     }
 

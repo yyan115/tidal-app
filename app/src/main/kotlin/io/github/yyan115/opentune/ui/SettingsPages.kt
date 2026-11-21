@@ -3,6 +3,7 @@ package io.github.yyan115.opentune.ui
 import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
@@ -14,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -39,10 +41,15 @@ enum class SettingsPage(@StringRes val title: Int) {
     val parent: SettingsPage? get() = if (this in LicenceDocuments) Licenses else null
 }
 
+/** A window as text: the days, the hours and the minutes that it has, such as 1 day 12 hours. */
 @Composable
-fun repeatWindowText(hours: Int): String = when {
-    hours % 24 == 0 -> pluralStringResource(R.plurals.window_days, hours / 24, hours / 24)
-    else -> pluralStringResource(R.plurals.window_hours, hours, hours)
+fun repeatWindowText(minutes: Int): String {
+    val parts = RepeatWindow.parts(minutes)
+    return listOfNotNull(
+        parts.days.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.window_days, it, it) },
+        parts.hours.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.window_hours, it, it) },
+        parts.minutes.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.window_minutes, it, it) },
+    ).joinToString(" ")
 }
 
 /** A span of time as days and hours, hours and minutes, or minutes. */
@@ -56,42 +63,44 @@ fun durationText(milliseconds: Long): String {
     }
 }
 
-/** The number field and the unit of a custom time window. A valid number applies at once, and an invalid one leaves the window as it was. */
+/**
+ * The fields of a custom time window: days, hours and minutes. A valid time applies at once, and an invalid one leaves the window as it was.
+ * The fields stand side by side, and one under the other when the text is large.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-private fun CustomWindow(hours: Int, onChange: (Int) -> Unit) {
-    var days by rememberSaveable { mutableStateOf(RepeatWindow.inDays(hours)) }
-    var text by rememberSaveable { mutableStateOf(if (hours > 0) RepeatWindow.number(hours, days).toString() else "") }
-    val valid = RepeatWindow.hours(text.toIntOrNull(), days) != null
+internal fun CustomWindow(minutes: Int, onChange: (Int) -> Unit) {
+    val start = RepeatWindow.parts(minutes)
+    var days by rememberSaveable { mutableStateOf(start.days.toString()) }
+    var hours by rememberSaveable { mutableStateOf(start.hours.toString()) }
+    var mins by rememberSaveable { mutableStateOf(start.minutes.toString()) }
+    fun total() = RepeatWindow.minutes(days.toIntOrNull() ?: 0, hours.toIntOrNull() ?: 0, mins.toIntOrNull() ?: 0)
+    // Each wrong time says why. Letters cannot be typed, so these are the only ways to be wrong.
+    val error = when {
+        days.isBlank() && hours.isBlank() && mins.isBlank() -> R.string.repeats_error_empty
+        total() != null -> null
+        (days.toLongOrNull() ?: 0) * 1440 + (hours.toLongOrNull() ?: 0) * 60 + (mins.toLongOrNull() ?: 0) <= 0L -> R.string.repeats_error_zero
+        else -> R.string.repeats_error_large
+    }
+    val valid = error == null
     // The entry scrolls into view when it appears, because on a small screen it starts below the options.
     val requester = remember { BringIntoViewRequester() }
     LaunchedEffect(Unit) { requester.bringIntoView() }
-    // The number and the unit sit one under the other, so that the field keeps its width on a narrow screen.
+    @Composable fun Field(value: String, onValue: (String) -> Unit, @StringRes label: Int, tag: String, modifier: Modifier) {
+        OutlinedTextField(value, { input -> onValue(input.filter(Char::isDigit).take(5)); total()?.let(onChange) }, modifier.testTag(tag), label = { Text(stringResource(label), maxLines = 1) },
+            singleLine = true, isError = !valid, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+    }
     Column(Modifier.bringIntoViewRequester(requester).fillMaxWidth().padding(start = 64.dp, end = 24.dp, top = 4.dp, bottom = 8.dp)) {
-        OutlinedTextField(text, { input ->
-            text = input.filter(Char::isDigit).take(4)
-            RepeatWindow.hours(text.toIntOrNull(), days)?.let(onChange)
-        }, Modifier.fillMaxWidth().testTag("repeats-custom"), label = { Text(stringResource(R.string.repeats_duration)) }, singleLine = true, isError = !valid,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-        val units = listOf(false to stringResource(R.string.repeats_unit_hours), true to stringResource(R.string.repeats_unit_days))
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 12.dp).testTag("repeats-unit")) {
-            units.forEachIndexed { index, (inDays, label) ->
-                SegmentedButton(days == inDays, {
-                    if (days != inDays) {
-                        days = inDays
-                        text.toIntOrNull()?.let { value ->
-                            text = RepeatWindow.convert(value, inDays).toString()
-                            RepeatWindow.hours(text.toIntOrNull(), inDays)?.let(onChange)
-                        }
-                    }
-                }, SegmentedButtonDefaults.itemShape(index, units.size), icon = {},
-                    colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primary, activeContentColor = MaterialTheme.colorScheme.onPrimary,
-                        activeBorderColor = MaterialTheme.colorScheme.primary),
-                    contentPadding = PaddingValues(horizontal = 12.dp)) { Text(label, maxLines = 1) }
-            }
+        if (LocalDensity.current.fontScale > 1.3f) {
+            Field(days, { days = it }, R.string.repeats_days, "repeats-days", Modifier.fillMaxWidth())
+            Field(hours, { hours = it }, R.string.repeats_hours, "repeats-hours", Modifier.fillMaxWidth().padding(top = 8.dp))
+            Field(mins, { mins = it }, R.string.repeats_minutes, "repeats-minutes", Modifier.fillMaxWidth().padding(top = 8.dp))
+        } else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Field(days, { days = it }, R.string.repeats_days, "repeats-days", Modifier.weight(1f))
+            Field(hours, { hours = it }, R.string.repeats_hours, "repeats-hours", Modifier.weight(1f))
+            Field(mins, { mins = it }, R.string.repeats_minutes, "repeats-minutes", Modifier.weight(1f))
         }
-        Text(stringResource(R.string.repeats_range), Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodySmall,
-            color = if (valid) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
+        if (error != null) Text(stringResource(error), Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
     }
 }
 
@@ -103,34 +112,34 @@ private fun CustomWindow(hours: Int, onChange: (Int) -> Unit) {
 @UnstableApi
 @Composable
 fun AvoidRepeatsPage(state: AppState, vm: MainViewModel) {
-    val hours = state.settings.avoidRepeatHours
+    val minutes = state.settings.avoidRepeatMinutes
     // A window that is not one of the presets opens in the custom entry, and a preset opens as itself.
-    var custom by rememberSaveable { mutableStateOf(hours > 0 && hours !in RepeatWindow.presets) }
+    var custom by rememberSaveable { mutableStateOf(minutes > 0 && minutes !in RepeatWindow.presets) }
     val revision by vm.app.library.changes.collectAsStateWithLifecycle()
     val now by produceState(System.currentTimeMillis()) { while (true) { delay(30_000); value = System.currentTimeMillis() } }
-    val excluded by produceState<List<MainViewModel.ExcludedTrack>?>(null, hours, revision, now) { value = vm.excludedTracks(hours) }
+    val excluded by produceState<List<MainViewModel.ExcludedTrack>?>(null, minutes, revision, now) { value = vm.excludedTracks(minutes) }
     val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
     androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxSize().testTag("repeats-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Text(stringResource(if (state.signedIn) R.string.settings_repeats_text_tidal else R.string.settings_repeats_text), Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         item { UpperLabel(stringResource(R.string.repeats_window), Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) }
         items(RepeatWindow.presets.size) { index ->
             val window = RepeatWindow.presets[index]
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(!custom && hours == window, role = Role.RadioButton) { custom = false; vm.settings { it.copy(avoidRepeatHours = window) } }
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(!custom && minutes == window, role = Role.RadioButton) { custom = false; vm.settings { it.copy(avoidRepeatMinutes = window) } }
                 .padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-                RadioButton(!custom && hours == window, onClick = null)
+                RadioButton(!custom && minutes == window, onClick = null)
                 Text(if (window == 0) stringResource(R.string.settings_off) else repeatWindowText(window), Modifier.padding(start = 16.dp), style = MaterialTheme.typography.bodyLarge)
             }
         }
         item {
             Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(custom, role = Role.RadioButton) {
-                if (!custom) { custom = true; if (hours == 0) vm.settings { it.copy(avoidRepeatHours = 48) } }
+                if (!custom) { custom = true; if (minutes == 0) vm.settings { it.copy(avoidRepeatMinutes = 2 * 1440) } }
             }.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                 RadioButton(custom, onClick = null)
                 Text(stringResource(R.string.repeats_custom), Modifier.padding(start = 16.dp), style = MaterialTheme.typography.bodyLarge)
             }
         }
-        if (custom) item { CustomWindow(if (hours > 0) hours else 48) { next -> vm.settings { it.copy(avoidRepeatHours = next) } } }
-        if (hours > 0) {
+        if (custom) item { CustomWindow(if (minutes > 0) minutes else 2 * 1440) { next -> vm.settings { it.copy(avoidRepeatMinutes = next) } } }
+        if (minutes > 0) {
             item { UpperLabel(stringResource(R.string.repeats_excluded), Modifier.padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 8.dp)) }
             val tracks = excluded
             when {
@@ -138,7 +147,7 @@ fun AvoidRepeatsPage(state: AppState, vm: MainViewModel) {
                 tracks.isEmpty() -> item { Text(stringResource(R.string.repeats_none), Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 else -> items(tracks.size, key = { tracks[it].track.id }) { index ->
                     val entry = tracks[index]
-                    val left = entry.playedAt + hours * 3_600_000L - now
+                    val left = entry.playedAt + minutes * 60_000L - now
                     Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         TrackArtwork(entry.track, null, Modifier.size(44.dp))
                         Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
@@ -167,7 +176,7 @@ fun StatisticsPage(vm: MainViewModel) {
     val ranges = listOf(7 to pluralStringResource(R.plurals.stats_days, 7, 7), 30 to pluralStringResource(R.plurals.stats_days, 30, 30), 365 to stringResource(R.string.stats_year), 0 to stringResource(R.string.stats_all))
     Column(Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
         // A period is one choice of several, so the control is a single-choice segmented button, which fills the selected segment.
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag("stats-range")) {
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(bottom = 12.dp).testTag("stats-range")) {
             ranges.forEachIndexed { index, (value, label) ->
                 SegmentedButton(days == value, { days = value }, SegmentedButtonDefaults.itemShape(index, ranges.size), icon = {},
                     colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primary, activeContentColor = MaterialTheme.colorScheme.onPrimary,
@@ -180,27 +189,45 @@ fun StatisticsPage(vm: MainViewModel) {
             when {
                 current == null -> CircularProgressIndicator(Modifier.align(Alignment.Center))
                 current.plays == 0 -> Text(stringResource(R.string.stats_empty), Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-                    Text(stringResource(R.string.stats_summary, pluralStringResource(R.plurals.stats_listens, current.plays, current.plays), stringResource(R.string.stats_duration, current.hours.toInt(), current.minutes.toInt())), style = MaterialTheme.typography.titleMedium)
-                    UpperLabel(stringResource(R.string.stats_top_tracks), Modifier.padding(top = 18.dp, bottom = 4.dp))
-                    current.tracks.take(10).forEach { entry ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(entry.track.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(entry.track.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            Text(stringResource(R.string.stats_times, entry.plays), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    UpperLabel(stringResource(R.string.stats_top_artists), Modifier.padding(top = 18.dp, bottom = 4.dp))
-                    current.artists.take(10).forEach { (name, plays) ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                            Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(stringResource(R.string.stats_times, plays), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
+                else -> StatisticsLists(current)
             }
         }
+    }
+}
+
+/** The summary of a period, and a list of every track or of every artist, as the listener picks. Only the rows that show are drawn, so a long list stays smooth. */
+@Composable
+fun StatisticsLists(stats: ListeningStats) {
+    var tab by rememberSaveable { mutableIntStateOf(0) }
+    val tabs = listOf(stringResource(R.string.stats_tracks), stringResource(R.string.stats_artists))
+    Column(Modifier.fillMaxSize()) {
+        Text(stringResource(R.string.stats_summary, pluralStringResource(R.plurals.stats_listens, stats.plays, stats.plays), stringResource(R.string.stats_duration, stats.hours.toInt(), stats.minutes.toInt())), style = MaterialTheme.typography.titleMedium)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag("stats-tabs")) {
+            tabs.forEachIndexed { index, label ->
+                SegmentedButton(tab == index, { tab = index }, SegmentedButtonDefaults.itemShape(index, tabs.size), icon = {},
+                    colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primary, activeContentColor = MaterialTheme.colorScheme.onPrimary,
+                        activeBorderColor = MaterialTheme.colorScheme.primary)) { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
+        }
+        androidx.compose.foundation.lazy.LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("stats-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
+            if (tab == 0) itemsIndexed(stats.tracks, key = { _, entry -> entry.track.id }) { index, entry -> StatisticsRow(index + 1, entry.track.title, entry.track.artist, entry.plays) }
+            else itemsIndexed(stats.artists, key = { _, entry -> entry.first }) { index, (name, plays) -> StatisticsRow(index + 1, name, null, plays) }
+        }
+    }
+}
+
+/** A row of the statistics: the place, the name with its artist, and the number of plays in a column of its own, so that a long name is cut before it. */
+@Composable
+private fun StatisticsRow(place: Int, name: String, artist: String?, plays: Int) {
+    Column {
+        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(place.toString(), Modifier.widthIn(min = 32.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(Modifier.weight(1f)) {
+                Text(name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (artist != null) Text(artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text(stringResource(R.string.stats_times, plays), Modifier.padding(start = 16.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }

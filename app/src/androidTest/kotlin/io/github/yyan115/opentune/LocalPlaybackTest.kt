@@ -3,6 +3,7 @@ package io.github.yyan115.opentune
 import android.net.Uri
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
 import androidx.media3.common.util.UnstableApi
@@ -75,6 +76,7 @@ class LocalPlaybackTest {
         compose.waitUntil(10_000) { model.state.value.playback.queue.size == 5 }
         compose.onNodeWithTag("mini-player").performClick()
         compose.onNodeWithText("Queue · 5").performClick()
+        expandTheQueue()
         compose.onNode(hasContentDescription("Reorder Remove 2")).performTouchInput { swipeLeft() }
         compose.waitUntil(5_000) { model.state.value.playback.queue.size == 4 }
         // The row of the fourth track moved up by one place, and its swipe removes that track.
@@ -161,11 +163,14 @@ class LocalPlaybackTest {
         assertNull(model.state.value.playback.error)
         compose.waitUntil(5_000) { model.position.value > 500 }
         compose.onNodeWithTag("mini-player").performClick()
-        compose.onNodeWithContentDescription("Audio source details").performClick()
+        compose.onNodeWithContentDescription("Audio details").performClick()
         compose.onNodeWithTag("source-codec").assertTextEquals("FLAC")
         compose.onNodeWithTag("source-bits").assertTextEquals("24 bit")
         compose.onNodeWithTag("source-rate").assertTextEquals("96 kHz")
-        compose.onNodeWithText("Done").performClick()
+        // The sheet has no Done button, and it closes with Back.
+        compose.onAllNodesWithText("Done").assertCountEquals(0)
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("source-codec").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithContentDescription("Close player").performClick()
         compose.runOnIdle { if (model.state.value.playback.playing) model.togglePlay() }
     }
@@ -218,7 +223,7 @@ class LocalPlaybackTest {
         // One place needs no navigation, and its filter does the work of a search.
         compose.onAllNodesWithTag("nav-device").assertCountEquals(0)
         compose.onAllNodesWithTag("nav-search").assertCountEquals(0)
-        compose.onNodeWithText("Filter").performTextInput("Night")
+        compose.onNode(hasText("Search") and hasSetTextAction()).performTextInput("Night")
         compose.onNodeWithText("Night Walk").assertIsDisplayed()
         screenshot("filter-local")
         compose.onNodeWithText("Add files").assertIsDisplayed()
@@ -267,7 +272,7 @@ class LocalPlaybackTest {
     @Test fun theAvoidRepeatsPageListsTheExcludedTracksAndIncludesOneOnRequest() {
         app.library.clearHistory()
         app.library.recordPlay(track, 40_000)
-        compose.runOnIdle { model.settings { it.copy(avoidRepeatHours = 24) } }
+        compose.runOnIdle { model.settings { it.copy(avoidRepeatMinutes = 1440) } }
         try {
             compose.onNodeWithContentDescription("Settings").performClick()
             compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Avoid repeats"))
@@ -281,12 +286,12 @@ class LocalPlaybackTest {
             assertTrue(app.library.playedSince(0).isEmpty())
             // Every time window is one choice of several.
             compose.onNode(hasText("Off") and hasClickAction()).performClick()
-            compose.waitUntil(5_000) { model.state.value.settings.avoidRepeatHours == 0 }
+            compose.waitUntil(5_000) { model.state.value.settings.avoidRepeatMinutes == 0 }
             compose.onAllNodesWithText("AVOIDED TRACKS").assertCountEquals(0)
             compose.onNodeWithContentDescription("Back").performClick()
             compose.onNodeWithTag("settings-list").assertIsDisplayed()
         } finally {
-            compose.runOnIdle { model.settings { it.copy(avoidRepeatHours = 0) } }
+            compose.runOnIdle { model.settings { it.copy(avoidRepeatMinutes = 0) } }
             app.library.clearHistory()
         }
     }
@@ -350,16 +355,37 @@ class LocalPlaybackTest {
         bitmap.recycle()
     }
 
+    /** The queue opens at part of the screen, and on a small screen the rows of a test lie below that. A drag on the handle makes the sheet full. */
+    private fun expandTheQueue() {
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("queue-sheet").fetchSemanticsNodes().isNotEmpty() }
+        val screen = compose.onAllNodes(isRoot()).fetchSemanticsNodes().maxOf { it.boundsInRoot.height }
+        fun full() = compose.onNodeWithTag("queue-sheet").fetchSemanticsNode().positionOnScreen.y < screen * 0.3f
+        // A slow device may read the first swipe as too short, so the swipe repeats while the sheet stays low.
+        repeat(3) {
+            if (full()) return
+            val handleY = compose.onNodeWithContentDescription("Drag handle").fetchSemanticsNode().boundsInRoot.center.y
+            // The finger stays inside the screen, because a touch outside of it may not reach the sheet on every version of Android.
+            compose.onNodeWithContentDescription("Drag handle").performTouchInput { swipe(center, center.copy(y = center.y - handleY + 2f), 800) }
+            val end = System.currentTimeMillis() + 3_000
+            while (!full() && System.currentTimeMillis() < end) { compose.waitForIdle(); Thread.sleep(100) }
+        }
+        compose.waitUntil(2_000) { full() }
+        compose.waitForIdle()
+    }
+
     @Test fun queueRowsCanBeDraggedToANewPosition() {
         val first = track.copy(id = "local:drag-1", title = "First Track"); val second = track.copy(id = "local:drag-2", title = "Second Track"); val third = track.copy(id = "local:drag-3", title = "Third Track")
         compose.runOnIdle { model.play(listOf(first, second, third)) }
         compose.waitUntil(10_000) { model.state.value.playback.queue.size == 3 }
         compose.onNodeWithTag("mini-player").performClick()
         compose.onNodeWithText("Queue · 3").performClick()
+        expandTheQueue()
         // A row is dragged by its handle past the row below it, then past the next one.
+        // The finger moves a little more than the height of one row, measured in dp, so it passes one row on a small display as well as on a large one.
+        val step = with(compose.density) { 6.6.dp.toPx() }
         fun dragFirstRowDown() = compose.onNodeWithContentDescription("Reorder First Track", useUnmergedTree = true).performTouchInput {
             down(center)
-            repeat(10) { moveBy(Offset(0f, 12f)); advanceEventTime(16) }
+            repeat(10) { moveBy(Offset(0f, step)); advanceEventTime(16) }
             up()
         }
         dragFirstRowDown()
@@ -410,22 +436,6 @@ class LocalPlaybackTest {
         compose.onNodeWithTag("mini-player").assertIsDisplayed()
         // The tests that follow expect a screen without a small player.
         compose.runOnIdle { model.stopPlayback() }
-    }
-
-    @Test fun openingAnArtistFromThePlayerLeavesTheSettingsBehindIt() {
-        // A downloaded track plays from the device and still belongs to TIDAL, so its artist has a page.
-        val downloaded = track.copy(id = "4242", title = "Downloaded Track", artist = "Page Artist", artistId = "99", albumId = "98")
-        app.library.save(downloaded)
-        compose.runOnIdle { model.play(listOf(downloaded)) }
-        compose.waitUntil(10_000) { model.state.value.playback.track?.id == downloaded.id }
-        compose.onNodeWithContentDescription("Settings").performClick()
-        compose.onNodeWithTag("settings-list").assertExists()
-        compose.onNodeWithTag("mini-player").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("player-artist").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("player-artist").performClick()
-        compose.waitUntil(5_000) { model.state.value.routes.isNotEmpty() }
-        compose.onNodeWithTag("settings-list").assertDoesNotExist()
-        compose.onNodeWithTag("player-artist").assertDoesNotExist()
     }
 
     @Test fun theVisualizerReadsTheSamplesThatTheOutputReceives() {

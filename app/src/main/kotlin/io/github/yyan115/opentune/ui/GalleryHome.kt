@@ -33,7 +33,7 @@ import io.github.yyan115.opentune.core.Track
 @UnstableApi
 @Composable
 fun ListenScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLogin: () -> Unit,
-    onLibrary: (Int) -> Unit, onDevice: () -> Unit, onMenu: (Track) -> Unit, onPlayer: () -> Unit, listState: LazyListState = rememberLazyListState()) {
+    onLibrary: (Int) -> Unit, onDevice: () -> Unit, onMenu: (Track) -> Unit, onPlayer: () -> Unit) {
     fun available(track: Track) = track.onDevice || state.local.any { it.id == track.id }
     val recent = if (state.settings.offline) state.recent.filter(::available) else state.recent
     val current = state.playback.track?.takeIf { !state.settings.offline || available(it) }
@@ -55,7 +55,7 @@ fun ListenScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLog
     val home = entries[PageRoute.Home.key]?.takeIf { online }
     PullToRefreshBox(isRefreshing = (forYou?.loading == true || home?.loading == true) && forYou?.page != null,
         onRefresh = { if (online) { pages.load(PageRoute.ForYou, true); pages.load(PageRoute.Home, true); vm.sync() } }, modifier = Modifier.fillMaxSize()) {
-    LazyColumn(Modifier.fillMaxSize(), listState, contentPadding = PaddingValues(bottom = 28.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
         if (hero != null) {
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {

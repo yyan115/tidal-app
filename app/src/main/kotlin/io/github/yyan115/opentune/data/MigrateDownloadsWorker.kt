@@ -59,7 +59,6 @@ class MigrateDownloadsWorker(context: Context, parameters: WorkerParameters) : C
     private val app get() = applicationContext as OpenTuneApp
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        if (!app.downloadFiles.canWrite()) return@withContext Result.success()
         DownloadMigration(app).moveAll { position, total -> setForeground(notification(position, total)) }
         Result.success()
     }
@@ -72,6 +71,6 @@ class MigrateDownloadsWorker(context: Context, parameters: WorkerParameters) : C
         val notification = Notification.Builder(applicationContext, "downloads").setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(applicationContext.getString(R.string.migrate_title)).setContentText(if (total > 0) applicationContext.getString(R.string.migrate_text, position, total) else null)
             .setProgress(total, position, total == 0).setOngoing(true).setOnlyAlertOnce(true).setCategory(Notification.CATEGORY_PROGRESS).build()
-        return if (android.os.Build.VERSION.SDK_INT >= 29) ForegroundInfo(2090, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else ForegroundInfo(2090, notification)
+        return ForegroundInfo(2090, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
     }
 }

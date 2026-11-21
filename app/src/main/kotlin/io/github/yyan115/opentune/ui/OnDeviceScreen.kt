@@ -36,7 +36,7 @@ private enum class DeviceSort(@androidx.annotation.StringRes val label: Int) {
  */
 @UnstableApi
 @Composable
-fun OnDeviceScreen(state: AppState, vm: MainViewModel, onAddFiles: () -> Unit, onAddFolder: () -> Unit, onLogin: () -> Unit, onNewPlaylist: () -> Unit, onOpenQueue: () -> Unit, onMenu: (Track) -> Unit, listState: LazyListState = rememberLazyListState()) {
+fun OnDeviceScreen(state: AppState, vm: MainViewModel, onAddFiles: () -> Unit, onAddFolder: () -> Unit, onLogin: () -> Unit, onNewPlaylist: () -> Unit, onOpenQueue: () -> Unit, onMenu: (Track) -> Unit) {
     var filter by rememberSaveable { mutableIntStateOf(0) }
     var sort by rememberSaveable { mutableStateOf(DeviceSort.Recent) }
     var text by rememberSaveable { mutableStateOf("") }
@@ -55,7 +55,7 @@ fun OnDeviceScreen(state: AppState, vm: MainViewModel, onAddFiles: () -> Unit, o
     }
     val sourceLabel = stringResource(R.string.nav_device)
     val filters = listOf(R.string.device_filter_all, R.string.device_filter_downloads, R.string.device_filter_files).map { stringResource(it) }
-    LazyColumn(Modifier.fillMaxSize().testTag("device-list"), listState, contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize().testTag("device-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 TuneOutlinedButton(onClick = onAddFiles, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 13.dp)) { Icon(OpenTuneIcons.AudioFile, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.device_add_files), maxLines = 1, overflow = TextOverflow.Ellipsis) }
@@ -63,8 +63,14 @@ fun OnDeviceScreen(state: AppState, vm: MainViewModel, onAddFiles: () -> Unit, o
             }
         }
         if (!state.signedIn) item { ConnectCard(onLogin) }
+        // The download that runs now has a card. A tap opens the queue.
+        val current = currentDownload(state)
+        if (current != null) item(key = "current-download") {
+            CurrentDownloadCard(state.downloadTracks[trackIdOf(current)], current.progress.getInt("progress", 0), active.count { !it.state.isFinished } - 1, onOpenQueue)
+        }
         // The downloads in the queue have their own page. A row opens it and shows how many downloads run, wait or failed.
-        if (active.isNotEmpty()) item {
+        // While a card shows the download that runs, the row is only needed for the downloads that failed.
+        if (active.isNotEmpty() && (current == null || active.any { it.state == WorkInfo.State.FAILED })) item {
             val running = active.count { !it.state.isFinished }
             val failed = active.size - running
             val summary = listOfNotNull(
