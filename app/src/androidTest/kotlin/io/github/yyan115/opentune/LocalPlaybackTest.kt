@@ -75,6 +75,7 @@ class LocalPlaybackTest {
         compose.waitUntil(10_000) { model.state.value.playback.queue.size == 5 }
         compose.onNodeWithTag("mini-player").performClick()
         compose.onNodeWithText("Queue · 5").performClick()
+        expandTheQueue()
         compose.onNode(hasContentDescription("Reorder Remove 2")).performTouchInput { swipeLeft() }
         compose.waitUntil(5_000) { model.state.value.playback.queue.size == 4 }
         // The row of the fourth track moved up by one place, and its swipe removes that track.
@@ -353,12 +354,20 @@ class LocalPlaybackTest {
         bitmap.recycle()
     }
 
+    /** The queue opens at part of the screen, and on a small screen the rows of a test lie below that. A drag on the handle makes the sheet full. */
+    private fun expandTheQueue() {
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("queue-sheet").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("Drag handle").performTouchInput { swipe(center, center.copy(y = center.y - 1500f), 300) }
+        compose.waitForIdle()
+    }
+
     @Test fun queueRowsCanBeDraggedToANewPosition() {
         val first = track.copy(id = "local:drag-1", title = "First Track"); val second = track.copy(id = "local:drag-2", title = "Second Track"); val third = track.copy(id = "local:drag-3", title = "Third Track")
         compose.runOnIdle { model.play(listOf(first, second, third)) }
         compose.waitUntil(10_000) { model.state.value.playback.queue.size == 3 }
         compose.onNodeWithTag("mini-player").performClick()
         compose.onNodeWithText("Queue · 3").performClick()
+        expandTheQueue()
         // A row is dragged by its handle past the row below it, then past the next one.
         fun dragFirstRowDown() = compose.onNodeWithContentDescription("Reorder First Track", useUnmergedTree = true).performTouchInput {
             down(center)

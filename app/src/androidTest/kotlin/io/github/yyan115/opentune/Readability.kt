@@ -74,9 +74,10 @@ object Readability {
         val nodes = roots.fetchSemanticsNodes().map { it }
         // A window that is created later lies above the earlier ones. A dialog that fills the screen hides what is under it, so only it and the windows above it are looked at.
         val top = nodes.indexOfLast { root -> hasDialog(root) && root.size.width >= bitmap.width * 0.95f && root.size.height >= bitmap.height * 0.95f }.coerceAtLeast(0)
-        return (top until nodes.size).flatMap { index ->
-            texts(roots[index].fetchSemanticsNode()).mapNotNull { node -> problemOf(node, bitmap, minimum) }
-        }
+        // A picture of the screen is several megabytes, and a long run of tests would fill the memory of the test process if they stayed.
+        return try {
+            (top until nodes.size).flatMap { index -> texts(roots[index].fetchSemanticsNode()).mapNotNull { node -> problemOf(node, bitmap, minimum) } }
+        } finally { bitmap.recycle() }
     }
 
     private fun problemOf(node: androidx.compose.ui.semantics.SemanticsNode, bitmap: android.graphics.Bitmap, minimum: Double): String? {
@@ -94,7 +95,7 @@ object Readability {
         val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
         instrumentation.uiAutomation.waitForIdle(300, 5_000)
         val bitmap = instrumentation.uiAutomation.takeScreenshot()
-        return coloursOf(compose.onNode(matcher, useUnmergedTree = true).fetchSemanticsNode(), bitmap) ?: error("The text is not on the screen")
+        try { return coloursOf(compose.onNode(matcher, useUnmergedTree = true).fetchSemanticsNode(), bitmap) ?: error("The text is not on the screen") } finally { bitmap.recycle() }
     }
 
     /** How far two colours are from each other, as the largest difference in one channel. */
