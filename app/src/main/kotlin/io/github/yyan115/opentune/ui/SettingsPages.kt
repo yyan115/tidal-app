@@ -74,7 +74,14 @@ internal fun CustomWindow(minutes: Int, onChange: (Int) -> Unit) {
     var hours by rememberSaveable { mutableStateOf(start.hours.toString()) }
     var mins by rememberSaveable { mutableStateOf(start.minutes.toString()) }
     fun total() = RepeatWindow.minutes(days.toIntOrNull() ?: 0, hours.toIntOrNull() ?: 0, mins.toIntOrNull() ?: 0)
-    val valid = total() != null
+    // Each wrong time says why. Letters cannot be typed, so these are the only ways to be wrong.
+    val error = when {
+        days.isBlank() && hours.isBlank() && mins.isBlank() -> R.string.repeats_error_empty
+        total() != null -> null
+        (days.toLongOrNull() ?: 0) * 1440 + (hours.toLongOrNull() ?: 0) * 60 + (mins.toLongOrNull() ?: 0) <= 0L -> R.string.repeats_error_zero
+        else -> R.string.repeats_error_large
+    }
+    val valid = error == null
     // The entry scrolls into view when it appears, because on a small screen it starts below the options.
     val requester = remember { BringIntoViewRequester() }
     LaunchedEffect(Unit) { requester.bringIntoView() }
@@ -92,8 +99,7 @@ internal fun CustomWindow(minutes: Int, onChange: (Int) -> Unit) {
             Field(hours, { hours = it }, R.string.repeats_hours, "repeats-hours", Modifier.weight(1f))
             Field(mins, { mins = it }, R.string.repeats_minutes, "repeats-minutes", Modifier.weight(1f))
         }
-        Text(stringResource(R.string.repeats_range), Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodySmall,
-            color = if (valid) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
+        if (error != null) Text(stringResource(error), Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
     }
 }
 

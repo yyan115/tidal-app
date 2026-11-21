@@ -161,4 +161,13 @@ class PlayerGesturesTest {
         val lowest = rows.maxByOrNull { it.boundsInRoot.top }!!
         assertEquals("Stop playback", lowest.config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString { it.text })
     }
+
+    @Test fun theSmallPlayerIsNotShownOnTheSettingsPages() {
+        compose.onNodeWithTag("mini-player").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("settings-list").fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodesWithTag("mini-player").assertCountEquals(0)
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("mini-player").fetchSemanticsNodes().isNotEmpty() }
+    }
 }

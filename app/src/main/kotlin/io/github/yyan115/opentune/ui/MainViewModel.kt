@@ -545,7 +545,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } catch (error: Exception) { if (error is CancellationException) throw error; notify(app.getString(R.string.notify_download_folder_unusable)) }
     }
 
-    fun useDefaultDownloadFolder() { settings { it.copy(downloadFolder = "") }; notify(app.getString(R.string.notify_download_folder_default)) }
 
     fun addDeviceFolder(tree: Uri) = viewModelScope.launch(Dispatchers.IO) {
         try { app.folders.add(tree) }

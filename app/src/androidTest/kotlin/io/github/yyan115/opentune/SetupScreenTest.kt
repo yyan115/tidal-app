@@ -38,8 +38,9 @@ class SetupScreenTest {
         compose.onNodeWithText("OpenTune requires the following permissions.").assertIsDisplayed()
         compose.onNodeWithText("Required for downloads").assertIsDisplayed()
         compose.onNodeWithText("Download folder").assertIsDisplayed()
-        compose.onNodeWithText("Saved in Music/OpenTune unless you choose another folder").assertIsDisplayed()
+        compose.onNodeWithText("Saved to Music/OpenTune").assertIsDisplayed()
         compose.onNodeWithTag("setup-folder").assertIsDisplayed()
+        compose.onNodeWithText("Change").assertIsDisplayed()
     }
 
     @Test fun notificationsAreOptionalAndAskedForFromAndroid13() {
@@ -47,7 +48,7 @@ class SetupScreenTest {
         if (Build.VERSION.SDK_INT >= 33) {
             compose.onNodeWithText("Optional").assertExists()
             compose.onNodeWithText("Notifications").assertExists()
-            compose.onNodeWithText("Download progress").assertExists()
+            compose.onNodeWithText("Shows download progress").assertExists()
         } else {
             compose.onAllNodesWithText("Optional").assertCountEquals(0)
             compose.onAllNodesWithText("Notifications").assertCountEquals(0)
@@ -56,8 +57,8 @@ class SetupScreenTest {
 
     @Test fun aChosenFolderReplacesTheDefaultText() {
         show(folder = "content://com.android.externalstorage.documents/tree/primary%3AMusic%2FLossless")
-        compose.onNodeWithText("Music/Lossless").performScrollTo().assertIsDisplayed()
-        compose.onAllNodesWithText("Saved in Music/OpenTune unless you choose another folder").assertCountEquals(0)
+        compose.onNodeWithText("Saved to Music/Lossless").performScrollTo().assertIsDisplayed()
+        compose.onAllNodesWithText("Saved to Music/OpenTune").assertCountEquals(0)
     }
 
     @Test fun continuingNeedsNoChoice() {

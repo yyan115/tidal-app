@@ -36,8 +36,8 @@ fun SetupScreen(folder: String, onFolderPicked: (Uri) -> Unit, onContinue: () ->
             Text(stringResource(R.string.setup_intro), Modifier.padding(horizontal = 24.dp, vertical = 12.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             SectionTitle(stringResource(R.string.setup_required_downloads))
             PermissionRow(OpenTuneIcons.Folder, stringResource(R.string.settings_download_folder),
-                if (DownloadFolder.isDefault(folder)) stringResource(R.string.setup_folder_text) else DownloadFolder.summary(folder, stringResource(R.string.volume_internal), stringResource(R.string.volume_card), stringResource(R.string.setup_folder_chosen))) {
-                TextButton(onClick = { picker.launch(null) }, modifier = Modifier.testTag("setup-folder")) { Text(stringResource(R.string.setup_choose)) }
+                stringResource(R.string.setup_folder_text, DownloadFolder.summary(folder, stringResource(R.string.volume_internal), stringResource(R.string.volume_card), stringResource(R.string.setup_folder_chosen)))) {
+                TextButton(onClick = { picker.launch(null) }, modifier = Modifier.testTag("setup-folder")) { Text(stringResource(R.string.setup_change)) }
             }
             if (Permissions.notificationsApply()) {
                 SectionTitle(stringResource(R.string.setup_optional))
