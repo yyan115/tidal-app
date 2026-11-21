@@ -257,7 +257,7 @@
     <string name="player_artwork">Artwork for %1$s</string>
     <string name="player_next_in_queue">Next in queue</string>
     <string name="player_open_queue">Open queue</string>
-    <string name="player_source_details">Audio source details</string>
+    <string name="player_source_details">Audio details</string>
     <string name="player_shuffle">Shuffle</string>
     <string name="player_previous">Previous track</string>
     <string name="player_repeat_one">Repeat one track</string>
@@ -294,16 +294,18 @@
     <string name="player_label_download">Download</string>
     <string name="player_downloading">Downloading</string>
     <string name="player_stop">Stop playback</string>
+    <string name="player_stop_title">Stop playback?</string>
+    <string name="player_stop_text">The queue will be cleared</string>
+    <string name="player_stop_confirm">Stop</string>
 
     <!-- Audio -->
     <string name="unit_bits">%1$s bit</string>
     <string name="unit_khz">%1$s kHz</string>
     <string name="source_not_reported">Not reported</string>
-    <string name="source_title">Audio source</string>
+    <string name="source_title">Audio details</string>
     <string name="source_codec">Codec</string>
     <string name="source_bit_depth">Bit depth</string>
     <string name="source_sample_rate">Sample rate</string>
-    <string name="source_note">Android and connected audio devices may output a different format</string>
     <string name="source_label">SOURCE</string>
     <string name="eq_title">Equalizer</string>
     <string name="eq_unavailable">This device has no equalizer that OpenTune can use</string>
@@ -324,7 +326,7 @@
     <string name="quality_high">High · AAC 320 kbps</string>
     <string name="quality_low">Low · AAC 96 kbps</string>
     <string name="source_origin">Source</string>
-    <string name="source_origin_stream">Streaming</string>
+    <string name="source_origin_stream">TIDAL</string>
     <string name="source_origin_download">Downloaded</string>
     <string name="source_origin_file">Local file</string>
     <string name="source_bitrate">Bitrate</string>

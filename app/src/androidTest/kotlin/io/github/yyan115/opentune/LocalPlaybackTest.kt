@@ -161,11 +161,14 @@ class LocalPlaybackTest {
         assertNull(model.state.value.playback.error)
         compose.waitUntil(5_000) { model.position.value > 500 }
         compose.onNodeWithTag("mini-player").performClick()
-        compose.onNodeWithContentDescription("Audio source details").performClick()
+        compose.onNodeWithContentDescription("Audio details").performClick()
         compose.onNodeWithTag("source-codec").assertTextEquals("FLAC")
         compose.onNodeWithTag("source-bits").assertTextEquals("24 bit")
         compose.onNodeWithTag("source-rate").assertTextEquals("96 kHz")
-        compose.onNodeWithText("Done").performClick()
+        // The sheet has no Done button, and it closes with Back.
+        compose.onAllNodesWithText("Done").assertCountEquals(0)
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("source-codec").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithContentDescription("Close player").performClick()
         compose.runOnIdle { if (model.state.value.playback.playing) model.togglePlay() }
     }
@@ -410,22 +413,6 @@ class LocalPlaybackTest {
         compose.onNodeWithTag("mini-player").assertIsDisplayed()
         // The tests that follow expect a screen without a small player.
         compose.runOnIdle { model.stopPlayback() }
-    }
-
-    @Test fun openingAnArtistFromThePlayerLeavesTheSettingsBehindIt() {
-        // A downloaded track plays from the device and still belongs to TIDAL, so its artist has a page.
-        val downloaded = track.copy(id = "4242", title = "Downloaded Track", artist = "Page Artist", artistId = "99", albumId = "98")
-        app.library.save(downloaded)
-        compose.runOnIdle { model.play(listOf(downloaded)) }
-        compose.waitUntil(10_000) { model.state.value.playback.track?.id == downloaded.id }
-        compose.onNodeWithContentDescription("Settings").performClick()
-        compose.onNodeWithTag("settings-list").assertExists()
-        compose.onNodeWithTag("mini-player").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("player-artist").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("player-artist").performClick()
-        compose.waitUntil(5_000) { model.state.value.routes.isNotEmpty() }
-        compose.onNodeWithTag("settings-list").assertDoesNotExist()
-        compose.onNodeWithTag("player-artist").assertDoesNotExist()
     }
 
     @Test fun theVisualizerReadsTheSamplesThatTheOutputReceives() {

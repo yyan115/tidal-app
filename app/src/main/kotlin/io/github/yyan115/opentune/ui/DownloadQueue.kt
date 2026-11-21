@@ -53,7 +53,7 @@ fun CurrentDownloadCard(track: Track?, percent: Int, waiting: Int, onClick: () -
                 }
                 Icon(OpenTuneIcons.ChevronRight, null)
             }
-            LinearProgressIndicator(progress = { percent / 100f }, modifier = Modifier.fillMaxWidth().padding(top = 14.dp))
+            LinearProgressIndicator(progress = { percent / 100f }, modifier = Modifier.fillMaxWidth().padding(top = 14.dp), drawStopIndicator = {})
         }
     }
 }
@@ -88,7 +88,7 @@ fun DownloadQueuePage(state: AppState, vm: MainViewModel) {
                     if (!work.state.isFinished) IconButton(onClick = { vm.cancelDownload(work) }) { Icon(OpenTuneIcons.Close, stringResource(R.string.download_cancel)) }
                     else if (track != null) TextButton(onClick = { vm.download(track) }) { Text(stringResource(R.string.action_retry)) }
                 }
-                if (transferring) LinearProgressIndicator(progress = { work.progress.getInt("progress", 0) / 100f }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
+                if (transferring) LinearProgressIndicator(progress = { work.progress.getInt("progress", 0) / 100f }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp), drawStopIndicator = {})
             }
         }
         // Only a failed download stays in the list, so this is the only case where there is something to clear.

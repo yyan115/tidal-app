@@ -36,6 +36,10 @@ class DownloadDetailsTest {
             assertEquals("Internal storage › Music › OpenTune", textOf("source-location"))
             assertTrue(textOf("source-file").startsWith("OpenTune details test - Night Walk"))
             compose.onAllNodesWithTag("source-folder").assertCountEquals(0)
+            assertEquals("Downloaded", textOf("source-origin"))
+            compose.onNodeWithText("Audio details").assertIsDisplayed()
+            compose.onAllNodesWithText("Done").assertCountEquals(0)
+            compose.onAllNodesWithText("Android and connected audio devices may output a different format").assertCountEquals(0)
             compose.onNodeWithTag("source-size").assertExists()
         } finally { app.downloadFiles.delete(stored.uri) }
     }
@@ -53,5 +57,6 @@ class DownloadDetailsTest {
         compose.setContent { OpenTuneTheme("dark") { SourceDetailsSheet("FLAC", track, null) { } } }
         compose.waitForIdle()
         compose.onAllNodesWithTag("source-location").assertCountEquals(0)
+        assertEquals("TIDAL", textOf("source-origin"))
     }
 }

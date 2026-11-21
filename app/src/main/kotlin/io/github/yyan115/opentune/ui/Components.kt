@@ -209,8 +209,8 @@ fun SwitchRow(icon: ImageVector, title: String, checked: Boolean, onChange: (Boo
 }
 
 @Composable
-fun UpperLabel(text: String, modifier: Modifier = Modifier) {
-    Text(text.uppercase(), modifier, fontFamily = AppFonts.body, fontSize = 10.sp, lineHeight = 16.sp,
+fun UpperLabel(text: String, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.TextUnit = 10.sp) {
+    Text(text.uppercase(), modifier, fontFamily = AppFonts.body, fontSize = size, lineHeight = size * 1.6f,
         letterSpacing = 1.5.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 

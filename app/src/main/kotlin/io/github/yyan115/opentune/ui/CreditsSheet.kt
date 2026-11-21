@@ -26,7 +26,7 @@ fun CreditsSheet(credits: CreditsUi, onClose: () -> Unit, onPerson: (Contributor
         // The sheet has the same height in every state, so that it does not shrink when the spinner gives way to a short message.
         Column(Modifier.fillMaxHeight(SHEET_SHARE).navigationBarsPadding().padding(horizontal = 24.dp).testTag("credits-sheet")) {
             Text(stringResource(R.string.credits_title), style = AppFonts.title(32, 38))
-            Text(credits.title, Modifier.padding(top = 4.dp, bottom = 12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(credits.title, Modifier.padding(top = 4.dp, bottom = 12.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
                     credits.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
@@ -35,7 +35,7 @@ fun CreditsSheet(credits: CreditsUi, onClose: () -> Unit, onPerson: (Contributor
                     else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) { // scroll: transient (a sheet that closes with its content)
                         items(credits.credits, key = { it.role }) { credit ->
                             Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                                UpperLabel(credit.role)
+                                UpperLabel(credit.role, size = 12.sp)
                                 FlowRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     credit.people.forEach { person ->
                                         if (person.id.isNotBlank()) Text(person.name, Modifier.clickable { onPerson(person) }.padding(vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)

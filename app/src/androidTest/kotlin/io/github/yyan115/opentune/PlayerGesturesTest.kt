@@ -100,6 +100,15 @@ class PlayerGesturesTest {
         compose.waitUntil(5_000) { playerIsOpen() }
         compose.onNodeWithContentDescription("Track options").performClick()
         compose.onNode(hasText("Stop playback") and hasClickAction()).performClick()
+        // Stopping clears the queue, so the app asks first, as it does for Clear.
+        compose.onNodeWithText("Stop playback?").assertIsDisplayed()
+        compose.onNodeWithText("The queue will be cleared").assertIsDisplayed()
+        compose.onNodeWithText("Cancel").performClick()
+        compose.onAllNodesWithText("Stop playback?").assertCountEquals(0)
+        assertEquals("Cancel keeps the queue", 3, model.state.value.playback.queue.size)
+        compose.onNodeWithContentDescription("Track options").performClick()
+        compose.onNode(hasText("Stop playback") and hasClickAction()).performClick()
+        compose.onNode(hasText("Stop") and hasClickAction()).performClick()
         compose.waitUntil(5_000) { model.state.value.playback.queue.isEmpty() }
         compose.waitUntil(5_000) { !playerIsOpen() }
         compose.onAllNodesWithTag("mini-player").assertCountEquals(0)
@@ -169,5 +178,15 @@ class PlayerGesturesTest {
         compose.onAllNodesWithTag("mini-player").assertCountEquals(0)
         compose.onNodeWithContentDescription("Back").performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("mini-player").fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test fun theQueueHasOneWayInAndOneIconInTheFullPlayer() {
+        compose.onNodeWithTag("mini-player").performClick()
+        compose.waitUntil(5_000) { playerIsOpen() }
+        // The bottom button has the count and is the only way in. The card shows the next song and is only a preview.
+        compose.onNode(hasText("Queue · 3") and hasClickAction()).assertExists()
+        compose.onNodeWithText("NEXT IN QUEUE").assertExists()
+        compose.onNode(hasText("NEXT IN QUEUE") and hasClickAction()).assertDoesNotExist()
+        compose.onAllNodesWithContentDescription("Open queue").assertCountEquals(0)
     }
 }

@@ -77,6 +77,24 @@ class EqualizerSheetTest {
     @Test fun labelsFitWithTheLargestText() = checkLabels(2.6f, 2f)
     @Test fun labelsFitWithTheLargestTextOnASmallScreen() = checkLabels(1.5f, 2f)
 
+    /** The menu opens below the field in its first frames and stays there. It does not open above the field and then move. */
+    @Test fun theMenuOpensBelowTheFieldAtOnceTheFirstTime() {
+        assumeTrue("This device has no equalizer with enough presets", EqualizerInfo.read().let { it != null && it.presets.size >= 6 })
+        compose.setContent { OpenTuneTheme("dark") { EqualizerSheet(Settings(equalizer = true, equalizerUsesCustom = true), {}, {}) } }
+        compose.waitForIdle()
+        val field = compose.onNode(hasText("Custom") and hasClickAction()).fetchSemanticsNode().boundsInRoot
+        compose.mainClock.autoAdvance = false
+        compose.onNode(hasText("Custom") and hasClickAction()).performClick()
+        val tops = mutableListOf<Float>()
+        repeat(6) {
+            compose.mainClock.advanceTimeByFrame()
+            runCatching { compose.onNode(isPopup(), useUnmergedTree = true).fetchSemanticsNode().positionOnScreen.y }.getOrNull()?.let(tops::add)
+        }
+        compose.mainClock.autoAdvance = true
+        assertTrue("The menu was on the screen in the first frames", tops.isNotEmpty())
+        assertTrue("The menu is below the field from its first frame: the field ends at ${field.bottom} and the menu starts at $tops", tops.all { it >= field.bottom - 8f })
+    }
+
     @Test fun onASmallScreen() = check(1.5f, 1f)
     @Test fun onANormalScreen() = check(2.6f, 1f)
     @Test fun onALargeScreen() = check(3.5f, 1f)
