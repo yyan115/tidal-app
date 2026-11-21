@@ -12,10 +12,13 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Download folder setting with the system folder picker, applied to new downloads
 - Card for the download that runs, in the list of what is on the device
 - Location of a downloaded track in its details
-- Notifications row in Settings
 - "End of queue" and "Start of queue" messages when a swipe has no track to go to
 - "No connection" message in the small and the full player when a lost connection stops playback
 - Description of the Experimental section
+- Tabs for tracks and artists in Listening statistics, with every track and artist of the period
+- Confirmation before the download folder changes
+- Confirmation before playback stops and the queue is cleared
+- Date and time of when a track was added, in its audio details
 
 ### Changed
 
@@ -24,9 +27,16 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Stop playback moved to the end of the menu of the full player
 - Small player without a Next button
 - The full player grows out of the small player and shrinks back into it
-- Queue sheet always has its full height
+- Queue opens at half the screen and the title, the tools and the Shuffled state stay at the top while the rows scroll
+- Queue has two parts, the tracks that were added and the rest of the album or playlist
+- The full player opens the queue from its bottom row only, and the card of the next track shows what plays next
 - Downloads run one at a time, in the order of queuing
 - Permissions page comes once, after the first sign-in, with the download folder and the optional notifications
+- Download folder is a plain row in Settings that shows the folder, and the folder is chosen after a confirmation
+- Small player is hidden in Settings
+- Audio details name the source as TIDAL, Downloaded or Local file, and a downloaded track keeps its quality label
+- Messages of Avoid repeats show only when the time is wrong
+- Credits text is larger
 - Larger title in pop-ups, and an outline on the second action
 - "Filter" renamed to "Search" in the library
 - Inactive lyric lines are easier to read
@@ -43,6 +53,10 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Fixed
 
+- Equalizer menu jumping from the top to the bottom of the field when it opens for the first time
+- Dot at the end of the progress bar of a download
+- Cross of a swiped queue row missing when the row moves to the left
+- Gap between the periods and the list in Listening statistics
 - Scroll position, tabs and typed text being lost when a screen opens over another one, for example Settings over an artist page
 - Sign-in text and the page header being unreadable on dark themes
 - Credits sheet changing its height
