@@ -42,8 +42,9 @@ import androidx.media3.common.util.UnstableApi
 import io.github.yyan115.opentune.core.Track
 import io.github.yyan115.opentune.core.formatDuration
 
-/** The queue starts below its title and its tools. */
-private const val HEADER_ROWS = 2
+/** The name of a part of the queue: what the listener added, and the rest of the album or the playlist. */
+@Composable
+private fun QueuePart(text: String) { UpperLabel(text, Modifier.padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 6.dp)) }
 
 /** A row of the queue. The id is the identity of the row while it is dragged, because a track can stand in the queue more than once. */
 private class QueueEntry(val uid: Long, val track: Track)
@@ -68,7 +69,7 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
     LaunchedEffect(queue, dragged) {
         if (dragged == null && entries.map { it.track.id } != queue.map { it.id }) { entries.clear(); queue.forEach { entries += QueueEntry(nextUid++, it) } }
     }
-    LaunchedEffect(Unit) { if (current > 0) listState.scrollToItem((current + HEADER_ROWS - 1).coerceAtLeast(0)) }
+    LaunchedEffect(Unit) { if (current > 0) listState.scrollToItem((current - 1).coerceAtLeast(0)) }
     fun drag(delta: Float) {
         val uid = dragged ?: return
         dragOffset += delta
@@ -98,11 +99,13 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
         if (dragStart >= 0 && end >= 0 && end != dragStart) vm.moveQueue(dragStart, end)
         dragged = null; dragStart = -1; dragOffset = 0f
     }
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    // The sheet opens at about half the screen. A drag up makes it full, a drag down makes it half again or closes it.
+    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)) {
         // The sheet always has its full height, so that it does not grow and shrink with the queue, and an empty queue has the same sheet as a long one.
-        LazyColumn(Modifier.fillMaxWidth().fillMaxHeight().navigationBarsPadding().testTag("queue-list"), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
-            item(key = "title") { SectionTitle(stringResource(R.string.queue_title), if (queue.isNotEmpty()) stringResource(R.string.action_clear) else null, { confirmClear = true }) }
-            if (queue.isNotEmpty()) item(key = "tools") {
+        // The title and the tools stay where they are, and only the songs scroll.
+        Column(Modifier.fillMaxWidth().fillMaxHeight().navigationBarsPadding().testTag("queue-sheet")) {
+            SectionTitle(stringResource(R.string.queue_title), if (queue.isNotEmpty()) stringResource(R.string.action_clear) else null, { confirmClear = true })
+            if (queue.isNotEmpty()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { name = state.playback.source; save = true }) {
                         Icon(OpenTuneIcons.PlaylistAdd, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.queue_save))
@@ -115,8 +118,16 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
                     }
                 }
             }
+            val ahead = state.playback.manualAhead
+            val nextFrom = state.playback.source.takeIf(String::isNotBlank)?.let { stringResource(R.string.queue_next_from, it) } ?: stringResource(R.string.queue_next_up)
+            val yours = stringResource(R.string.queue_yours)
+            LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("queue-list"), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
             if (queue.isEmpty()) item(key = "empty") { EmptyState(OpenTuneIcons.PlaylistPlay, stringResource(R.string.queue_empty_title), stringResource(R.string.queue_empty_text)) }
-            itemsIndexed(entries, key = { _, entry -> entry.uid }) { index, entry ->
+            entries.forEachIndexed { index, entry ->
+              // What the listener added plays before the rest of the album or the playlist, so the queue shows it as a part of its own.
+              if (index == current + 1 && ahead > 0) item(key = "part-yours") { QueuePart(yours) }
+              if (index == current + 1 + ahead && index < entries.size && dragged == null) item(key = "part-rest") { QueuePart(nextFrom) }
+              item(key = entry.uid) {
                 val track = entry.track
                 val playing = index == current && dragged == null || dragged != null && entry.track === queue.getOrNull(current)
                 val lifted = dragged == entry.uid
@@ -127,8 +138,10 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
                     if (value != SwipeToDismissBoxValue.Settled && dragged == null) { removeRow(entry.uid); true } else false
                 })
                 SwipeToDismissBox(dismiss, modifier = Modifier.animateItem().zIndex(if (lifted) 1f else 0f).graphicsLayer { if (lifted) translationY = dragOffset },
-                    backgroundContent = { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.errorContainer).padding(horizontal = 24.dp), contentAlignment = Alignment.CenterEnd) {
-                        Icon(OpenTuneIcons.Close, null, tint = MaterialTheme.colorScheme.onErrorContainer)
+                    // The cross sits on the side that the row uncovers, whichever way the row moves.
+                    backgroundContent = { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.errorContainer).padding(horizontal = 24.dp),
+                        contentAlignment = if (dismiss.dismissDirection == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd) {
+                        Icon(OpenTuneIcons.Close, null, Modifier.testTag("queue-remove-icon"), tint = MaterialTheme.colorScheme.onErrorContainer)
                     } }) {
                     Surface(color = if (lifted) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerLow, shadowElevation = if (lifted) 6.dp else 0.dp) {
                         Row(Modifier.fillMaxWidth().clickable { vm.jumpTo(index) }.padding(start = 24.dp, end = 4.dp, top = 8.dp, bottom = 8.dp)
@@ -160,6 +173,8 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
                         }
                     }
                 }
+              }
+            }
             }
         }
     }

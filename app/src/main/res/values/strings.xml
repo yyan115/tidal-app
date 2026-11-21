@@ -197,6 +197,9 @@
     <!-- Tracks -->
     <string name="queue_title">Queue</string>
     <string name="queue_save">Save as playlist</string>
+    <string name="queue_yours">Your queue</string>
+    <string name="queue_next_from">Next from %1$s</string>
+    <string name="queue_next_up">Up next</string>
     <string name="queue_empty_title">The queue is empty</string>
     <string name="queue_empty_text">Play a track or add one from its menu</string>
     <string name="queue_move_up">Move %1$s up</string>
