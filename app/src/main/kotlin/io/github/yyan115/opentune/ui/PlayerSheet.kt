@@ -30,6 +30,10 @@ class PlayerSheet(open: Boolean, private val scope: CoroutineScope) {
     /** Where the small player is on the screen, in pixels. The full player grows out of it and shrinks back into it. */
     var mini by mutableStateOf(Rect.Zero)
 
+    /** Where the small picture of the small player is, and where the large cover of the full player lies when the player is open, in pixels on the screen. */
+    var miniArtwork by mutableStateOf(Rect.Zero)
+    var cover by mutableStateOf(Rect.Zero)
+
     /** Where the window of the full player starts on the screen, in pixels. */
     var origin by mutableStateOf(Offset.Zero)
 
