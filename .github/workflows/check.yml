@@ -112,14 +112,12 @@ jobs:
           arch: x86_64
           target: google_apis
           ram-size: 2048M
-          # The emulator that the action creates without a device profile gives an app 16 MB of heap, and the app and the tests of a whole run need more.
-          # A phone gives an app far more, and the emulators of a developer have 228 MB or more.
-          heap-size: 512M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: |
             adb shell pm disable-user --user 0 com.google.android.gms || true
             adb shell settings put global heads_up_notifications_enabled 0
+            adb shell getprop | grep -iE 'dalvik.vm|heap|low_ram|ro.hw.ram' | sed 's/^/emulator property /'
             mkdir -p logcat
             adb logcat -v threadtime -b main,system,crash '*:I' > logcat/android-${{ matrix.api }}.txt &
             ./gradlew --no-daemon :app:connectedDebugAndroidTest ${{ matrix.api == 36 && '-Pandroid.testInstrumentationRunnerArguments.screenTour=true' || '' }}
