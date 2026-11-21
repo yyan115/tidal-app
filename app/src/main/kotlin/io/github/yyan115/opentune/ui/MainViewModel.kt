@@ -57,6 +57,8 @@ data class PlaybackState(
     val shuffle: Boolean = false, val repeat: Int = Player.REPEAT_MODE_OFF,
     val quality: String = "", val error: String? = null, val noConnection: Boolean = false,
     val nextIndex: Int = -1, val source: String = "",
+    /** How many songs right after the current one were added by the listener. They play before the rest. */
+    val manualAhead: Int = 0,
 ) { val track: Track? get() = queue.getOrNull(index) }
 
 enum class LyricsStatus { Idle, Loading, Ready, None, Offline, Error }
@@ -872,7 +874,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val quality = player.currentMediaItem?.localConfiguration?.tag as? String ?: queue.getOrNull(player.currentMediaItemIndex)?.quality.orEmpty()
         ui.update { it.copy(playback = it.playback.copy(queue = queue, index = player.currentMediaItemIndex.coerceAtLeast(0),
             playing = player.isPlaying, buffering = player.playbackState == Player.STATE_BUFFERING,
-            shuffle = player.shuffleModeEnabled, repeat = player.repeatMode, quality = quality, nextIndex = player.nextMediaItemIndex,
+            shuffle = player.shuffleModeEnabled, repeat = player.repeatMode, quality = quality, nextIndex = player.nextMediaItemIndex, manualAhead = QueueOrder.leadingManual(player.manualMarks(), player.currentMediaItemIndex),
             error = if (player.playerError == null) null else it.playback.error, noConnection = player.playerError != null && it.playback.noConnection)) }
     }
 
