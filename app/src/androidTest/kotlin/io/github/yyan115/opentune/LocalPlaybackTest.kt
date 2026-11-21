@@ -3,6 +3,7 @@ package io.github.yyan115.opentune
 import android.net.Uri
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
 import androidx.media3.common.util.UnstableApi
@@ -369,9 +370,11 @@ class LocalPlaybackTest {
         compose.onNodeWithText("Queue · 3").performClick()
         expandTheQueue()
         // A row is dragged by its handle past the row below it, then past the next one.
+        // The finger moves a little more than the height of one row, measured in dp, so it passes one row on a small display as well as on a large one.
+        val step = with(compose.density) { 6.6.dp.toPx() }
         fun dragFirstRowDown() = compose.onNodeWithContentDescription("Reorder First Track", useUnmergedTree = true).performTouchInput {
             down(center)
-            repeat(10) { moveBy(Offset(0f, 12f)); advanceEventTime(16) }
+            repeat(10) { moveBy(Offset(0f, step)); advanceEventTime(16) }
             up()
         }
         dragFirstRowDown()
