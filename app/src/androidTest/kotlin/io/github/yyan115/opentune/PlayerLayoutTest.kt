@@ -77,7 +77,23 @@ class PlayerLayoutTest {
         return width.toInt() to height.toInt()
     }
 
-    @After fun restoreScreen() { shell("wm size reset"); shell("wm density reset") }
+    /**
+     * On Android 10 of the CI this test stopped once, while it waited for the app to be idle, and the test report held no sign of what the app did.
+     * When the test is still running after two and a half minutes, this thread writes the stack of the main thread and of all other threads to the log.
+     */
+    private var watchdog: Thread? = null
+
+    @Before fun watchTheMainThread() {
+        watchdog = Thread {
+            try {
+                Thread.sleep(150_000)
+                val stacks = Thread.getAllStackTraces().entries.joinToString("\n\n") { (thread, stack) -> "${thread.name} (${thread.state})\n" + stack.joinToString("\n") { "    at $it" } }
+                android.util.Log.e("PlayerLayoutTest", "The test runs for 150 seconds. Stacks of all threads:\n$stacks")
+            } catch (_: InterruptedException) { }
+        }.apply { isDaemon = true; start() }
+    }
+
+    @After fun restoreScreen() { watchdog?.interrupt(); shell("wm size reset"); shell("wm density reset") }
 
     @Test fun bottomRowSitsDirectlyAboveTheNavigationBarOnEveryScreen() {
         val failures = mutableListOf<String>()
