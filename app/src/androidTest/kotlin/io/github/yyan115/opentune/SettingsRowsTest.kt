@@ -28,24 +28,23 @@ class SettingsRowsTest {
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("settings-list").fetchSemanticsNodes().isNotEmpty() }
     }
 
-    @Test fun theDownloadFolderShowsItsPathAndOpensThePicker() {
+    @Test fun theDownloadFolderIsAPlainRowThatAsksBeforeItChangesAnything() {
         openSettings()
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Download folder"))
-        compose.onNodeWithText("Download folder").assertIsDisplayed()
         compose.onNodeWithText("Music/OpenTune").assertIsDisplayed()
-        compose.onNode(hasText("Download folder") and hasClickAction()).assertExists()
+        compose.onNode(hasText("Download folder") and hasClickAction()).performClick()
+        compose.onNodeWithText("Change download folder?").assertIsDisplayed()
+        compose.onNodeWithText("Cancel").assertIsDisplayed()
+        compose.onNode(hasText("Change") and hasClickAction()).assertIsDisplayed()
+        compose.onNodeWithText("Cancel").performClick()
+        compose.onAllNodesWithText("Change download folder?").assertCountEquals(0)
     }
 
-    @Test fun theDefaultFolderIsOnlyOfferedAfterAnotherFolderIsChosen() {
+    @Test fun thereIsNoRowToReturnToTheDefaultFolderAndNoNotificationsRow() {
         openSettings()
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Download folder"))
         compose.onAllNodesWithText("Use default folder").assertCountEquals(0)
-    }
-
-    @Test fun theNotificationsRowOpensTheSettingsOfTheSystem() {
-        openSettings()
-        compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Notifications"))
-        compose.onNodeWithText("Download progress").assertIsDisplayed()
-        compose.onNode(hasText("Notifications") and hasClickAction()).assertExists()
+        compose.onAllNodesWithText("Notifications").assertCountEquals(0)
+        compose.onAllNodesWithText("Download progress").assertCountEquals(0)
     }
 }

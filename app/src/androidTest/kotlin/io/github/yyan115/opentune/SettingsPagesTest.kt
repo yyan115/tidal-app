@@ -103,7 +103,22 @@ class SettingsPagesTest {
         assertEquals("One hour more than 365 days leaves the window as it was", 365 * 24 * 60, minutes)
         field("repeats-days").performTextReplacement("0"); field("repeats-hours").performTextReplacement("0"); field("repeats-minutes").performTextReplacement("5")
         compose.waitUntil(5_000) { minutes == 5 }
-        compose.onNodeWithText("1 minute to 365 days").assertExists()
+    }
+
+    @Test fun theRangeIsNeverShownAndEachWrongTimeSaysWhy() {
+        openAvoidRepeats()
+        compose.onNodeWithText("Custom").performClick()
+        compose.waitUntil(5_000) { minutes == 2 * 24 * 60 }
+        compose.onAllNodesWithText("1 minute to 365 days").assertCountEquals(0)
+        listOf("Time must not be empty", "Time must be at least 1 minute", "Time must be 365 days or less").forEach { compose.onAllNodesWithText(it).assertCountEquals(0) }
+        field("repeats-days").performTextReplacement(""); field("repeats-hours").performTextReplacement(""); field("repeats-minutes").performTextReplacement("")
+        compose.onNodeWithText("Time must not be empty").assertIsDisplayed()
+        field("repeats-days").performTextReplacement("0")
+        compose.onNodeWithText("Time must be at least 1 minute").assertIsDisplayed()
+        field("repeats-days").performTextReplacement("366")
+        compose.onNodeWithText("Time must be 365 days or less").assertIsDisplayed()
+        field("repeats-days").performTextReplacement("3")
+        listOf("Time must not be empty", "Time must be at least 1 minute", "Time must be 365 days or less").forEach { compose.onAllNodesWithText(it).assertCountEquals(0) }
     }
 
     @Test fun aTimeInMinutesAlone() {

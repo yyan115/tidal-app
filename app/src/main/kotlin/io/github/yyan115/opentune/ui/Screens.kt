@@ -383,6 +383,7 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
     var clearHistory by remember { mutableStateOf(false) }
     var mobileDataWarning by remember { mutableStateOf(false) }
     var playedWarning by remember { mutableStateOf(false) }
+    var changeFolder by remember { mutableStateOf(false) }
     val backup = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(vm::exportBackup) }
     val restore = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importBackup) }
     val downloadFolder = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()) { uri -> uri?.let(vm::setDownloadFolder) }
@@ -404,16 +405,10 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
             item { SwitchRow(OpenTuneIcons.SignalCellularAlt, stringResource(R.string.settings_mobile_downloads), !settings.downloadOnWifi, { value ->
                 if (value) mobileDataWarning = true else vm.settings { it.copy(downloadOnWifi = true) }
             }) }
+            // A plain row, like the Theme row. A tap asks first, so that nobody changes where downloads go by accident.
             item { SettingRow(OpenTuneIcons.Folder, stringResource(R.string.settings_download_folder),
                 io.github.yyan115.opentune.data.DownloadFolder.summary(settings.downloadFolder, stringResource(R.string.volume_internal), stringResource(R.string.volume_card), stringResource(R.string.setup_folder_chosen)),
-                { downloadFolder.launch(null) }, trailing = { Icon(OpenTuneIcons.ChevronRight, null) }) }
-            // The default folder is offered again once another folder is chosen.
-            if (!io.github.yyan115.opentune.data.DownloadFolder.isDefault(settings.downloadFolder)) item {
-                SettingRow(OpenTuneIcons.Refresh, stringResource(R.string.settings_download_folder_default), io.github.yyan115.opentune.data.DownloadFolder.DEFAULT, vm::useDefaultDownloadFolder)
-            }
-            item { SettingRow(OpenTuneIcons.Notifications, stringResource(R.string.settings_notifications), stringResource(R.string.settings_notifications_text),
-                { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)) },
-                trailing = { Icon(OpenTuneIcons.ChevronRight, null) }) }
+                { changeFolder = true }) }
         }
         item { SectionTitle(stringResource(R.string.settings_appearance)) }
         item { SettingRow(OpenTuneIcons.Contrast, stringResource(R.string.settings_theme), stringResource(if (settings.theme == SYSTEM_THEME) R.string.theme_system else themeFor(settings.theme, false).nameRes), { theme = true }) }
@@ -450,6 +445,9 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
     if (normalization) NormalizationDialog(settings.normalization, { value -> vm.settings { it.copy(normalization = value) } }) { normalization = false }
     if (equalizer) EqualizerSheet(settings, { next -> vm.settings { next } }) { equalizer = false }
     if (scrobbling) ScrobbleDialog(settings, vm) { scrobbling = false }
+    if (changeFolder) AppDialog(onDismissRequest = { changeFolder = false }, title = { Text(stringResource(R.string.settings_download_folder_change_title)) },
+        confirmButton = { DialogConfirm(onClick = { changeFolder = false; downloadFolder.launch(null) }) { Text(stringResource(R.string.settings_download_folder_change)) } },
+        dismissButton = { DialogDismiss(onClick = { changeFolder = false }) { Text(stringResource(R.string.action_cancel)) } })
     if (playedWarning) AppDialog(onDismissRequest = { playedWarning = false }, title = { Text(stringResource(R.string.download_played_title)) },
         text = { Text(stringResource(R.string.download_played_text)) },
         confirmButton = { DialogConfirm(onClick = { vm.settings { it.withDownloadPlayed(true) }; playedWarning = false }) { Text(stringResource(R.string.download_played_enable)) } },

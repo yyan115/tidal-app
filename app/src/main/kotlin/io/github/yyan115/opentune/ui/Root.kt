@@ -163,7 +163,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
         Scaffold(modifier = Modifier.weight(1f), contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
             bottomBar = {
                 Column {
-                    if (state.playback.track != null) MiniPlayer(state.playback, position, onOpen = { nowPlaying = true }, onPlay = vm::togglePlay, onNext = vm::next, onDismiss = { vm.stopPlayback(); nowPlaying = false },
+                    if (state.playback.track != null && !settings) MiniPlayer(state.playback, position, onOpen = { nowPlaying = true }, onPlay = vm::togglePlay, onNext = vm::next, onDismiss = { vm.stopPlayback(); nowPlaying = false },
                         onPrevious = vm::previous, sheet = sheet, onSheetReleased = { nowPlaying = it },
                         onEnd = { sheetScope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(endOfQueue) } },
                         onStart = { sheetScope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(startOfQueue) } })
