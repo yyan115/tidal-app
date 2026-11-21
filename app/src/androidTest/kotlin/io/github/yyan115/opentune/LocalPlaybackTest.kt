@@ -71,7 +71,7 @@ class LocalPlaybackTest {
     }
 
     @Test fun removingSeveralRowsFromTheQueueRemovesTheRowsThatWereSwiped() {
-        val tracks = (1..5).map { track.copy(id = "local:remove-$it", title = "Remove $it") }
+        val tracks = (1..5).map { quiet(id = "local:remove-$it", title = "Remove $it") }
         compose.runOnIdle { model.play(tracks) }
         compose.waitUntil(10_000) { model.state.value.playback.queue.size == 5 }
         compose.onNodeWithTag("mini-player").performClick()
@@ -355,6 +355,16 @@ class LocalPlaybackTest {
         bitmap.recycle()
     }
 
+    /**
+     * A track for the tests that look at the rows of the queue and not at the sound. The player buffers every track of a queue, and five tracks of the test file
+     * hold about ten megabytes, which is more than the memory that some emulators give an app. This file holds a fraction of a second.
+     */
+    private fun quiet(id: String, title: String): Track {
+        val file = File(app.filesDir, "quiet-test.flac")
+        if (!file.exists()) InstrumentationRegistry.getInstrumentation().context.assets.open("cover-a1.flac").use { input -> file.outputStream().use(input::copyTo) }
+        return track.copy(id = id, title = title, localUri = Uri.fromFile(file).toString())
+    }
+
     /** The queue opens at part of the screen, and on a small screen the rows of a test lie below that. A drag on the handle makes the sheet full. */
     private fun expandTheQueue() {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("queue-sheet").fetchSemanticsNodes().isNotEmpty() }
@@ -374,7 +384,7 @@ class LocalPlaybackTest {
     }
 
     @Test fun queueRowsCanBeDraggedToANewPosition() {
-        val first = track.copy(id = "local:drag-1", title = "First Track"); val second = track.copy(id = "local:drag-2", title = "Second Track"); val third = track.copy(id = "local:drag-3", title = "Third Track")
+        val first = quiet("local:drag-1", "First Track"); val second = quiet("local:drag-2", "Second Track"); val third = quiet("local:drag-3", "Third Track")
         compose.runOnIdle { model.play(listOf(first, second, third)) }
         compose.waitUntil(10_000) { model.state.value.playback.queue.size == 3 }
         compose.onNodeWithTag("mini-player").performClick()

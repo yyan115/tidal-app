@@ -1,7 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- The player buffers up to 64 MB of a stream, and the device tests keep the app, the test and the pictures of a whole run in one process.
-         Some emulators of the CI give such a process 16 MB, which the app needs more than. A phone gives an app more, so only this build asks for the large heap. -->
-    <application android:largeHeap="true">
+    <application>
         <activity android:name=".preview.ThemePreviewActivity" android:exported="true" />
         <!-- A folder tree for the tests of the folder scan. It serves the files in the private folder documents-test. -->
         <provider android:name=".preview.TestDocumentsProvider" android:authorities="${applicationId}.testdocuments"
