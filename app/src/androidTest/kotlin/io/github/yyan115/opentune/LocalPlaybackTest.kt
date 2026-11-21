@@ -359,10 +359,17 @@ class LocalPlaybackTest {
     private fun expandTheQueue() {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("queue-sheet").fetchSemanticsNodes().isNotEmpty() }
         val screen = compose.onAllNodes(isRoot()).fetchSemanticsNodes().maxOf { it.boundsInRoot.height }
-        // The finger stays inside the screen, because a touch outside of it may not reach the sheet on every version of Android.
-        val handleY = compose.onNodeWithContentDescription("Drag handle").fetchSemanticsNode().boundsInRoot.center.y
-        compose.onNodeWithContentDescription("Drag handle").performTouchInput { swipe(center, center.copy(y = center.y - handleY + 2f), 400) }
-        compose.waitUntil(5_000) { compose.onNodeWithTag("queue-sheet").fetchSemanticsNode().positionOnScreen.y < screen * 0.3f }
+        fun full() = compose.onNodeWithTag("queue-sheet").fetchSemanticsNode().positionOnScreen.y < screen * 0.3f
+        // A slow device may read the first swipe as too short, so the swipe repeats while the sheet stays low.
+        repeat(3) {
+            if (full()) return
+            val handleY = compose.onNodeWithContentDescription("Drag handle").fetchSemanticsNode().boundsInRoot.center.y
+            // The finger stays inside the screen, because a touch outside of it may not reach the sheet on every version of Android.
+            compose.onNodeWithContentDescription("Drag handle").performTouchInput { swipe(center, center.copy(y = center.y - handleY + 2f), 800) }
+            val end = System.currentTimeMillis() + 3_000
+            while (!full() && System.currentTimeMillis() < end) { compose.waitForIdle(); Thread.sleep(100) }
+        }
+        compose.waitUntil(2_000) { full() }
         compose.waitForIdle()
     }
 
