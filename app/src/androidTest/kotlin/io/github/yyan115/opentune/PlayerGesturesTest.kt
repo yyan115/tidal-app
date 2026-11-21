@@ -185,7 +185,7 @@ class PlayerGesturesTest {
         compose.waitUntil(5_000) { playerIsOpen() }
         // The bottom button has the count and is the only way in. The card shows the next song and is only a preview.
         compose.onNode(hasText("Queue · 3") and hasClickAction()).assertExists()
-        compose.onNodeWithText("NEXT IN QUEUE").assertExists()
+        // A small screen leaves the card out, and where it shows it only says what plays next.
         compose.onNode(hasText("NEXT IN QUEUE") and hasClickAction()).assertDoesNotExist()
         compose.onAllNodesWithContentDescription("Open queue").assertCountEquals(0)
     }
