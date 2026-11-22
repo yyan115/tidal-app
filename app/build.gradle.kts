@@ -67,6 +67,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
     buildFeatures { compose = true; buildConfig = true }
+    // Test helpers that the unit tests and the device tests both use live in one folder.
+    sourceSets {
+        getByName("test").java.srcDir("src/sharedTest/kotlin")
+        getByName("androidTest").java.srcDir("src/sharedTest/kotlin")
+    }
     // The list of languages in the system settings follows the values-xx folders.
     androidResources { generateLocaleConfig = true }
     sourceSets.getByName("main").assets.srcDir(noticeAssets)
