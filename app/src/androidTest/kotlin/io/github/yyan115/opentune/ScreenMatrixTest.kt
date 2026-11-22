@@ -46,7 +46,9 @@ class ScreenMatrixTest(private val screen: String) {
 
     @Test fun everyScreenInEveryStateKeepsTheRulesOnEverySetting() {
         val model = ViewModelProvider(compose.activity)[MainViewModel::class.java]
+        // The three device jobs of the CI each run a third of the rows, and together they run all of them. A run by hand runs every row.
         val stride = argument("matrixStride", 1)
+        val offset = argument("matrixOffset", 0)
         // A message of the system that rises over the top of the screen hides a text, and the check would then report a text that is fine.
         InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("settings put global heads_up_notifications_enabled 0").close()
         val failures = mutableListOf<String>()
@@ -69,7 +71,7 @@ class ScreenMatrixTest(private val screen: String) {
         }
         for ((caseIndex, case) in ScreenCatalog.cases().filter { it.screen == screen }.withIndex()) {
             for ((rowIndex, row) in rows.withIndex()) {
-                if ((rowIndex + caseIndex) % stride != 0) continue
+                if ((rowIndex + caseIndex) % stride != offset) continue
                 val size = row[2] as Size
                 val where = "${case.screen} (${case.state}) in ${row[0]}, text ${row[1]}x, ${size.name} screen, ${if (row[3] == LayoutDirection.Rtl) "right to left" else "left to right"}"
                 renders++

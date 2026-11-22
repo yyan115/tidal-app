@@ -46,6 +46,7 @@ work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "work"
 work-testing = { module = "androidx.work:work-testing", version.ref = "work" }
 
 [plugins]
+pitest = { id = "info.solidsoft.pitest", version = "1.15.0" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

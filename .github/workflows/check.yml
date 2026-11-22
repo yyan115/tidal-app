@@ -120,7 +120,7 @@ jobs:
             adb shell getprop | grep -iE 'dalvik.vm|heap|low_ram|ro.hw.ram' | sed 's/^/emulator property /'
             mkdir -p logcat
             adb logcat -v threadtime -b main,system,crash '*:I' > logcat/android-${{ matrix.api }}.txt &
-            ./gradlew --no-daemon :app:connectedDebugAndroidTest ${{ matrix.api == 36 && '-Pandroid.testInstrumentationRunnerArguments.screenTour=true' || '' }}
+            ./gradlew --no-daemon :app:connectedDebugAndroidTest ${{ matrix.api == 36 && '-Pandroid.testInstrumentationRunnerArguments.screenTour=true' || '' }} ${{ matrix.api == 33 && '-Pandroid.testInstrumentationRunnerArguments.crawl=true' || '' }} -Pandroid.testInstrumentationRunnerArguments.matrixStride=3 -Pandroid.testInstrumentationRunnerArguments.matrixOffset=${{ matrix.api == 29 && 0 || matrix.api == 33 && 1 || 2 }}
       - name: Upload device reports and screenshots
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
