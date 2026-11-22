@@ -96,7 +96,7 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
         dragged = null; dragStart = -1; dragOffset = 0f
     }
     // The sheet opens full, and a drag down closes it. A sheet that opens at part of the screen read a drag as a move to a position it did not have.
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    AppSheet(onDismissRequest = onClose) {
         // The sheet always has its full height, so that it does not grow and shrink with the queue, and an empty queue has the same sheet as a long one.
         // The title and the tools stay where they are, and only the songs scroll.
         Column(Modifier.fillMaxWidth().fillMaxHeight().navigationBarsPadding().testTag("queue-sheet")) {

@@ -54,7 +54,7 @@ fun AppearanceSheet(settings: Settings, onChange: (Settings) -> Unit, onPreview:
     // The whole app shows the theme that the listener swipes to. It stays only after Use, and closing the picker brings back the saved theme.
     LaunchedEffect(shown, settings.theme) { onPreview(shown.takeIf { it != settings.theme }) }
     DisposableEffect(Unit) { onDispose { onPreview(null) } }
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    AppSheet(onDismissRequest = onClose) {
         val theme = themeFor(shown, systemDark)
         val name = stringResource(if (shown == SYSTEM_THEME) R.string.theme_system else theme.nameRes)
         Column(Modifier.fillMaxSize().navigationBarsPadding()) {

@@ -205,7 +205,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     } }
     }
 
-    if (navigationMenu) ModalBottomSheet(onDismissRequest = { navigationMenu = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    if (navigationMenu) AppSheet(onDismissRequest = { navigationMenu = false }) {
         Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
             destinations.forEach { item -> NavigationDrawerItem(selected = destination == item, label = { Text(stringResource(item.title)) },
                 icon = { Icon(item.icon, null) }, modifier = Modifier.padding(horizontal = 12.dp),
@@ -224,7 +224,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     trackMenu?.let { listed ->
         // The song of a list or of the queue is a copy, so the menu reads the saved record to know whether the song is on the device.
         val track = state.current(listed)
-        ModalBottomSheet(onDismissRequest = { trackMenu = null; playlistPosition = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        AppSheet(onDismissRequest = { trackMenu = null; playlistPosition = null }) {
             Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
                 Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     TrackArtwork(track, null, Modifier.size(52.dp))

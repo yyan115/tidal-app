@@ -127,6 +127,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onC
     var source by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val window = (LocalView.current.parent as DialogWindowProvider).window
+        ClearNavigationBar()
         // The player slides over the app by itself, so the window needs neither a dimmed background nor an animation of its own.
         SideEffect { window.setDimAmount(0f); window.setWindowAnimations(0) }
         val light = MaterialTheme.colorScheme.background.luminance() > .5f
