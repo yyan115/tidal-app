@@ -36,7 +36,7 @@ fun ListenScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLog
     onLibrary: (Int) -> Unit, onDevice: () -> Unit, onMenu: (Track) -> Unit, onPlayer: () -> Unit) {
     fun available(track: Track) = track.onDevice || state.local.any { it.id == track.id }
     val recent = if (state.settings.offline) state.recent.filter(::available) else state.recent
-    val current = state.playback.track?.takeIf { !state.settings.offline || available(it) }
+    val current = state.playingTrack?.takeIf { !state.settings.offline || available(it) }
     val hero = current ?: recent.firstOrNull()
     val heroTracks = recent.ifEmpty { listOfNotNull(hero) }
     val heroIndex = heroTracks.indexOfFirst { it.id == hero?.id }.coerceAtLeast(0)
