@@ -18,6 +18,8 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Tabs for tracks and artists in Listening statistics, with every track and artist of the period
 - Confirmation before the download folder changes
 - Confirmation before playback stops and the queue is cleared
+- Cancel all in the download queue, with a confirmation
+- Confirmation before a page downloads more than ten songs
 - Date and time of when a track was added, in its audio details
 
 ### Changed
@@ -26,9 +28,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Swipe on the small player or the cover changes the track
 - Stop playback moved to the end of the menu of the full player
 - Small player without a Next button
-- The full player grows out of the small player and shrinks back into it
-- Queue opens at half the screen and the title, the tools and the Shuffled state stay at the top while the rows scroll
-- Queue has two parts, the tracks that were added and the rest of the album or playlist
+- Title, tools and Shuffled state of the queue stay at the top while the rows scroll
 - The full player opens the queue from its bottom row only, and the card of the next track shows what plays next
 - Downloads run one at a time, in the order of queuing
 - Permissions page comes once, after the first sign-in, with the download folder and the optional notifications
@@ -36,7 +36,12 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Small player is hidden in Settings
 - Audio details name the source as TIDAL, Downloaded or Local file, and a downloaded track keeps its quality label
 - Messages of Avoid repeats show only when the time is wrong
-- Credits text is larger
+- Credits text is larger, with more room under its header
+- Download button of a playlist is on the page while the songs load
+- Arrow only on the actions that open a page
+- Permissions page says Required and Optional
+- Pop-up of the download folder describes the change, and a change on the permissions page is not announced
+- Strip behind the three navigation buttons has the colour of the screen
 - Larger title in pop-ups, and an outline on the second action
 - "Filter" renamed to "Search" in the library
 - Inactive lyric lines are easier to read
@@ -53,6 +58,9 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Fixed
 
+- Audio details and the track menu of the player showing a download as not finished
+- Equalizer and scrobbling switches having no name for a screen reader
+- Cover of Continue listening having no name for a screen reader
 - Equalizer menu jumping from the top to the bottom of the field when it opens for the first time
 - Dot at the end of the progress bar of a download
 - Cross of a swiped queue row missing when the row moves to the left
