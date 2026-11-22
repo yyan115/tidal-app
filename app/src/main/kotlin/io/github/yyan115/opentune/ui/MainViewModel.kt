@@ -581,6 +581,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (!quiet) notify(app.getString(if (ui.value.settings.downloadOnWifi && !app.sources.wifi()) R.string.notify_download_queued_wifi else R.string.notify_download_queued))
     }
     fun cancelDownload(work: WorkInfo) { WorkManager.getInstance(app).cancelWorkById(work.id) }
+
+    /** Stops every download that waits or runs. Downloads that finished stay on the device, and a failed one stays in the list until it is cleared. */
+    fun cancelAllDownloads() { queuedDownloads(ui.value).filter { !it.state.isFinished }.forEach(::cancelDownload) }
     fun clearDownloadHistory() { WorkManager.getInstance(app).pruneWork() }
 
     fun removeLocal(track: Track) = viewModelScope.launch {

@@ -259,9 +259,7 @@ private fun AlbumHeaderRow(header: AlbumHeader, ctx: PageContext, routeKey: Stri
         Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             TuneButton(onClick = { playFromPage(ctx, routeKey, page, false) }, modifier = Modifier.weight(1f)) { Icon(OpenTuneIcons.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.action_play)) }
             TuneTonalButton(onClick = { playFromPage(ctx, routeKey, page, true) }) { Icon(OpenTuneIcons.Shuffle, stringResource(R.string.album_shuffle)) }
-            TuneOutlinedButton(onClick = {
-                firstTracks(page)?.let { module -> ctx.scope.launch { ctx.pages.allTracks(routeKey, module).filterNot(Track::onDevice).forEach { ctx.vm.download(it) } } }
-            }) { Icon(OpenTuneIcons.Download, stringResource(R.string.album_download_all)) }
+            DownloadAllButton(tracks = { firstTracks(page)?.let { module -> ctx.pages.allTracks(routeKey, module) }.orEmpty() }, onDownload = { ctx.vm.download(it) })
         }
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             if (ctx.state.signedIn) TextButton(onClick = { ctx.vm.favoriteAlbum(header.album) }) {
