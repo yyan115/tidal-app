@@ -34,10 +34,10 @@ class BottomStripPagesTest {
             scenario.onActivity { activity ->
                 height = ViewCompat.getRootWindowInsets(activity.window.decorView)?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
             }
-            val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
             val density = context.resources.displayMetrics.density
-            // The three buttons need a bar of 48 dp. A smaller inset means that the phone is not in the three-button mode and the test would prove nothing.
-            assertTrue("The three-button navigation is not on: the inset is ${height / density} dp", height >= 40 * density)
+            // The three buttons need a bar of 48 dp. A smaller inset means that the phone shows no such bar and the test would prove nothing.
+            org.junit.Assume.assumeTrue("The phone shows no bar of three buttons, because its inset is ${height / density} dp, so there is no strip to check", height >= 40 * density)
+            val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
             return try { BottomStrip.problem(bitmap, height) } finally { bitmap.recycle() }
         }
     }
