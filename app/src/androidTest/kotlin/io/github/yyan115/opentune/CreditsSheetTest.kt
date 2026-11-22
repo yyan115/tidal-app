@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.yyan115.opentune.core.Contributor
 import io.github.yyan115.opentune.core.Credit
@@ -58,6 +59,22 @@ class CreditsSheetTest {
             val problems = Readability.problems(compose, keep = "credits-${theme.id}")
             assertTrue("The credits sheet is hard to read in ${theme.id}: $problems", problems.isEmpty())
         }
+    }
+
+    @Test fun theHeaderStaysWhileTheCreditsScrollAndHasRoomBelowIt() {
+        val credits = CreditsUi("Some album", loading = false, credits = (1..30).map { Credit("Role $it", listOf(Contributor("Person $it", "$it"))) })
+        compose.setContent { OpenTuneTheme("dark") { CreditsSheet(credits, {}, {}) } }
+        compose.waitForIdle()
+        val albumBottom = compose.onNodeWithText("Some album").fetchSemanticsNode().boundsInRoot.bottom
+        val firstRole = compose.onNodeWithText("Role 1", ignoreCase = true).fetchSemanticsNode().boundsInRoot.top
+        val room = with(compose.density) { 26.dp.toPx() }
+        assertTrue("The first credit starts ${firstRole - albumBottom} px below the album line, and it needs at least $room", firstRole - albumBottom >= room)
+        val headerBefore = compose.onNodeWithText("Credits").fetchSemanticsNode().boundsInRoot
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Role 30", ignoreCase = true))
+        compose.waitForIdle()
+        compose.onNodeWithText("Credits").assertIsDisplayed()
+        assertEquals("The title does not move while the credits scroll", headerBefore, compose.onNodeWithText("Credits").fetchSemanticsNode().boundsInRoot)
+        assertEquals("The album line does not move", albumBottom, compose.onNodeWithText("Some album").fetchSemanticsNode().boundsInRoot.bottom, 0.5f)
     }
 
     @Test fun theAlbumLineAndTheRolesAreNotSmallText() {
