@@ -41,7 +41,7 @@ fun rememberSleepMinutes(endsAt: Long): State<Int?> = produceState<Int?>(null, e
 fun SleepTimerSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
     val remaining by rememberSleepMinutes(state.sleepEndsAt)
     val active = state.sleepEndsAt > 0 || state.sleepAtTrackEnd
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    AppSheet(onDismissRequest = onClose) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(stringResource(R.string.sleep_title), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.headlineSmall)
             Text(when {
@@ -65,7 +65,7 @@ private const val VISIBLE_ENTRIES = 4.5f
 @Composable
 fun EqualizerSheet(settings: Settings, onChange: (Settings) -> Unit, onClose: () -> Unit) {
     val info = remember { EqualizerInfo.read() }
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    AppSheet(onDismissRequest = onClose) {
         Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
             Text(stringResource(R.string.eq_title), style = MaterialTheme.typography.headlineSmall)
             if (info == null) {

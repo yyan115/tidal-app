@@ -75,7 +75,7 @@ fun SourceDetailsSheet(label: String, track: Track?, vm: MainViewModel?, onClose
         }
     }.value
     val volume = stored?.localUri?.let { DocumentKey.location(it)?.volume ?: if (facts != null) "primary" else null }
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    AppSheet(onDismissRequest = onClose) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
             // The sheet closes by a drag down, by Back and by a tap outside, as the credits do, so it has no button for it.
             Text(stringResource(R.string.source_title), Modifier.fillMaxWidth(), style = MaterialTheme.typography.headlineMedium)

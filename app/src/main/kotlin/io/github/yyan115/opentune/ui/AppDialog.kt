@@ -42,6 +42,7 @@ fun AppDialog(
     dismissButton: (@Composable () -> Unit)? = null,
 ) {
     BasicAlertDialog(onDismissRequest = onDismissRequest) {
+        ClearNavigationBar()
         Surface(Modifier.widthIn(min = 280.dp, max = 560.dp).testTag("app-dialog"), shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 0.dp) {
             Column(Modifier.padding(24.dp)) {

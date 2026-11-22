@@ -22,7 +22,7 @@ private const val SHEET_SHARE = 0.6f
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreditsSheet(credits: CreditsUi, onClose: () -> Unit, onPerson: (Contributor) -> Unit) {
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    AppSheet(onDismissRequest = onClose) {
         // The sheet has the same height in every state, so that it does not shrink when the spinner gives way to a short message.
         Column(Modifier.fillMaxHeight(SHEET_SHARE).navigationBarsPadding().padding(horizontal = 24.dp).testTag("credits-sheet")) {
             Text(stringResource(R.string.credits_title), style = AppFonts.title(32, 38))

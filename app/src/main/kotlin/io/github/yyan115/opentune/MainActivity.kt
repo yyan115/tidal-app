@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -13,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -36,7 +38,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         acceptIntent(intent)
-        enableEdgeToEdge()
+        // The system bars are transparent and the system draws no veil behind the three buttons, so that the screen shows through them on every version of Android.
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT))
+        if (android.os.Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
         setContent {
             val model: MainViewModel = viewModel()
             val state by model.state.collectAsStateWithLifecycle()
@@ -47,7 +52,10 @@ class MainActivity : ComponentActivity() {
             }
             val preview by model.previewTheme.collectAsStateWithLifecycle()
             val themeId = preview ?: state.settings.theme
-            val dark = themeFor(themeId, isSystemInDarkTheme()).dark
+            val appTheme = themeFor(themeId, isSystemInDarkTheme())
+            val dark = appTheme.dark
+            // What the screen does not cover has the colour of the theme and not a fixed colour, in a light theme as well as in a dark one.
+            LaunchedEffect(appTheme.id) { window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(appTheme.scheme.background.toArgb())) }
             LaunchedEffect(dark) {
                 withFrameNanos { }
                 WindowCompat.getInsetsController(window, window.decorView).apply {
