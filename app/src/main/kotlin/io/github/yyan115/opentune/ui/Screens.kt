@@ -340,7 +340,7 @@ fun DetailScreen(state: AppState, vm: MainViewModel, onMenu: (Track, Int) -> Uni
                 TuneTonalButton(onClick = { vm.playTracks(state.detailTracks, shuffle = true, source = release.title) }, enabled = state.detailTracks.isNotEmpty()) {
                     Icon(OpenTuneIcons.Shuffle, stringResource(R.string.album_shuffle))
                 }
-                if (state.detailTracks.any { !it.onDevice }) TuneOutlinedButton(onClick = { state.detailTracks.forEach { vm.download(it) } }) { Icon(OpenTuneIcons.Download, stringResource(R.string.album_download_all)) }
+                DownloadAllButton(tracks = { state.detailTracks }, onDownload = { vm.download(it) }, enabled = state.detailTracks.any { !it.onDevice })
             }
             if (editable) TuneOutlinedButton(onClick = onAddSongs, modifier = Modifier.fillMaxWidth().padding(top = 10.dp).testTag("add-songs")) {
                 Icon(OpenTuneIcons.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.playlist_add_songs))

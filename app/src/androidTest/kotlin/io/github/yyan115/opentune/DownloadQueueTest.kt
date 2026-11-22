@@ -34,9 +34,9 @@ class DownloadQueueTest {
     private val track = Track("2200001", "Queued Song", "Queue Artist")
     private val name = "download:${track.id}"
 
-    private fun request(constraints: Constraints = Constraints.NONE) = OneTimeWorkRequestBuilder<DownloadWorker>()
-        .setInputData(workDataOf("track" to JsonCodec.encodeTrack(track).toString())).setConstraints(constraints)
-        .addTag("audio-download").addTag("track:${track.id}").build()
+    private fun request(constraints: Constraints = Constraints.NONE, song: Track = track) = OneTimeWorkRequestBuilder<DownloadWorker>()
+        .setInputData(workDataOf("track" to JsonCodec.encodeTrack(song).toString())).setConstraints(constraints)
+        .addTag("audio-download").addTag("track:${song.id}").build()
 
     @Before fun queueADownloadThatWaits() {
         compose.runOnIdle { model.settings { it.copy(theme = "dark", welcomeDone = true, offline = false, downloadOnWifi = true) } }
@@ -58,6 +58,39 @@ class DownloadQueueTest {
         compose.onNodeWithTag("device-list").performScrollToNode(entry)
         compose.onAllNodes(entry).onFirst().performClick()
         compose.onNodeWithTag("download-queue").assertIsDisplayed()
+    }
+
+    @Test fun cancelAllStopsEveryWaitingDownloadAfterTheListenerAnswers() {
+        val waiting = Constraints.Builder().setRequiresDeviceIdle(true).build()
+        listOf(Track("2200002", "Second Song", "Queue Artist"), Track("2200003", "Third Song", "Queue Artist")).forEach { song ->
+            app.library.save(song)
+            manager.enqueueUniqueWork("download:${song.id}", ExistingWorkPolicy.REPLACE, request(waiting, song)).result.get()
+        }
+        try {
+            openTheQueue()
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("Third Song").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Cancel all").assertIsEnabled().performClick()
+            compose.onNodeWithText("Cancel 3 downloads?").assertIsDisplayed()
+            compose.onNodeWithText("Finished downloads stay on the device.").assertIsDisplayed()
+            compose.onNodeWithText("Keep").performClick()
+            compose.onAllNodesWithText("Cancel 3 downloads?").assertCountEquals(0)
+            compose.onNodeWithText("Queued Song").assertIsDisplayed()
+            compose.onNodeWithText("Cancel all").performClick()
+            compose.onNode(hasText("Cancel all") and hasClickAction() and hasAnyAncestor(isDialog())).performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("The queue is empty").fetchSemanticsNodes().isNotEmpty() }
+        } finally {
+            listOf("2200002", "2200003").forEach { app.library.removeLocal(it) }
+        }
+    }
+
+    @Test fun theCancelAllButtonStaysOnThePageAndIsDisabledWhenThereIsNothingToCancel() {
+        openTheQueue()
+        compose.onNodeWithText("Cancel all").assertIsEnabled()
+        val bounds = compose.onNodeWithText("Cancel all").fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithContentDescription("Cancel download").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("The queue is empty").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Cancel all").assertIsNotEnabled()
+        org.junit.Assert.assertEquals("The button does not move", bounds, compose.onNodeWithText("Cancel all").fetchSemanticsNode().boundsInRoot)
     }
 
     @Test fun theQueueOpensFromOnDeviceAndACancelledDownloadLeavesIt() {

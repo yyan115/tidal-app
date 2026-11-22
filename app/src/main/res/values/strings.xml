@@ -214,6 +214,18 @@
         <item quantity="one">%d track</item>
         <item quantity="other">%d tracks</item>
     </plurals>
+    <plurals name="download_all_title">
+        <item quantity="one">Download %d song?</item>
+        <item quantity="other">Download %d songs?</item>
+    </plurals>
+    <string name="download_all_text">They download one at a time. You can stop them in the download queue.</string>
+    <string name="downloads_cancel_all">Cancel all</string>
+    <plurals name="downloads_cancel_all_title">
+        <item quantity="one">Cancel %d download?</item>
+        <item quantity="other">Cancel %d downloads?</item>
+    </plurals>
+    <string name="downloads_cancel_all_text">Finished downloads stay on the device.</string>
+    <string name="downloads_keep">Keep</string>
     <string name="track_menu_close">Close track options</string>
     <string name="track_play_next">Play next</string>
     <string name="track_add_queue">Add to queue</string>

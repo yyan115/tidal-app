@@ -1,6 +1,7 @@
 package io.github.yyan115.opentune.ui
 
 import io.github.yyan115.opentune.R
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import android.Manifest
 import android.content.Intent
@@ -48,6 +49,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     var settings by rememberSaveable { mutableStateOf(initialSettings) }
     var settingsPage by rememberSaveable { mutableStateOf<String?>(null) }
     var downloadQueue by rememberSaveable { mutableStateOf(false) }
+    var cancelAllDownloads by rememberSaveable { mutableStateOf(false) }
     var nowPlaying by rememberSaveable { mutableStateOf(initialPlayer) }
     val sheetScope = rememberCoroutineScope()
     // How far the full player is open. A drag of the small player or of the full player moves it, and so do the buttons that open and close it.
@@ -153,12 +155,14 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
                         IconButton(onClick = { settings = true }) { Icon(OpenTuneIcons.Settings, stringResource(R.string.nav_settings), Modifier.size(22.dp)) }
                     }
                 }
-                if (!inDetail || settings || downloadQueue) Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = if (settingsPageOpen == SettingsPage.Statistics) 8.dp else 24.dp, top = if (largeText) 2.dp else 6.dp, bottom = 14.dp),
+                if (!inDetail || settings || downloadQueue) Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = if (settingsPageOpen == SettingsPage.Statistics || downloadQueue) 8.dp else 24.dp, top = if (largeText) 2.dp else 6.dp, bottom = 14.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(title, Modifier.weight(1f),
                         style = if (largeText || settingsPageOpen != null || downloadQueue) AppFonts.title(30, 38) else if (destination == Destination.Home && !settings) AppFonts.title(52, 58) else AppFonts.title(44, 50))
                     // The explanation of the statistics sits on the line of the title.
                     if (settingsPageOpen == SettingsPage.Statistics) IconButton(onClick = { statsInfo = true }) { Icon(OpenTuneIcons.Info, stringResource(R.string.stats_info_label)) }
+                    // The button is on the page whether or not a download waits, so that it does not appear when the list loads.
+                    if (downloadQueue) TextButton(onClick = { cancelAllDownloads = true }, enabled = queuedDownloads(state).any { !it.state.isFinished }) { Text(stringResource(R.string.downloads_cancel_all)) }
                 }
             }
         Scaffold(modifier = Modifier.weight(1f), contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal),
@@ -270,6 +274,15 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
                 if (nowPlaying && track.id == state.playback.track?.id) SettingRow(OpenTuneIcons.Close, stringResource(R.string.player_stop), onClick = { confirmStop = true; trackMenu = null })
             }
         }
+    }
+    if (cancelAllDownloads) {
+        val cancellable = queuedDownloads(state).count { !it.state.isFinished }
+        // A download may finish while the question is open, and the question then has no subject.
+        LaunchedEffect(cancellable) { if (cancellable == 0) cancelAllDownloads = false }
+        if (cancellable > 0) AppDialog(onDismissRequest = { cancelAllDownloads = false }, title = { Text(pluralStringResource(R.plurals.downloads_cancel_all_title, cancellable, cancellable)) },
+            text = { Text(stringResource(R.string.downloads_cancel_all_text)) },
+            confirmButton = { DialogConfirm(destructive = true, onClick = { vm.cancelAllDownloads(); cancelAllDownloads = false }) { Text(stringResource(R.string.downloads_cancel_all)) } },
+            dismissButton = { DialogDismiss(onClick = { cancelAllDownloads = false }) { Text(stringResource(R.string.downloads_keep)) } })
     }
     if (statsInfo) AppDialog(onDismissRequest = { statsInfo = false }, text = { Text(stringResource(R.string.stats_info)) },
         confirmButton = { DialogDismiss(onClick = { statsInfo = false }) { Text(stringResource(R.string.action_close)) } })
