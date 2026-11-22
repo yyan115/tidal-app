@@ -112,7 +112,7 @@ fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, 
 @Composable
 fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onClose: () -> Unit, onQueue: () -> Unit, onMenu: (Track) -> Unit, onDownload: (Track) -> Unit,
     onAlbum: (Track) -> Unit = {}, onArtist: (Track) -> Unit = {}, initialLyrics: Boolean = false) {
-    val track = state.playback.track ?: return
+    val track = state.playingTrack ?: return
     val queueMessages = remember { SnackbarHostState() }
     val atEnd = stringResource(R.string.queue_end)
     val atStart = stringResource(R.string.queue_start)
@@ -187,7 +187,7 @@ fun NowPlayingScreen(state: AppState, vm: MainViewModel, sheet: PlayerSheet, onC
             }
         }
     }
-    if (source) SourceDetailsSheet(state.playback.quality, state.playback.track, vm) { source = false }
+    if (source) SourceDetailsSheet(state.playback.quality, state.playingTrack, vm) { source = false }
     if (timer) SleepTimerSheet(state, vm) { timer = false }
 }
 
@@ -208,7 +208,7 @@ private fun PlayerHeading(track: Track, compact: Boolean, onAlbum: (Track) -> Un
 @UnstableApi
 @Composable
 private fun GalleryControls(state: AppState, vm: MainViewModel, onQueue: () -> Unit, onDownload: (Track) -> Unit, onSource: () -> Unit, onLyrics: () -> Unit, lyricsActive: Boolean, onTimer: () -> Unit, compact: Boolean) {
-    val player = state.playback; val track = player.track ?: return
+    val player = state.playback; val track = state.playingTrack ?: return
     val largeText = LocalDensity.current.fontScale > 1.3f
     val sourceDetails = stringResource(R.string.player_source_details)
     val lyricsDescription = stringResource(if (lyricsActive) R.string.player_hide_lyrics else R.string.player_show_lyrics)
@@ -393,7 +393,7 @@ private fun PlayerAction(icon: androidx.compose.ui.graphics.vector.ImageVector, 
 
 @Composable
 private fun DownloadAction(state: AppState, modifier: Modifier, onDownload: (Track) -> Unit) {
-    val track = state.playback.track ?: return
+    val track = state.playingTrack ?: return
     val downloaded = track.onDevice || state.local.any { it.id == track.id }
     val pending = state.downloads.any { "track:${track.id}" in it.tags && !it.state.isFinished }
     val muted = MaterialTheme.colorScheme.onSurfaceVariant

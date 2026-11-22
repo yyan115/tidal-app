@@ -221,7 +221,9 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     }, onAlbum = { track -> openRelease(Release(track.albumId, track.album, track.artist, track.artwork)) },
         onArtist = { track -> openRelease(Release(track.artistId, track.artist.substringBefore(","), "", type = ReleaseType.ARTIST)) }, initialLyrics = initialLyrics)
     if (queue) QueueSheet(state, vm) { queue = false }
-    trackMenu?.let { track ->
+    trackMenu?.let { listed ->
+        // The song of a list or of the queue is a copy, so the menu reads the saved record to know whether the song is on the device.
+        val track = state.current(listed)
         ModalBottomSheet(onDismissRequest = { trackMenu = null; playlistPosition = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
             Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
                 Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -290,7 +292,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
         text = { Text(stringResource(R.string.update_text, found.version)) },
         confirmButton = { DialogConfirm(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(found.url))) }; vm.dismissUpdate() }) { Text(stringResource(R.string.update_download)) } },
         dismissButton = { DialogDismiss(onClick = vm::dismissUpdate) { Text(stringResource(R.string.update_later)) } }) }
-    detailsTrack?.let { track -> SourceDetailsSheet(track.quality.orEmpty(), track, vm) { detailsTrack = null } }
+    detailsTrack?.let { listed -> val track = state.current(listed); SourceDetailsSheet(track.quality.orEmpty(), track, vm) { detailsTrack = null } }
     state.video?.let { video -> VideoPlayerOverlay(video, state.settings.offline, vm::closeVideo) }
     state.credits?.let { credits -> CreditsSheet(credits, onClose = vm::dismissCredits, onPerson = { person ->
         vm.dismissCredits()
