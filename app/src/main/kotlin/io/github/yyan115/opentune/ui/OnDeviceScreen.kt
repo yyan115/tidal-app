@@ -101,7 +101,7 @@ fun OnDeviceScreen(state: AppState, vm: MainViewModel, onAddFiles: () -> Unit, o
         }
 
         if (!state.signedIn && (state.localPlaylists.isNotEmpty() || state.local.isNotEmpty())) {
-            item { SectionTitle(stringResource(R.string.label_playlists), stringResource(R.string.playlist_new), onNewPlaylist) }
+            item { SectionTitle(stringResource(R.string.label_playlists), stringResource(R.string.playlist_new), onAction = onNewPlaylist) }
             items(state.localPlaylists, key = { "playlist:${it.id}" }) { playlist -> PlaylistListRow(deviceRelease(playlist)) { vm.open(deviceRelease(playlist)) } }
         }
 

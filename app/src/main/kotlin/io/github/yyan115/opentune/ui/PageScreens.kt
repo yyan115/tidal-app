@@ -100,7 +100,7 @@ private fun LazyListScope.carousel(module: CarouselModule, entry: PageUi, routeK
         if (module.dataPath != null && items.size < module.total) item(key = "$key:more") { LoadMore(routeKey, module, entry, ctx) }
     } else item(key = key) {
         Column {
-            SectionTitle(module.title, module.showMore?.let { stringResource(R.string.action_view_all) }) { module.showMore?.let { ctx.vm.openPage(PageRoute.path(it, module.title)) } }
+            SectionTitle(module.title, module.showMore?.let { stringResource(R.string.action_view_all) }, arrow = true) { module.showMore?.let { ctx.vm.openPage(PageRoute.path(it, module.title)) } }
             LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 itemsIndexed(items, key = { position, release -> "${release.type}:${release.id}:$position" }) { _, release ->
                     PageCard(release) { ctx.vm.open(release) }
@@ -114,7 +114,7 @@ private fun LazyListScope.carousel(module: CarouselModule, entry: PageUi, routeK
 private fun LazyListScope.trackList(module: TrackListModule, entry: PageUi, routeKey: String, ctx: PageContext, key: String, viewAll: Boolean) {
     val tracks = module.tracks + entry.moreTracks[module.id].orEmpty()
     if (module.title.isNotBlank()) item(key = "$key:title") {
-        SectionTitle(module.title, if (!viewAll && (module.showMore != null)) stringResource(R.string.action_view_all) else null) {
+        SectionTitle(module.title, if (!viewAll && (module.showMore != null)) stringResource(R.string.action_view_all) else null, arrow = true) {
             module.showMore?.let { ctx.vm.openPage(PageRoute.path(it, module.title)) }
         }
     }

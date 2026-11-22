@@ -76,7 +76,6 @@ class LocalPlaybackTest {
         compose.waitUntil(10_000) { model.state.value.playback.queue.size == 5 }
         compose.onNodeWithTag("mini-player").performClick()
         compose.onNodeWithText("Queue · 5").performClick()
-        expandTheQueue()
         compose.onNode(hasContentDescription("Reorder Remove 2")).performTouchInput { swipeLeft() }
         compose.waitUntil(5_000) { model.state.value.playback.queue.size == 4 }
         // The row of the fourth track moved up by one place, and its swipe removes that track.
@@ -365,31 +364,12 @@ class LocalPlaybackTest {
         return track.copy(id = id, title = title, localUri = Uri.fromFile(file).toString())
     }
 
-    /** The queue opens at part of the screen, and on a small screen the rows of a test lie below that. A drag on the handle makes the sheet full. */
-    private fun expandTheQueue() {
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("queue-sheet").fetchSemanticsNodes().isNotEmpty() }
-        val screen = compose.onAllNodes(isRoot()).fetchSemanticsNodes().maxOf { it.boundsInRoot.height }
-        fun full() = compose.onNodeWithTag("queue-sheet").fetchSemanticsNode().positionOnScreen.y < screen * 0.3f
-        // A slow device may read the first swipe as too short, so the swipe repeats while the sheet stays low.
-        repeat(3) {
-            if (full()) return
-            val handleY = compose.onNodeWithContentDescription("Drag handle").fetchSemanticsNode().boundsInRoot.center.y
-            // The finger stays inside the screen, because a touch outside of it may not reach the sheet on every version of Android.
-            compose.onNodeWithContentDescription("Drag handle").performTouchInput { swipe(center, center.copy(y = center.y - handleY + 2f), 800) }
-            val end = System.currentTimeMillis() + 3_000
-            while (!full() && System.currentTimeMillis() < end) { compose.waitForIdle(); Thread.sleep(100) }
-        }
-        compose.waitUntil(2_000) { full() }
-        compose.waitForIdle()
-    }
-
     @Test fun queueRowsCanBeDraggedToANewPosition() {
         val first = quiet("local:drag-1", "First Track"); val second = quiet("local:drag-2", "Second Track"); val third = quiet("local:drag-3", "Third Track")
         compose.runOnIdle { model.play(listOf(first, second, third)) }
         compose.waitUntil(10_000) { model.state.value.playback.queue.size == 3 }
         compose.onNodeWithTag("mini-player").performClick()
         compose.onNodeWithText("Queue · 3").performClick()
-        expandTheQueue()
         // A row is dragged by its handle past the row below it, then past the next one.
         // The finger moves a little more than the height of one row, measured in dp, so it passes one row on a small display as well as on a large one.
         val step = with(compose.density) { 6.6.dp.toPx() }

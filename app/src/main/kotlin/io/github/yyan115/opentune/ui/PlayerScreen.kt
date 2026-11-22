@@ -42,10 +42,6 @@ import androidx.media3.common.util.UnstableApi
 import io.github.yyan115.opentune.core.Track
 import io.github.yyan115.opentune.core.formatDuration
 
-/** The name of a part of the queue: what the listener added, and the rest of the album or the playlist. */
-@Composable
-private fun QueuePart(text: String) { UpperLabel(text, Modifier.padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 6.dp)) }
-
 /** A row of the queue. The id is the identity of the row while it is dragged, because a track can stand in the queue more than once. */
 private class QueueEntry(val uid: Long, val track: Track)
 
@@ -99,12 +95,12 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
         if (dragStart >= 0 && end >= 0 && end != dragStart) vm.moveQueue(dragStart, end)
         dragged = null; dragStart = -1; dragOffset = 0f
     }
-    // The sheet opens at about half the screen. A drag up makes it full, a drag down makes it half again or closes it.
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)) {
+    // The sheet opens full, and a drag down closes it. A sheet that opens at part of the screen read a drag as a move to a position it did not have.
+    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         // The sheet always has its full height, so that it does not grow and shrink with the queue, and an empty queue has the same sheet as a long one.
         // The title and the tools stay where they are, and only the songs scroll.
         Column(Modifier.fillMaxWidth().fillMaxHeight().navigationBarsPadding().testTag("queue-sheet")) {
-            SectionTitle(stringResource(R.string.queue_title), if (queue.isNotEmpty()) stringResource(R.string.action_clear) else null, { confirmClear = true })
+            SectionTitle(stringResource(R.string.queue_title), if (queue.isNotEmpty()) stringResource(R.string.action_clear) else null, onAction = { confirmClear = true })
             if (queue.isNotEmpty()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { name = state.playback.source; save = true }) {
@@ -118,15 +114,9 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
                     }
                 }
             }
-            val ahead = state.playback.manualAhead
-            val nextFrom = state.playback.source.takeIf(String::isNotBlank)?.let { stringResource(R.string.queue_next_from, it) } ?: stringResource(R.string.queue_next_up)
-            val yours = stringResource(R.string.queue_yours)
             LazyColumn(Modifier.fillMaxWidth().weight(1f).testTag("queue-list"), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
             if (queue.isEmpty()) item(key = "empty") { EmptyState(OpenTuneIcons.PlaylistPlay, stringResource(R.string.queue_empty_title), stringResource(R.string.queue_empty_text)) }
             entries.forEachIndexed { index, entry ->
-              // What the listener added plays before the rest of the album or the playlist, so the queue shows it as a part of its own.
-              if (index == current + 1 && ahead > 0) item(key = "part-yours") { QueuePart(yours) }
-              if (index == current + 1 + ahead && index < entries.size && dragged == null) item(key = "part-rest") { QueuePart(nextFrom) }
               item(key = entry.uid) {
                 val track = entry.track
                 val playing = index == current && dragged == null || dragged != null && entry.track === queue.getOrNull(current)
