@@ -26,7 +26,9 @@ object LayoutRules {
         compose.waitForIdle()
         val found = mutableListOf<String>()
         val unmerged = compose.onAllNodes(isRoot(), useUnmergedTree = true).fetchSemanticsNodes()
-        for (root in unmerged) {
+        // A screen that is shown in a box smaller than the window is judged by its box, and a sheet or a pop-up by its own window.
+        val box = compose.onAllNodes(androidx.compose.ui.test.hasTestTag("matrix-screen"), useUnmergedTree = true).fetchSemanticsNodes().firstOrNull()?.boundsInRoot
+        for ((rootIndex, root) in unmerged.withIndex()) {
             val texts = Readability.texts(root).filter { placed(it) && !Readability.isDisabled(it) && textOf(it).isNotBlank() }
             for (i in texts.indices) for (j in i + 1 until texts.size) {
                 val a = texts[i]; val b = texts[j]
@@ -34,7 +36,7 @@ object LayoutRules {
                 val smaller = minOf(a.boundsInRoot.width * a.boundsInRoot.height, b.boundsInRoot.width * b.boundsInRoot.height)
                 if (smaller > 0f && shared > 0.25f * smaller) found += "overlap: \"${textOf(a).take(30)}\" and \"${textOf(b).take(30)}\""
             }
-            val screen = root.boundsInRoot
+            val screen = if (rootIndex == 0 && box != null) box else root.boundsInRoot
             // A text that is cut by the edge of the screen has its centre inside or outside of it, so only whether it touches the screen counts.
             for (text in Readability.texts(root).filter { it.layoutInfo.isPlaced && !it.boundsInRoot.isEmpty && textOf(it).isNotBlank() && !scrollsSideways(it) }) {
                 val b = text.boundsInRoot
@@ -49,10 +51,12 @@ object LayoutRules {
                 node.children.forEach(::walk)
             }
             walk(root)
-            for (control in controls) if (describe(control).isBlank()) found += "a control with no name at ${control.boundsInRoot}"
+            for (control in controls) if (describe(control).isBlank() && !control.config.contains(SemanticsActions.SetText)) found += "a control with no name at ${control.boundsInRoot}"
             // Two controls that lie on each other are hard to hit, and the finger cannot tell which one it chose.
             for (i in controls.indices) for (j in i + 1 until controls.size) {
                 val a = controls[i]; val b = controls[j]
+                // The handle of a sheet is made by the library, which puts its description and the action that closes the sheet on the same place.
+                if (describe(a) in libraryControls || describe(b) in libraryControls) continue
                 val ancestor = generateSequence(a.parent) { it.parent }.any { it.id == b.id } || generateSequence(b.parent) { it.parent }.any { it.id == a.id }
                 val shared = overlap(a.boundsInRoot, b.boundsInRoot)
                 val smaller = minOf(a.boundsInRoot.width * a.boundsInRoot.height, b.boundsInRoot.width * b.boundsInRoot.height)
@@ -61,6 +65,8 @@ object LayoutRules {
         }
         return found.distinct()
     }
+
+    private val libraryControls = setOf("Drag handle", "Close sheet")
 
     private fun describe(node: SemanticsNode): String =
         node.config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString().orEmpty().ifBlank { textOf(node) }

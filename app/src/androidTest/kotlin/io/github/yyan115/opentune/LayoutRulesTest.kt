@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
@@ -55,6 +57,11 @@ class LayoutRulesTest {
     @Test fun twoControlsOnTopOfEachOtherAreFound() {
         val found = problems { Box(Modifier.fillMaxSize()) { Box(Modifier.size(60.dp).clickable { }) { Text("Save") }; Box(Modifier.offset(x = 10.dp).size(60.dp).clickable { }) { Text("Share") } } }
         assertTrue("Controls on each other are reported: $found", found.any { it.startsWith("controls on top of each other") })
+    }
+
+    @Test fun textThatRunsPastTheBoxOfTheScreenIsFoundEvenWhenTheWindowIsLarger() {
+        val found = problems { Box(Modifier.size(150.dp).testTag("matrix-screen")) { Text("A text that is much wider than the box that the screen is shown in", Modifier.wrapContentWidth(unbounded = true)) } }
+        assertTrue("A text past the box is reported: $found", found.any { it.startsWith("outside the screen") })
     }
 
     @Test fun aControlWithNoNameIsFound() {

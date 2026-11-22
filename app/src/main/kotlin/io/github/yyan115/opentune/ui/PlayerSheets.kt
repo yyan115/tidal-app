@@ -1,5 +1,7 @@
 package io.github.yyan115.opentune.ui
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import io.github.yyan115.opentune.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
@@ -72,9 +74,10 @@ fun EqualizerSheet(settings: Settings, onChange: (Settings) -> Unit, onClose: ()
                 Text(stringResource(R.string.eq_unavailable), Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 return@Column
             }
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            // The whole row is the switch, so that a screen reader reads its label with it and the finger has a large target.
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp).toggleable(settings.equalizer, role = Role.Switch, onValueChange = { onChange(settings.copy(equalizer = it)) }), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.eq_use), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                Switch(settings.equalizer, { onChange(settings.copy(equalizer = it)) })
+                Switch(settings.equalizer, null)
             }
             val levels = List(info.bands) { settings.equalizerLevels.getOrNull(it) ?: 0 }
             val presets = listOf(stringResource(R.string.eq_flat) to List(info.bands) { 0 }) + info.presets.map { it.name to it.levels }
