@@ -33,11 +33,16 @@ class SettingsRowsTest {
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Download folder"))
         compose.onNodeWithText("Music/OpenTune").assertIsDisplayed()
         compose.onNode(hasText("Download folder") and hasClickAction()).performClick()
-        compose.onNodeWithText("Change download folder?").assertIsDisplayed()
+        compose.onNodeWithText("Change folder?").assertIsDisplayed()
+        // The title fits on one line, and a description says what changes and what stays.
+        val layout = compose.onNodeWithText("Change folder?").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action
+            ?.let { read -> val results = mutableListOf<androidx.compose.ui.text.TextLayoutResult>(); read(results); results.first() }
+        org.junit.Assert.assertEquals("The title is on one line", 1, layout!!.lineCount)
+        compose.onNodeWithText("New downloads are saved to the folder you pick. Existing downloads stay where they are.").assertIsDisplayed()
         compose.onNodeWithText("Cancel").assertIsDisplayed()
         compose.onNode(hasText("Change") and hasClickAction()).assertIsDisplayed()
         compose.onNodeWithText("Cancel").performClick()
-        compose.onAllNodesWithText("Change download folder?").assertCountEquals(0)
+        compose.onAllNodesWithText("Change folder?").assertCountEquals(0)
     }
 
     @Test fun thereIsNoRowToReturnToTheDefaultFolderAndNoNotificationsRow() {

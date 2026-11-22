@@ -446,6 +446,7 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
     if (equalizer) EqualizerSheet(settings, { next -> vm.settings { next } }) { equalizer = false }
     if (scrobbling) ScrobbleDialog(settings, vm) { scrobbling = false }
     if (changeFolder) AppDialog(onDismissRequest = { changeFolder = false }, title = { Text(stringResource(R.string.settings_download_folder_change_title)) },
+        text = { Text(stringResource(R.string.settings_download_folder_change_text)) },
         confirmButton = { DialogConfirm(onClick = { changeFolder = false; downloadFolder.launch(null) }) { Text(stringResource(R.string.settings_download_folder_change)) } },
         dismissButton = { DialogDismiss(onClick = { changeFolder = false }) { Text(stringResource(R.string.action_cancel)) } })
     if (playedWarning) AppDialog(onDismissRequest = { playedWarning = false }, title = { Text(stringResource(R.string.download_played_title)) },
