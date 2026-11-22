@@ -27,19 +27,19 @@ object Readability {
     }
 
     /** A list that scrolls to an item places the items on its way outside its own area. They are not on the screen, whatever their position says. */
-    private fun insideItsParents(node: androidx.compose.ui.semantics.SemanticsNode): Boolean {
+    internal fun insideItsParents(node: androidx.compose.ui.semantics.SemanticsNode): Boolean {
         val centre = node.boundsInRoot.center
         return generateSequence(node.parent) { it.parent }.all { parent -> parent.boundsInRoot.isEmpty || parent.boundsInRoot.contains(centre) }
     }
 
     /** A control that is switched off is drawn dimmed on purpose, and accessibility rules leave it out. */
-    private fun isDisabled(node: androidx.compose.ui.semantics.SemanticsNode): Boolean =
+    internal fun isDisabled(node: androidx.compose.ui.semantics.SemanticsNode): Boolean =
         generateSequence(node) { it.parent }.any { it.config.contains(SemanticsProperties.Disabled) }
 
-    private fun hasDialog(node: androidx.compose.ui.semantics.SemanticsNode): Boolean =
+    internal fun hasDialog(node: androidx.compose.ui.semantics.SemanticsNode): Boolean =
         node.config.contains(SemanticsProperties.IsDialog) || node.children.any(::hasDialog)
 
-    private fun texts(node: androidx.compose.ui.semantics.SemanticsNode): List<androidx.compose.ui.semantics.SemanticsNode> =
+    internal fun texts(node: androidx.compose.ui.semantics.SemanticsNode): List<androidx.compose.ui.semantics.SemanticsNode> =
         (if (node.config.contains(SemanticsProperties.Text)) listOf(node) else emptyList()) + node.children.flatMap(::texts)
 
     /**
