@@ -34,7 +34,7 @@ fun SetupScreen(folder: String, onFolderPicked: (Uri) -> Unit, onContinue: () ->
             Spacer(Modifier.height(48.dp))
             Text(stringResource(R.string.setup_title), Modifier.padding(horizontal = 24.dp), style = AppFonts.title(44, 50))
             Text(stringResource(R.string.setup_intro), Modifier.padding(horizontal = 24.dp, vertical = 12.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            SectionTitle(stringResource(R.string.setup_required_downloads))
+            SectionTitle(stringResource(R.string.setup_required))
             PermissionRow(OpenTuneIcons.Folder, stringResource(R.string.settings_download_folder),
                 stringResource(R.string.setup_folder_text, DownloadFolder.summary(folder, stringResource(R.string.volume_internal), stringResource(R.string.volume_card), stringResource(R.string.setup_folder_chosen)))) {
                 TextButton(onClick = { picker.launch(null) }, modifier = Modifier.testTag("setup-folder")) { Text(stringResource(R.string.setup_change)) }

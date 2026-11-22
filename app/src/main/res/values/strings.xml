@@ -364,14 +364,15 @@
     <string name="migrate_title">Moving downloads</string>
     <string name="migrate_text">%1$d of %2$d</string>
     <string name="settings_download_folder">Download folder</string>
-    <string name="settings_download_folder_change_title">Change download folder?</string>
+    <string name="settings_download_folder_change_title">Change folder?</string>
+    <string name="settings_download_folder_change_text">New downloads are saved to the folder you pick. Existing downloads stay where they are.</string>
     <string name="settings_download_folder_change">Change</string>
     <string name="download_error_folder">The download folder is not available. Choose another folder in Settings.</string>
     <string name="setup_title">Permissions</string>
     <string name="setup_notifications">Notifications</string>
     <string name="setup_notifications_text">Shows download progress</string>
     <string name="setup_intro">OpenTune requires the following permissions.</string>
-    <string name="setup_required_downloads">Required for downloads</string>
+    <string name="setup_required">Required</string>
     <string name="setup_optional">Optional</string>
     <string name="setup_folder_text">Saved to %1$s</string>
     <string name="setup_folder_chosen">Chosen folder</string>
@@ -513,7 +514,7 @@
     </plurals>
     <string name="stats_year">Year</string>
     <string name="stats_all">All</string>
-    <string name="stats_info">A track counts as played after half its length or 4 minutes, whichever comes first, with a minimum of 30 seconds</string>
+    <string name="stats_info">A track counts as played after half its length or 4 minutes, whichever comes first, with a minimum of 30 seconds.</string>
     <string name="stats_info_label">About listening statistics</string>
     <string name="stats_empty">No tracks played in this period</string>
     <plurals name="stats_listens">
@@ -586,7 +587,7 @@
     </plurals>
     <string name="notify_tidal_playlist_created">Playlist created in TIDAL</string>
     <string name="notify_account_change">Connect TIDAL and turn off offline mode to make this change</string>
-    <string name="notify_download_folder_changed">Download folder changed. New downloads are saved there.</string>
+    <string name="notify_download_folder_changed">Download folder changed.</string>
     <string name="notify_download_folder_unusable">This folder cannot be used for downloads. Choose another folder.</string>
     <string name="notify_folder_failed">The folder could not be added. Choose another folder and try again.</string>
 

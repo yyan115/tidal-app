@@ -537,15 +537,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Saves new downloads in the folder that the listener picked. Downloads that exist stay where they are, and the library keeps their addresses.
-     * A folder that cannot hold files is refused.
+     * A folder that cannot hold files is refused. [announce] is false on the permissions page, which is the first set-up and says nothing about a change.
      */
-    fun setDownloadFolder(tree: Uri) = viewModelScope.launch(Dispatchers.IO) {
+    fun setDownloadFolder(tree: Uri, announce: Boolean = true) = viewModelScope.launch(Dispatchers.IO) {
         try {
             app.contentResolver.takePersistableUriPermission(tree, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            if (!app.downloadFiles.usable(tree)) { notify(app.getString(R.string.notify_download_folder_unusable)); return@launch }
-            settings { it.copy(downloadFolder = tree.toString()) }
-            notify(app.getString(R.string.notify_download_folder_changed))
+            useDownloadFolder(tree, announce)
         } catch (error: Exception) { if (error is CancellationException) throw error; notify(app.getString(R.string.notify_download_folder_unusable)) }
+    }
+
+    /** Uses [tree] for new downloads when it can hold files. It must run off the main thread. */
+    internal fun useDownloadFolder(tree: Uri, announce: Boolean) {
+        if (!app.downloadFiles.usable(tree)) { notify(app.getString(R.string.notify_download_folder_unusable)); return }
+        settings { it.copy(downloadFolder = tree.toString()) }
+        if (announce) notify(app.getString(R.string.notify_download_folder_changed))
     }
 
 
