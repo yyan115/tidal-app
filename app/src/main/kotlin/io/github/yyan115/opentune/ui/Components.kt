@@ -1,5 +1,7 @@
 package io.github.yyan115.opentune.ui
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import io.github.yyan115.opentune.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
@@ -71,11 +73,12 @@ fun Artwork(uri: String?, description: String?, modifier: Modifier = Modifier, p
         val failed = failures
         if (failed in 1..ArtworkRetryDelays.size && !offline) { delay(ArtworkRetryDelays[failed - 1]); attempt++ }
     }
-    Box(modifier.clip(MaterialTheme.shapes.small).background(placeholderBrush(placeholderSeed)), contentAlignment = Alignment.Center) {
+    // The cover has its description whether or not a picture was loaded, so that a control that is made of a cover has a name.
+    Box(modifier.clip(MaterialTheme.shapes.small).background(placeholderBrush(placeholderSeed)).then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier), contentAlignment = Alignment.Center) {
         if (placeholderSeed != null) Icon(OpenTuneIcons.MusicNote, null, Modifier.fillMaxSize(.34f), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = .55f))
         else Icon(OpenTuneIcons.Album, null, Modifier.fillMaxSize(.32f), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .45f))
         // A new key makes a new image painter, which loads again. A changed request alone does not always restart a load.
-        if (uri != null) key(attempt) { AsyncImage(request, description, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+        if (uri != null) key(attempt) { AsyncImage(request, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
     }
 }
 

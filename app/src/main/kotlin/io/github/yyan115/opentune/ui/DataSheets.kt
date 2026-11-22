@@ -1,5 +1,7 @@
 package io.github.yyan115.opentune.ui
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import io.github.yyan115.opentune.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.*
@@ -30,9 +32,9 @@ fun ScrobbleDialog(settings: Settings, vm: MainViewModel, onClose: () -> Unit) {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.scrobble_note),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().toggleable(enabled, role = Role.Switch, onValueChange = { enabled = it }), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.scrobble_send), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                Switch(enabled, { enabled = it })
+                Switch(enabled, null)
             }
             OutlinedTextField(server, { server = it; result = null }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.scrobble_server)) }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
