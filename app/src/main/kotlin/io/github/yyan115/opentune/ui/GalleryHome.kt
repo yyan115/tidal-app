@@ -89,7 +89,7 @@ fun ListenScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLog
         }
         forYou?.page?.let { pageContent(it.tidied(mixesTitle), forYou, PageRoute.ForYou.key, context, viewAll = false) }
         if (state.albums.isNotEmpty()) {
-            item { SectionTitle(stringResource(R.string.home_saved_albums), stringResource(R.string.action_view_all), { onLibrary(1) }) }
+            item { SectionTitle(stringResource(R.string.home_saved_albums), stringResource(R.string.action_view_all), arrow = true, onAction = { onLibrary(1) }) }
             item { LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(state.albums.take(12), key = Release::id) { release -> ReleaseCard(release) { vm.open(release) } }
             } }
@@ -103,7 +103,7 @@ fun ListenScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLog
         home?.page?.let { pageContent(it.tidied(mixesTitle), home, PageRoute.Home.key, context, viewAll = false) }
         val local = state.local.filterNot { it.id == hero?.id }.take(3)
         if (local.isNotEmpty()) {
-            item { SectionTitle(stringResource(R.string.nav_device), stringResource(R.string.action_view_all), onDevice) }
+            item { SectionTitle(stringResource(R.string.nav_device), stringResource(R.string.action_view_all), arrow = true, onAction = onDevice) }
             items(local, key = { "device:${it.id}" }) { track -> TrackRow(track, false,
                 { vm.play(state.local, state.local.indexOf(track)) }, { onMenu(track) }) }
         }

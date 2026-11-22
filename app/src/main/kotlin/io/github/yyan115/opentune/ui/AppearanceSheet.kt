@@ -101,7 +101,7 @@ private fun ThemePreview(id: String, systemDark: Boolean, selected: Boolean) {
             Box {
                 Column(Modifier.fillMaxSize().padding(top = 18.dp)) {
                     Text(stringResource(R.string.nav_home), Modifier.padding(horizontal = 20.dp), style = AppFonts.title(40, 46))
-                    SectionTitle(stringResource(R.string.home_recently_played), stringResource(R.string.action_view_all))
+                    SectionTitle(stringResource(R.string.home_recently_played), stringResource(R.string.action_view_all), arrow = true)
                     TrackRow(SampleTracks[0], true, {}, {}, swipeToQueue = false)
                     TrackRow(SampleTracks[1], false, {}, {}, swipeToQueue = false)
                     Row(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

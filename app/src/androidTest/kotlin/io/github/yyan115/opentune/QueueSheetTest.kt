@@ -73,7 +73,7 @@ class QueueSheetTest {
         play(30); openQueue(30)
         val long = sheetHeight()
         assertEquals("The queue sheet with 2 tracks and with 30 tracks", short, long, 1f)
-        assertTrue("The sheet is tall: $short of ${screenHeight()}", short >= screenHeight() * 0.7f)
+        assertTrue("The sheet is full height: $short of ${screenHeight()}", short >= screenHeight() * 0.85f)
     }
 
     @Test fun theSheetKeepsItsHeightWhenTheQueueIsCleared() {
@@ -119,41 +119,36 @@ class QueueSheetTest {
         compose.onNodeWithText("Save as playlist").assertIsDisplayed()
     }
 
-    @Test fun theSheetOpensAtAboutHalfTheScreenAndGrowsAndClosesByDragging() {
+    @Test fun theSheetOpensFullAndClosesWhenItIsDraggedDown() {
         play(30); openQueue(30)
         val screen = screenHeight()
-        val half = sheetTop()
-        assertTrue("The sheet opens at about half the screen: top at $half of $screen", half > screen * 0.3f && half < screen * 0.7f)
-        compose.onNodeWithContentDescription("Drag handle").performTouchInput { swipe(center, center.copy(y = center.y - screen * 0.5f), 300) }
-        compose.waitForIdle()
-        val full = sheetTop()
-        assertTrue("A drag up makes it nearly full: top at $full of $screen", full < screen * 0.25f)
-        compose.onNodeWithContentDescription("Drag handle").performTouchInput { swipe(center, center.copy(y = center.y + screen * 0.25f), 600) }
-        compose.waitForIdle()
-        val back = sheetTop()
-        assertTrue("A slow drag down from full goes back to half: top at $back of $screen", back > screen * 0.3f && back < screen * 0.7f)
-        compose.onNodeWithContentDescription("Drag handle").performTouchInput { swipe(center, center.copy(y = center.y + screen * 0.4f), 400) }
+        val top = sheetTop()
+        assertTrue("The sheet opens full at once: top at $top of $screen", top < screen * 0.25f)
+        compose.onNodeWithContentDescription("Drag handle").performTouchInput { swipe(center, center.copy(y = center.y + screen * 0.5f), 400) }
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("queue-sheet").fetchSemanticsNodes().isEmpty() }
     }
 
-    @Test fun whatTheListenerAddedIsAPartOfItsOwn() {
+    @Test fun theQueueIsOnePlainListWithNoNamesForItsParts() {
         compose.runOnIdle { model.play(tracks.take(6), 0, "Test list", shuffle = false) }
         compose.waitUntil(15_000) { model.state.value.playback.queue.size == 6 && model.state.value.playback.playing }
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("mini-player").fetchSemanticsNodes().isNotEmpty() }
         compose.runOnIdle { model.queue(tracks[10]); model.queue(tracks[11]) }
         compose.waitUntil(10_000) { model.state.value.playback.queue.size == 8 }
         openQueue(8)
-        assertEquals("Two songs were added by hand", 2, model.state.value.playback.manualAhead)
-        // The names of the parts are small capital labels. The sheet opens at part of the screen, so the second part may lie below its lower edge.
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("YOUR QUEUE").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("NEXT FROM TEST LIST").assertExists()
-        val yourHeader = compose.onNodeWithText("YOUR QUEUE").fetchSemanticsNode().positionOnScreen.y
-        val restHeader = compose.onNodeWithText("NEXT FROM TEST LIST").fetchSemanticsNode().positionOnScreen.y
-        // The same songs also show in the big player behind the sheet, so only what lies below the first part header counts.
-        fun below(text: String) = compose.onAllNodesWithText(text).fetchSemanticsNodes().map { it.positionOnScreen.y }.filter { it > yourHeader }.min()
-        val mine = below("Sheet Song 11")
-        val rest = below("Sheet Song 2")
-        assertTrue("Added songs come right after their header and before the header of the rest", yourHeader < mine && mine < restHeader && restHeader < rest)
+        compose.onAllNodesWithText("Your queue", ignoreCase = true).assertCountEquals(0)
+        compose.onAllNodesWithText("Next from", substring = true, ignoreCase = true).assertCountEquals(0)
+        compose.onAllNodesWithText("Up next", ignoreCase = true).assertCountEquals(0)
+        // What the listener added still plays before the rest of the list, so it comes first in the list.
+        val order = model.state.value.playback.queue.map { it.title }
+        assertEquals(listOf("Sheet Song 1", "Sheet Song 11", "Sheet Song 12", "Sheet Song 2"), order.take(4))
+        fun top(text: String) = compose.onAllNodesWithText(text).fetchSemanticsNodes().map { it.positionOnScreen.y }.filter { it > sheetTop() }.min()
+        assertTrue("The added songs are listed before the rest", top("Sheet Song 11") < top("Sheet Song 12") && top("Sheet Song 12") < top("Sheet Song 2"))
+    }
+
+    @Test fun theClearActionHasNoArrowBecauseItOpensNothing() {
+        play(3); openQueue(3)
+        compose.onNodeWithText("Clear").assertIsDisplayed()
+        compose.onAllNodes(hasTestTag("section-arrow") and hasAnyAncestor(hasTestTag("queue-sheet")), useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test fun aSwipedSongShowsTheCrossOnTheSideThatItUncovers() {

@@ -88,7 +88,7 @@ fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu
             keyboardActions = KeyboardActions(onSearch = { keyboard?.hide(); vm.rememberSearch(query) })) }
         if (query.isBlank()) {
             if (state.recentSearches.isNotEmpty()) {
-                item { SectionTitle(stringResource(R.string.search_recent), stringResource(R.string.action_clear), vm::clearSearches) }
+                item { SectionTitle(stringResource(R.string.search_recent), stringResource(R.string.action_clear), onAction = vm::clearSearches) }
                 item { FlowRow(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     state.recentSearches.forEach { LinkPill(it) { vm.search(it) } }
                 } }
@@ -115,13 +115,13 @@ fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu
                         TrackRow(top, state.playback.track?.id == top.id, onPlay = { play(top) }, onMenu = { onMenu(top) })
                     } }
                     if (songs.isNotEmpty()) {
-                        item { SectionTitle(tabTitles[1], if (songs.size > 5) stringResource(R.string.action_view_all) else null) { filter = 1 } }
+                        item { SectionTitle(tabTitles[1], if (songs.size > 5) stringResource(R.string.action_view_all) else null, arrow = true) { filter = 1 } }
                         items(songs.take(5), key = { "top:${it.id}" }) { track -> TrackRow(track, state.playback.track?.id == track.id, onPlay = { play(track) }, onMenu = { onMenu(track) }) }
                     }
                     listOf(tabTitles[2] to result.albums, tabTitles[3] to result.artists, tabTitles[4] to result.playlists, tabTitles[5] to result.videos).forEachIndexed { position, (title, list) ->
                         if (list.isNotEmpty()) item(key = "top-$position") {
                             Column {
-                                SectionTitle(title, stringResource(R.string.action_view_all)) { filter = position + 2 }
+                                SectionTitle(title, stringResource(R.string.action_view_all), arrow = true) { filter = position + 2 }
                                 LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     itemsIndexed(list.take(12), key = { index, release -> "${release.type}:${release.id}:$index" }) { _, release -> PageCard(release) { open(release) } }
                                 }
