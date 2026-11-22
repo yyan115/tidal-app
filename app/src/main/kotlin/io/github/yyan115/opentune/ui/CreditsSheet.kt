@@ -26,7 +26,7 @@ fun CreditsSheet(credits: CreditsUi, onClose: () -> Unit, onPerson: (Contributor
         // The sheet has the same height in every state, so that it does not shrink when the spinner gives way to a short message.
         Column(Modifier.fillMaxHeight(SHEET_SHARE).navigationBarsPadding().padding(horizontal = 24.dp).testTag("credits-sheet")) {
             Text(stringResource(R.string.credits_title), style = AppFonts.title(32, 38))
-            Text(credits.title, Modifier.padding(top = 4.dp, bottom = 12.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(credits.title, Modifier.padding(top = 4.dp, bottom = 20.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
                     credits.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
