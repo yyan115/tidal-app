@@ -77,8 +77,8 @@ class OutputSink(
         if (dropping) { buffer.position(buffer.limit()); return true }
         val checking = guard
         if (checking != null && verdict == StreamGuard.Verdict.Pending) {
-            // The buffer waits here. It is a copy, because the decoder reuses its own.
-            val copy = ByteBuffer.allocate(buffer.remaining()).also { it.put(buffer.duplicate()); it.flip() }
+            // The buffer waits here. It is a copy, because the decoder reuses its own, and the output accepts only little-endian buffers.
+            val copy = ByteBuffer.allocate(buffer.remaining()).order(ByteOrder.LITTLE_ENDIAN).also { it.put(buffer.duplicate()); it.flip() }
             buffer.position(buffer.limit())
             held += Held(copy, presentationTimeUs, encodedAccessUnitCount)
             decide(checking.add(copy.remaining(), presentationTimeUs, floatSamples(copy)))
