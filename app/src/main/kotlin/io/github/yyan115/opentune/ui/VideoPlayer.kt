@@ -127,7 +127,7 @@ fun VideoPlayerOverlay(release: Release, offline: Boolean, onClose: () -> Unit) 
 
     Box(Modifier.fillMaxSize().background(Color.Black).testTag("video-player").semantics { stateDescription = "position=$position playing=$playing" }.clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) { controls = !controls }) {
         ContentFrame(player, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-        if (!playing && error == null && position == 0L) CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White)
+        if (!playing && error == null && position == 0L) Spinner(Modifier.align(Alignment.Center), color = Color.White)
         error?.let { Text(it, Modifier.align(Alignment.Center).padding(32.dp), color = Color.White, style = MaterialTheme.typography.bodyMedium) }
         if (controls && !inPip) {
             Box(Modifier.fillMaxSize().background(Color(0x66000000)).safeDrawingPadding()) {

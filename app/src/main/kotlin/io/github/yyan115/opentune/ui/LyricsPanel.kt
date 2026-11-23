@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,7 +41,7 @@ fun LyricsPanel(state: AppState, vm: MainViewModel, modifier: Modifier = Modifie
     Box(modifier.testTag("lyrics-panel"), contentAlignment = Alignment.Center) {
         val lyrics = state.lyrics
         when {
-            state.lyricsStatus == LyricsStatus.Loading || state.lyricsStatus == LyricsStatus.Idle -> CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 1.5.dp)
+            state.lyricsStatus == LyricsStatus.Loading || state.lyricsStatus == LyricsStatus.Idle -> Spinner(Modifier.size(28.dp), strokeWidth = 1.5.dp)
             state.lyricsStatus == LyricsStatus.Ready && lyrics != null -> if (lyrics.synced) SyncedLyrics(lyrics, vm::seek) else PlainLyrics(lyrics)
             else -> Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
                 Text(when (state.lyricsStatus) {
