@@ -13,6 +13,8 @@ import io.github.yyan115.opentune.core.ReleaseType
 import io.github.yyan115.opentune.core.SearchResult
 import io.github.yyan115.opentune.core.Track
 import io.github.yyan115.opentune.data.Settings
+import io.github.yyan115.opentune.playback.OutputPolicy
+import io.github.yyan115.opentune.playback.OutputPolicyState
 import io.github.yyan115.opentune.ui.*
 import java.util.UUID
 
@@ -67,6 +69,14 @@ object ScreenCatalog {
             add(ScreenCase("CreditsSheet", name) { CreditsSheet(ui, {}, {}) })
         for ((name, track) in listOf("streamed" to Fixtures.track(1), "downloaded" to Fixtures.track(2, onDevice = true), "file" to Fixtures.track(3, file = true)))
             add(ScreenCase("SourceDetailsSheet", name) { vm -> SourceDetailsSheet(track.quality.orEmpty(), track, vm, {}) })
+        // A phone that failed the check of the 24-bit output says so in the sheet, and the line must fit on every screen.
+        add(ScreenCase("SourceDetailsSheet", "24-bit not supported") { vm ->
+            val before = androidx.compose.runtime.remember { OutputPolicy.state }
+            androidx.compose.runtime.remember { OutputPolicy.state = OutputPolicyState().also { it.block("The check failed.") } }
+            androidx.compose.runtime.DisposableEffect(Unit) { onDispose { OutputPolicy.state = before } }
+            val track = Fixtures.track(5).copy(quality = "FLAC · 24-bit · 96 kHz")
+            SourceDetailsSheet(track.quality.orEmpty(), track, vm, {})
+        })
         add(ScreenCase("SleepTimerSheet", "idle") { vm -> SleepTimerSheet(AppState(), vm) {} })
         add(ScreenCase("EqualizerSheet", "default") { EqualizerSheet(Settings(welcomeDone = true), {}, {}) })
         add(ScreenCase("AppearanceSheet", "default") { AppearanceSheet(Settings(welcomeDone = true), {}, {}, {}) })

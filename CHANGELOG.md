@@ -4,6 +4,14 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Changed
+
+- 24-bit songs are checked before they play, and a phone that cannot play them correctly uses 16-bit and says so in the audio details
+
+### Fixed
+
+- Songs playing extremely loud, distorted and fast on some phones
+
 ## [0.8.0] - 2026-11-23
 
 Please note that the minimum supported Android version has been bumped from Android 8 to Android 10.

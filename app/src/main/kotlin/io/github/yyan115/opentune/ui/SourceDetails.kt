@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import io.github.yyan115.opentune.core.DocumentKey
 import io.github.yyan115.opentune.core.Track
 import io.github.yyan115.opentune.core.formatDuration
+import io.github.yyan115.opentune.playback.OutputPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
@@ -84,6 +85,8 @@ fun SourceDetailsSheet(label: String, track: Track?, vm: MainViewModel?, onClose
                 add(Triple("source-codec", stringResource(R.string.source_codec), source.codec.ifBlank { notReported }))
                 if (source.bits != null || source.bitrate == null || track?.isFile != true) add(Triple("source-bits", stringResource(R.string.source_bit_depth), source.bitsText() ?: notReported))
                 add(Triple("source-rate", stringResource(R.string.source_sample_rate), source.rateText() ?: notReported))
+                // A phone that failed the check of the 24-bit output plays such a song at 16-bit, and the sheet says why.
+                source.bits?.toIntOrNull()?.takeIf { it > 16 && !OutputPolicy.state.floatAllowed }?.let { add(Triple("source-output", stringResource(R.string.source_output), stringResource(R.string.source_output_blocked, it))) }
                 source.bitrateText()?.let { add(Triple("source-bitrate", stringResource(R.string.source_bitrate), it)) }
                 if (stored != null) {
                     facts?.fileName?.let { add(Triple("source-file", stringResource(R.string.source_file), it)) }
