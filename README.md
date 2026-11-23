@@ -4,7 +4,7 @@
 
 <h1 align="center">OpenTune</h1>
 
-<p align="center">An unofficial open source music player for TIDAL, with local playback.</p>
+<p align="center">An unofficial, full-featured open source music player for TIDAL, with local playback support.</p>
 
 <p align="center">
   <a href="https://github.com/yyan115/tidal-app/actions/workflows/check.yml"><img src="https://github.com/yyan115/tidal-app/actions/workflows/check.yml/badge.svg" alt="Check"></a>
@@ -12,7 +12,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/yyan115/tidal-app" alt="License"></a>
 </p>
 
-Stream your TIDAL library in lossless quality, with synced lyrics, offline listening, Android Auto and twelve themes. Add your own audio files and folders, and they play alongside TIDAL in the same player. OpenTune has no ads, analytics or tracking.
+Stream your TIDAL library in lossless quality, with synced lyrics, offline listening, and more. Add your own music files and folders, and listen to them alongside your TIDAL library. OpenTune has no ads, analytics or tracking whatsoever. TIDAL's own data collection still applies.
 
 > [!NOTE]
 > OpenTune is currently in early access, so features may change or break between versions. If you find a bug or have an idea for a feature, please open an issue. Your feedback is welcome!
