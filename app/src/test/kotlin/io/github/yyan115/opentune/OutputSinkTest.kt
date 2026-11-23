@@ -27,8 +27,10 @@ class OutputSinkTest {
         override fun invoke(proxy: Any, method: Method, args: Array<out Any?>?): Any? {
             calls += method.name
             if (method.name == "handleBuffer") {
-                if (!takeBuffers) return false
                 val buffer = args!![0] as ByteBuffer
+                // The real output refuses a buffer that is not little-endian, with an IllegalArgumentException.
+                require(buffer.order() == java.nio.ByteOrder.LITTLE_ENDIAN) { "The buffer is ${buffer.order()}" }
+                if (!takeBuffers) return false
                 buffers += ByteArray(buffer.remaining()).also { buffer.get(it) }
                 return true
             }
@@ -65,7 +67,7 @@ class OutputSinkTest {
         val data = ByteBuffer.allocate(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         for (i in 0 until bytes / 4) data.putFloat((((i * 31 + seed) % 200) - 100) / 200f)
         data.rewind()
-        return ByteBuffer.wrap(data.array())
+        return ByteBuffer.wrap(data.array()).order(java.nio.ByteOrder.LITTLE_ENDIAN)
     }
     private fun pushed(f: Fixture, index: Int, bytes: Int): Boolean = f.sink.handleBuffer(buffer(bytes, index), index * stepUs, 1)
 
@@ -83,7 +85,7 @@ class OutputSinkTest {
         val f = Fixture()
         configure(f, C.ENCODING_PCM_FLOAT, expectFloat = true)
         val sent = (0 until 5).map { buffer(frames * 8, it).array().copyOf() }
-        for (i in 0 until 5) assertTrue(f.sink.handleBuffer(ByteBuffer.wrap(sent[i].copyOf()), i * stepUs, 1))
+        for (i in 0 until 5) assertTrue(f.sink.handleBuffer(ByteBuffer.wrap(sent[i].copyOf()).order(java.nio.ByteOrder.LITTLE_ENDIAN), i * stepUs, 1))
         assertEquals(5, f.floatRecorder.buffers.size)
         for (i in 0 until 5) assertArrayEquals("buffer $i", sent[i], f.floatRecorder.buffers[i])
         assertEquals(0, f.integerRecorder.buffers.size)
