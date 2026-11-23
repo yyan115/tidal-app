@@ -316,6 +316,8 @@
     <string name="source_codec">Codec</string>
     <string name="source_bit_depth">Bit depth</string>
     <string name="source_sample_rate">Sample rate</string>
+    <string name="source_output">Output</string>
+    <string name="source_output_blocked">%1$d-bit not supported on this phone</string>
     <string name="source_label">SOURCE</string>
     <string name="eq_title">Equalizer</string>
     <string name="eq_unavailable">This device has no equalizer that OpenTune can use</string>

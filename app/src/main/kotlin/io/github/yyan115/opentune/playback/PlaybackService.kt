@@ -110,13 +110,28 @@ class PlaybackService : MediaLibraryService() {
     override fun onCreate() {
         super.onCreate()
         app = application as OpenTuneApp
+        // A phone that failed the check of the 24-bit output stays on 16-bit until its system build changes. The song that failed starts again at once.
+        OutputPolicy.state = OutputPolicyState(PreferencesStore(getSharedPreferences("output", MODE_PRIVATE)), Build.FINGERPRINT).also { policy ->
+            policy.restore()
+            policy.onBlocked = { reason -> Handler(Looper.getMainLooper()).post { restartAfterBlockedOutput(reason) } }
+        }
         // The output keeps the depth of 24-bit audio and lets the visualizer see the audio. The audio itself does not change.
         val renderers = object : androidx.media3.exoplayer.DefaultRenderersFactory(this) {
             override fun buildAudioSink(context: android.content.Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): androidx.media3.exoplayer.audio.AudioSink {
                 AudioSpectrum.sinks++
                 fun output(floatSamples: Boolean) = androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context).setEnableFloatOutput(floatSamples)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).build()
-                return OutputSink(output(true), output(false)) { Build.VERSION.SDK_INT >= 34 && app.settings.state.value.bitPerfect }
+                return OutputSink(output(true), output(false), useInteger = { Build.VERSION.SDK_INT >= 34 && app.settings.state.value.bitPerfect })
+            }
+
+            // The renderer of the phone's decoder asks for float samples for every song. Ours asks only for the songs that need them.
+            override fun buildAudioRenderers(context: android.content.Context, extensionRendererMode: Int, mediaCodecSelector: androidx.media3.exoplayer.mediacodec.MediaCodecSelector,
+                enableDecoderFallback: Boolean, audioSink: androidx.media3.exoplayer.audio.AudioSink, eventHandler: Handler,
+                eventListener: androidx.media3.exoplayer.audio.AudioRendererEventListener, out: java.util.ArrayList<androidx.media3.exoplayer.Renderer>) {
+                super.buildAudioRenderers(context, extensionRendererMode, mediaCodecSelector, enableDecoderFallback, audioSink, eventHandler, eventListener, out)
+                val index = out.indexOfFirst { it.javaClass == androidx.media3.exoplayer.audio.MediaCodecAudioRenderer::class.java }
+                if (index >= 0 && audioSink is OutputSink) out[index] = OpenTuneAudioRenderer(context, androidx.media3.exoplayer.mediacodec.DefaultMediaCodecAdapterFactory(context),
+                    mediaCodecSelector, enableDecoderFallback, eventHandler, eventListener, audioSink)
             }
         }
         player = ExoPlayer.Builder(this, renderers)
@@ -303,6 +318,22 @@ class PlaybackService : MediaLibraryService() {
 
     private fun trackOf(item: MediaItem): Track? = item.mediaMetadata.extras?.getString("track")
         ?.let { runCatching { JsonCodec.decodeTrack(JSONObject(it)) }.getOrNull() }
+
+    /**
+     * The output stopped a stream that the decoder would have played as noise. Nothing was played. The song starts again where it was, and this
+     * time the decoder is not asked for float samples.
+     */
+    private fun restartAfterBlockedOutput(reason: String) {
+        android.util.Log.w("OpenTune", "24-bit output stopped: $reason")
+        val index = player.currentMediaItemIndex
+        if (index == C.INDEX_UNSET) return
+        val position = player.currentPosition
+        val playWhenReady = player.playWhenReady
+        player.stop()
+        player.seekTo(index, position)
+        player.prepare()
+        player.playWhenReady = playWhenReady
+    }
 
     /** Turns loud tracks down by their ReplayGain value when the listener asked for it. */
     private fun applyNormalization() {
