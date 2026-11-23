@@ -1,0 +1,7 @@
+Please note that the minimum supported Android version has been bumped from Android 8 to Android 10.
+
+- Drag gesture to open and close the full player
+- Swipe on a track to play it next or add it to the queue
+- Custom time for Avoid repeats, from 1 minute to 365 days, entered as days, hours and minutes
+- Download folder setting with the system folder picker, applied to new downloads
+- Card for the download that runs, in the list of what is on the device

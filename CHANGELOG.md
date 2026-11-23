@@ -4,6 +4,10 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-23
+
+Please note that the minimum supported Android version has been bumped from Android 8 to Android 10.
+
 ### Added
 
 - Drag gesture to open and close the full player
@@ -41,7 +45,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Arrow only on the actions that open a page
 - Permissions page says Required and Optional
 - Pop-up of the download folder describes the change, and a change on the permissions page is not announced
-- Strip behind the three navigation buttons has the colour of the screen
+- Navigation bar behind the three buttons is transparent
 - Larger title in pop-ups, and an outline on the second action
 - "Filter" renamed to "Search" in the library
 - Inactive lyric lines are easier to read
@@ -61,6 +65,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Audio details and the track menu of the player showing a download as not finished
 - Equalizer and scrobbling switches having no name for a screen reader
 - Cover of Continue listening having no name for a screen reader
+- Play and Pause button of the small player having no name for a screen reader while a song loads
 - Equalizer menu jumping from the top to the bottom of the field when it opens for the first time
 - Dot at the end of the progress bar of a download
 - Cross of a swiped queue row missing when the row moves to the left
@@ -93,7 +98,6 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 - Saved tracks list ending before the last track
 - Saved tracks not following the order of the account
 - Tracks removed from the saved tracks in another app still shown as saved
-- Lists, tabs and typed text being lost when Settings, a page of Settings or another page is opened over a screen
 - Home jumping when returning to it from a page
 
 ## [0.7.0] - 2026-11-08
