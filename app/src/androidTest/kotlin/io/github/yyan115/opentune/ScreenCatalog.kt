@@ -72,7 +72,7 @@ object ScreenCatalog {
         // A phone that failed the check of the 24-bit output says so in the sheet, and the line must fit on every screen.
         add(ScreenCase("SourceDetailsSheet", "24-bit not supported") { vm ->
             val before = androidx.compose.runtime.remember { OutputPolicy.state }
-            androidx.compose.runtime.remember { OutputPolicy.state = OutputPolicyState().also { it.block("The check failed.") } }
+            androidx.compose.runtime.remember { OutputPolicyState().also { it.block("The check failed."); OutputPolicy.state = it } }
             androidx.compose.runtime.DisposableEffect(Unit) { onDispose { OutputPolicy.state = before } }
             val track = Fixtures.track(5).copy(quality = "FLAC · 24-bit · 96 kHz")
             SourceDetailsSheet(track.quality.orEmpty(), track, vm, {})
