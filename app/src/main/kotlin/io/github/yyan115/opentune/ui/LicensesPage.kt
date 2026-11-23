@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -61,7 +60,7 @@ fun LicencesPage(onOpen: (SettingsPage) -> Unit) {
         value = withContext(Dispatchers.IO) { licenceEntries(context.assets.open("licenses/THIRD_PARTY_NOTICES.txt").bufferedReader().use { it.readText() }, appName) }
     }
     val list = entries
-    if (list == null) CircularProgressIndicator(Modifier.padding(24.dp))
+    if (list == null) Spinner(Modifier.padding(24.dp))
     else LazyColumn(Modifier.fillMaxSize().testTag("licences-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
         items(list) { entry ->
             val licence = stringResource(entry.licence)
@@ -79,7 +78,7 @@ fun LicenceDocumentPage(page: SettingsPage) {
     val text by produceState<String?>(null, file) { value = withContext(Dispatchers.IO) { context.assets.open("licenses/$file").bufferedReader().use { it.readText() } } }
     Column(Modifier.fillMaxSize().testTag("licence-document").verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
         val document = text
-        if (document == null) CircularProgressIndicator(Modifier.padding(top = 16.dp))
+        if (document == null) Spinner(Modifier.padding(top = 16.dp))
         else SelectionContainer { Text(document, style = MaterialTheme.typography.bodySmall) }
     }
 }

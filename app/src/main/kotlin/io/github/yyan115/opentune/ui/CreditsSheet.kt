@@ -29,7 +29,7 @@ fun CreditsSheet(credits: CreditsUi, onClose: () -> Unit, onPerson: (Contributor
             Text(credits.title, Modifier.padding(top = 4.dp, bottom = 20.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
-                    credits.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
+                    credits.loading -> Spinner(Modifier.align(Alignment.Center))
                     credits.error != null -> Text(credits.error, Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
                     credits.credits.isEmpty() -> Text(stringResource(R.string.credits_none), Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) { // scroll: transient (a sheet that closes with its content)

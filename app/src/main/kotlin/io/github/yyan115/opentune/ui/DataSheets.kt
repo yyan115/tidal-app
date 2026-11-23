@@ -41,7 +41,7 @@ fun ScrobbleDialog(settings: Settings, vm: MainViewModel, onClose: () -> Unit) {
             OutlinedTextField(token, { token = it; result = null }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.scrobble_token)) }, singleLine = true,
                 visualTransformation = PasswordVisualTransformation(), supportingText = { Text(stringResource(R.string.scrobble_token_hint)) })
             TextButton(onClick = { checking = true; scope.launch { result = vm.checkScrobbling(server, token); checking = false } }, enabled = !checking && token.isNotBlank()) {
-                if (checking) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 1.5.dp) else Text(stringResource(R.string.scrobble_check))
+                if (checking) Spinner(Modifier.size(16.dp), strokeWidth = 1.5.dp) else Text(stringResource(R.string.scrobble_check))
             }
             result?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         }

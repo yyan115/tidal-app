@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontFamily
@@ -237,6 +238,13 @@ fun TuneOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabl
 }
 
 /** A spinner in the centre of the screen that covers it while the sign-in finishes. */
+/** The one spinner of the app. It has a name for a screen reader, so a button that shows only a spinner while it works still has one. */
+@Composable
+fun Spinner(modifier: Modifier = Modifier, color: Color = ProgressIndicatorDefaults.circularColor, strokeWidth: Dp = ProgressIndicatorDefaults.CircularStrokeWidth) {
+    val name = stringResource(R.string.loading)
+    CircularProgressIndicator(modifier.semantics { contentDescription = name }, color, strokeWidth)
+}
+
 @Composable
 fun SigningIn() {
     // The surface gives the text the colour of the theme. Without it the text takes the default colour, which is black.
@@ -246,7 +254,7 @@ fun SigningIn() {
         color = MaterialTheme.colorScheme.surface.copy(alpha = .92f), contentColor = MaterialTheme.colorScheme.onSurface) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator()
+                Spinner()
                 Text(stringResource(R.string.login_progress), Modifier.padding(top = 16.dp), style = MaterialTheme.typography.bodyLarge)
             }
         }

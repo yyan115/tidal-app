@@ -33,7 +33,7 @@ class SettingsRowsTest {
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Download folder"))
         compose.onNodeWithText("Music/OpenTune").assertIsDisplayed()
         compose.onNode(hasText("Download folder") and hasClickAction()).performClick()
-        compose.onNodeWithText("Change folder?").assertIsDisplayed()
+        compose.waitUntilDisplayed(hasText("Change folder?"))
         // The title fits on one line, and a description says what changes and what stays.
         val layout = compose.onNodeWithText("Change folder?").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action
             ?.let { read -> val results = mutableListOf<androidx.compose.ui.text.TextLayoutResult>(); read(results); results.first() }

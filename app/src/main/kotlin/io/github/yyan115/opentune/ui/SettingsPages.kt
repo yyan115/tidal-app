@@ -143,7 +143,7 @@ fun AvoidRepeatsPage(state: AppState, vm: MainViewModel) {
             item { UpperLabel(stringResource(R.string.repeats_excluded), Modifier.padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 8.dp)) }
             val tracks = excluded
             when {
-                tracks == null -> item { CircularProgressIndicator(Modifier.padding(24.dp)) }
+                tracks == null -> item { Spinner(Modifier.padding(24.dp)) }
                 tracks.isEmpty() -> item { Text(stringResource(R.string.repeats_none), Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 else -> items(tracks.size, key = { tracks[it].track.id }) { index ->
                     val entry = tracks[index]
@@ -187,7 +187,7 @@ fun StatisticsPage(vm: MainViewModel) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
             val current = stats
             when {
-                current == null -> CircularProgressIndicator(Modifier.align(Alignment.Center))
+                current == null -> Spinner(Modifier.align(Alignment.Center))
                 current.plays == 0 -> Text(stringResource(R.string.stats_empty), Modifier.align(Alignment.Center), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 else -> StatisticsLists(current)
             }

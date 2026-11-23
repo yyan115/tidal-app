@@ -70,13 +70,15 @@ class DownloadQueueTest {
             openTheQueue()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Third Song").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Cancel all").assertIsEnabled().performClick()
-            compose.onNodeWithText("Cancel 3 downloads?").assertIsDisplayed()
-            compose.onNodeWithText("Finished downloads stay on the device.").assertIsDisplayed()
+            compose.waitUntilDisplayed(hasText("Cancel 3 downloads?"))
+            compose.waitUntilDisplayed(hasText("Finished downloads stay on the device."))
             compose.onNodeWithText("Keep").performClick()
             compose.onAllNodesWithText("Cancel 3 downloads?").assertCountEquals(0)
             compose.onNodeWithText("Queued Song").assertIsDisplayed()
             compose.onNodeWithText("Cancel all").performClick()
-            compose.onNode(hasText("Cancel all") and hasClickAction() and hasAnyAncestor(isDialog())).performClick()
+            val confirm = hasText("Cancel all") and hasClickAction() and hasAnyAncestor(isDialog())
+            compose.waitUntilDisplayed(confirm)
+            compose.onNode(confirm).performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("The queue is empty").fetchSemanticsNodes().isNotEmpty() }
         } finally {
             listOf("2200002", "2200003").forEach { app.library.removeLocal(it) }

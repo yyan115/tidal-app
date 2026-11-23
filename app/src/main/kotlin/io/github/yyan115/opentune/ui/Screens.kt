@@ -307,7 +307,7 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onNew
                         !state.signedIn -> EmptyState(OpenTuneIcons.Waves, stringResource(R.string.mixes_none), stringResource(R.string.mixes_connect), stringResource(R.string.action_connect_tidal), onLogin)
                         state.settings.offline -> EmptyState(OpenTuneIcons.CloudOff, stringResource(R.string.mixes_offline), stringResource(R.string.mixes_offline_text))
                         entry?.error != null -> ErrorCard(entry.error) { pages.load(mixes, force = true) }
-                        else -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 1.5.dp) }
+                        else -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Spinner(Modifier.size(24.dp), strokeWidth = 1.5.dp) }
                     }
                 }
             }

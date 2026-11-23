@@ -44,7 +44,7 @@ class DownloadAllTest {
     @Test fun fifteenSongsAskFirstAndNameTheNumber() {
         show(songs(15))
         compose.onNodeWithTag("download-all").performClick()
-        compose.onNodeWithText("Download 15 songs?").assertIsDisplayed()
+        compose.waitUntilDisplayed(hasText("Download 15 songs?"))
         compose.onNodeWithText("They download one at a time. You can stop them in the download queue.").assertIsDisplayed()
         assertEquals("Nothing starts before the answer", 0, started.size)
         compose.onNodeWithText("Cancel").performClick()

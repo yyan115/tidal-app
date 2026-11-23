@@ -63,7 +63,7 @@ fun PlayControl(playing: Boolean, buffering: Boolean = false, size: Dp = 72.dp, 
     val description = stringResource(if (playing) R.string.player_pause else R.string.player_play)
     Box(Modifier.size(size).clip(CircleShape).background(colors.onSurface).clickable(onClick = onClick)
         .semantics { contentDescription = description; role = Role.Button }, contentAlignment = Alignment.Center) {
-        if (buffering) CircularProgressIndicator(Modifier.size(size * .35f), color = colors.background, strokeWidth = 1.6.dp)
+        if (buffering) Spinner(Modifier.size(size * .35f), color = colors.background, strokeWidth = 1.6.dp)
         else Icon(if (playing) OpenTuneIcons.Pause else OpenTuneIcons.PlayArrow, null, Modifier.size(size * .42f), tint = colors.background)
     }
 }
@@ -96,9 +96,11 @@ fun MiniPlayer(state: PlaybackState, position: State<Long>, onOpen: () -> Unit, 
                         fontFamily = AppFonts.body, fontSize = 10.sp, lineHeight = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         color = if (state.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                IconButton(onClick = onPlay) {
-                    if (state.buffering) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 1.5.dp)
-                    else Icon(if (state.playing) OpenTuneIcons.Pause else OpenTuneIcons.PlayArrow, stringResource(if (state.playing) R.string.player_pause else R.string.player_play), Modifier.size(21.dp))
+                // The button carries the name of its action while the spinner shows, the same as the large play button.
+                val action = stringResource(if (state.playing) R.string.player_pause else R.string.player_play)
+                IconButton(onClick = onPlay, Modifier.semantics { contentDescription = action }) {
+                    if (state.buffering) Spinner(Modifier.size(18.dp), strokeWidth = 1.5.dp)
+                    else Icon(if (state.playing) OpenTuneIcons.Pause else OpenTuneIcons.PlayArrow, null, Modifier.size(21.dp))
                 }
             }
             LinearProgressIndicator(progress = { if (state.duration > 0) (position.value.toFloat() / state.duration).coerceIn(0f, 1f) else 0f },
@@ -387,7 +389,7 @@ private fun PlayerAction(icon: androidx.compose.ui.graphics.vector.ImageVector, 
     Column(modifier.heightIn(min = 52.dp).clickable(enabled = enabled, role = Role.Button, onClick = onClick)
         .then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier).padding(vertical = 6.dp, horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 1.5.dp, color = shown) else Icon(icon, null, Modifier.size(22.dp), tint = shown)
+        if (busy) Spinner(Modifier.size(20.dp), strokeWidth = 1.5.dp, color = shown) else Icon(icon, null, Modifier.size(22.dp), tint = shown)
         Text(label, Modifier.padding(top = 3.dp), fontFamily = AppFonts.body, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = shown)
     }
 }

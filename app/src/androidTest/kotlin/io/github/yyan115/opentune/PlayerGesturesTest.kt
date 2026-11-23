@@ -101,7 +101,7 @@ class PlayerGesturesTest {
         compose.onNodeWithContentDescription("Track options").performClick()
         compose.onNode(hasText("Stop playback") and hasClickAction()).performClick()
         // Stopping clears the queue, so the app asks first, as it does for Clear.
-        compose.onNodeWithText("Stop playback?").assertIsDisplayed()
+        compose.waitUntilDisplayed(hasText("Stop playback?"))
         compose.onNodeWithText("The queue will be cleared").assertIsDisplayed()
         compose.onNodeWithText("Cancel").performClick()
         compose.onAllNodesWithText("Stop playback?").assertCountEquals(0)

@@ -111,7 +111,7 @@ fun ListenScreen(state: AppState, vm: MainViewModel, onImport: () -> Unit, onLog
         if (online && forYou?.page == null && home?.page == null) item(key = "pages-state") {
             val error = forYou?.error ?: home?.error
             if (error != null) ErrorCard(error) { pages.load(PageRoute.ForYou, true); pages.load(PageRoute.Home, true) }
-            else Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 1.5.dp) }
+            else Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Spinner(Modifier.size(24.dp), strokeWidth = 1.5.dp) }
         }
     }
     }

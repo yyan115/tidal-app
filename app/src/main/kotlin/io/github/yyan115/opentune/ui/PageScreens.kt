@@ -53,7 +53,7 @@ fun PageScreen(route: PageRoute, state: AppState, vm: MainViewModel, pages: Page
             if (page == null) {
                 item(key = "state") {
                     if (entry.error != null) ErrorCard(entry.error) { pages.load(route, force = true) }
-                    else Box(Modifier.fillMaxWidth().padding(64.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                    else Box(Modifier.fillMaxWidth().padding(64.dp), contentAlignment = Alignment.Center) { Spinner() }
                 }
             } else {
                 val headerless = page.modules.none { it is ArtistHeader || it is AlbumHeader || it is MixHeader }
@@ -131,7 +131,7 @@ private fun LazyListScope.trackList(module: TrackListModule, entry: PageUi, rout
 private fun LoadMore(routeKey: String, module: PageModule, entry: PageUi, ctx: PageContext) {
     val loading = module.id in entry.loadingMore
     TextButton(onClick = { ctx.pages.loadMore(routeKey, module) }, enabled = !loading, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        if (loading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 1.5.dp) else Text(stringResource(R.string.action_load_more))
+        if (loading) Spinner(Modifier.size(18.dp), strokeWidth = 1.5.dp) else Text(stringResource(R.string.action_load_more))
     }
 }
 
