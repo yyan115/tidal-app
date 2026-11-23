@@ -11,6 +11,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -115,6 +116,18 @@ fun SectionTitle(title: String, action: String? = null, arrow: Boolean = false, 
             Text(action, style = MaterialTheme.typography.labelMedium)
             if (arrow) { Spacer(Modifier.width(7.dp)); Icon(OpenTuneIcons.ArrowForward, null, Modifier.size(16.dp).testTag("section-arrow")) }
         }
+    }
+}
+
+/**
+ * Puts [content] in the middle of the free space of a list. The space is at least [fraction] of the height of the list and grows when the content is taller.
+ * A box of exactly that height would squeeze the content on a small screen or with large text.
+ */
+@Composable
+fun LazyItemScope.CenteredInFreeSpace(fraction: Float, content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Spacer(Modifier.fillParentMaxHeight(fraction))
+        content()
     }
 }
 

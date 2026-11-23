@@ -66,7 +66,7 @@ fun DownloadQueuePage(state: AppState, vm: MainViewModel) {
     val queue = queuedDownloads(state)
     LazyColumn(Modifier.fillMaxSize().testTag("download-queue"), contentPadding = PaddingValues(bottom = 24.dp)) {
         if (queue.isEmpty()) item {
-            Box(Modifier.fillParentMaxHeight(.6f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            CenteredInFreeSpace(.6f) {
                 Text(stringResource(R.string.downloads_queue_empty), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

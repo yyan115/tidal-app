@@ -107,7 +107,7 @@ fun OnDeviceScreen(state: AppState, vm: MainViewModel, onAddFiles: () -> Unit, o
 
         if (state.local.isEmpty()) {
             // The icon, the title and the text sit in the middle of the free space.
-            if (active.isEmpty()) item { Box(Modifier.fillParentMaxHeight(.5f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            if (active.isEmpty()) item { CenteredInFreeSpace(.5f) {
                 EmptyState(OpenTuneIcons.AudioFile, stringResource(R.string.device_empty_title), stringResource(if (state.signedIn) R.string.device_empty_text else R.string.device_empty_text_local))
             } }
         } else {
