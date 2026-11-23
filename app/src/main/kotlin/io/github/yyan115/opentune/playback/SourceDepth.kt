@@ -2,11 +2,13 @@ package io.github.yyan115.opentune.playback
 
 import androidx.media3.common.C
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.util.UnstableApi
 
 /**
  * How many bits a sample of a source holds, read from what the player knows before it decodes anything. Only a source of more than 16 bits needs
  * more than a 16-bit output, so only such a source may ask the decoder for samples of a larger size.
  */
+@UnstableApi
 object SourceDepth {
     /** The bits of a sample, or null when the format does not say. [initializationData] is what the reader of the file hands to the decoder. */
     fun bits(mimeType: String?, pcmEncoding: Int, initializationData: List<ByteArray>): Int? = when (mimeType) {
