@@ -12,8 +12,9 @@ case "$api" in
   *) offset=0 ;;
 esac
 
-# Maven Central refuses a download now and then, with the status 429, when many runs of the CI ask at the same time. The tests have not started when
-# that happens, so Gradle is started again, up to four times, with a wait that grows. Any other failure, such as a failed test, ends the attempt.
+# Maven Central refuses a download now and then, with the status 429, when many runs of the CI ask at the same time. Gradle shows a refused plugin
+# download as a plugin that was not found, without the status. The tests have not started when that happens, so Gradle is started again, up to four
+# times, with a wait that grows. Any other failure, such as a failed test, ends the attempt.
 run_gradle() {
   local attempt code log
   log="$(mktemp)"
@@ -21,8 +22,8 @@ run_gradle() {
     ./gradlew "$@" 2>&1 | tee "$log"
     code=${PIPESTATUS[0]}
     if [ "$code" -eq 0 ]; then rm -f "$log"; return 0; fi
-    if [ "$attempt" -eq 4 ] || ! grep -q "status code 429" "$log"; then rm -f "$log"; return "$code"; fi
-    echo "Maven Central answered with 429 (attempt $attempt of 4). Waiting before the next attempt."
+    if [ "$attempt" -eq 4 ] || ! grep -qE "status code 429|was not found in any of the following sources" "$log"; then rm -f "$log"; return "$code"; fi
+    echo "A download was refused (attempt $attempt of 4). Waiting before the next attempt."
     sleep $(( ${RETRY_SECONDS:-60} * attempt ))
   done
 }

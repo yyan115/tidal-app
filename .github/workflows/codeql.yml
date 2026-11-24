@@ -30,8 +30,7 @@ jobs:
         with:
           cache-provider: basic
           cache-read-only: true
-      - name: Use the Google copy of Maven Central
-        run: install -D .github/gradle/mirror.init.gradle "$HOME/.gradle/init.d/mirror.init.gradle"
+      - uses: ./.github/actions/maven-mirror
       - name: Install Android SDK packages
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;35.0.0'

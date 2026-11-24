@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 SCRIPT = pathlib.Path(__file__).with_name("run_device_tests.sh")
+NOT_FOUND = "Plugin [id: 'info.solidsoft.pitest', version: '1.15.0', apply: false] was not found in any of the following sources:"
 REFUSED = "Could not GET 'https://repo.maven.apache.org/maven2/x.pom'. Received status code 429 from server: Too Many Requests"
 
 
@@ -14,7 +15,7 @@ class DeviceTestRun(unittest.TestCase):
     """The script that runs the device tests starts Gradle once for each shard, and tries again when Maven Central refuses a download."""
 
     def run_script(self, behaviour: str, shards: int = 1, api: str = "29"):
-        """Runs the script with a Gradle that behaves as [behaviour] says for each call, in turn: 'ok', 'refused' or 'failed'."""
+        """Runs the script with a Gradle that behaves as [behaviour] says for each call, in turn: 'ok', 'refused', 'notfound' or 'failed'."""
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
             (root / "scripts").mkdir()
@@ -29,6 +30,7 @@ what=$(tr ' ' '\\n' < behaviour | sed -n "${{n}}p")
 case "$what" in
   ok) exit 0 ;;
   refused) echo "{REFUSED}"; exit 1 ;;
+  notfound) echo "{NOT_FOUND}"; exit 1 ;;
   failed) echo "SomeTest > aTest FAILED"; exit 1 ;;
 esac
 """, encoding="utf-8")
@@ -50,6 +52,11 @@ esac
         code, calls, _ = self.run_script("refused refused ok")
         self.assertEqual(0, code)
         self.assertEqual(3, len(calls))
+
+    def test_a_plugin_that_was_not_found_is_tried_again(self):
+        code, calls, _ = self.run_script("notfound ok")
+        self.assertEqual(0, code)
+        self.assertEqual(2, len(calls))
 
     def test_a_download_that_stays_refused_stops_after_four_attempts(self):
         code, calls, _ = self.run_script("refused")
