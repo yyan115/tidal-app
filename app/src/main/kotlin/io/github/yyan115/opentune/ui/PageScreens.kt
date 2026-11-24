@@ -81,7 +81,7 @@ fun LazyListScope.pageContent(page: PageData, entry: PageUi, routeKey: String, c
             }
             is LinksModule -> item(key = key) { LinksRow(module, ctx) }
             is CarouselModule -> carousel(module, entry, routeKey, ctx, key, viewAll)
-            is TrackListModule -> trackList(module, entry, routeKey, ctx, key, viewAll)
+            is TrackListModule -> trackList(module, entry, routeKey, ctx, key, viewAll || page.showsEverySong())
         }
     }
 }
@@ -123,7 +123,7 @@ private fun LazyListScope.trackList(module: TrackListModule, entry: PageUi, rout
         TrackRow(track, ctx.state.playback.track?.id == track.id, onPlay = { ctx.vm.play(tracks, position, ctx.source) }, onMenu = { ctx.onMenu(track) },
             index = if (module.numbered) position else null)
     }
-    if (viewAll && module.dataPath != null && tracks.size < module.total) item(key = "$key:more") { LoadMore(routeKey, module, entry, ctx) }
+    if (viewAll && module.hasMore(tracks.size)) item(key = "$key:more") { LoadMore(routeKey, module, entry, ctx) }
 }
 
 @UnstableApi

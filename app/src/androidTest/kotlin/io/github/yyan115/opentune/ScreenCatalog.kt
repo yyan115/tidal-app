@@ -91,6 +91,12 @@ object ScreenCatalog {
         add(ScreenCase("AppDialog", "title text and two actions") { AppDialog({}, title = { androidx.compose.material3.Text("A question that has a longer title than most") },
             text = { androidx.compose.material3.Text("A sentence that explains what happens when the listener agrees, long enough to wrap onto a few lines on a small screen.") },
             confirmButton = { DialogConfirm({}) { androidx.compose.material3.Text("Confirm") } }, dismissButton = { DialogDismiss({}) { androidx.compose.material3.Text("Cancel") } }) })
+        // The rows of a page of TIDAL: a mix with every state of its list, and the preview of an artist.
+        add(ScreenCase("PageScreen", "mix with more songs to load") { vm -> PageCase(PageFixtures.page(PageFixtures.mixHeader, PageFixtures.list(20, total = 50, dataPath = "pages/data/mix")), vm) })
+        add(ScreenCase("PageScreen", "mix with every song") { vm -> PageCase(PageFixtures.page(PageFixtures.mixHeader, PageFixtures.list(20)), vm) })
+        add(ScreenCase("PageScreen", "mix with one song") { vm -> PageCase(PageFixtures.page(PageFixtures.mixHeader, PageFixtures.list(1)), vm) })
+        add(ScreenCase("PageScreen", "mix without songs") { vm -> PageCase(PageFixtures.page(PageFixtures.mixHeader), vm) })
+        add(ScreenCase("PageScreen", "artist with a preview of the top songs") { vm -> PageCase(PageFixtures.page(PageFixtures.artistHeader, PageFixtures.list(12, title = "Top tracks", showMore = "pages/data/top")), vm) })
         add(ScreenCase("SetupScreen", "default") { SetupScreen("", {}, {}) })
         add(ScreenCase("SetupScreen", "chosen folder") { SetupScreen("content://com.android.externalstorage.documents/tree/primary%3AMusic%2FLossless", {}, {}) })
         add(ScreenCase("WelcomeScreen", "default") { WelcomeScreen({}, {}) })
