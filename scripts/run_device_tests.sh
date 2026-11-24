@@ -11,9 +11,25 @@ case "$api" in
   33) extra+=(-Pandroid.testInstrumentationRunnerArguments.crawl=true); offset=1 ;;
   *) offset=0 ;;
 esac
+
+# Maven Central refuses a download now and then, with the status 429, when many runs of the CI ask at the same time. The tests have not started when
+# that happens, so Gradle is started again, up to four times, with a wait that grows. Any other failure, such as a failed test, ends the attempt.
+run_gradle() {
+  local attempt code log
+  log="$(mktemp)"
+  for attempt in 1 2 3 4; do
+    ./gradlew "$@" 2>&1 | tee "$log"
+    code=${PIPESTATUS[0]}
+    if [ "$code" -eq 0 ]; then rm -f "$log"; return 0; fi
+    if [ "$attempt" -eq 4 ] || ! grep -q "status code 429" "$log"; then rm -f "$log"; return "$code"; fi
+    echo "Maven Central answered with 429 (attempt $attempt of 4). Waiting before the next attempt."
+    sleep $(( ${RETRY_SECONDS:-60} * attempt ))
+  done
+}
+
 status=0
 for ((shard = 0; shard < shards; shard++)); do
-  ./gradlew --no-daemon :app:connectedDebugAndroidTest "${extra[@]}" \
+  run_gradle --no-daemon :app:connectedDebugAndroidTest "${extra[@]}" \
     -Pandroid.testInstrumentationRunnerArguments.matrixStride=3 \
     -Pandroid.testInstrumentationRunnerArguments.matrixOffset="$offset" \
     -Pandroid.testInstrumentationRunnerArguments.numShards="$shards" \
