@@ -4,15 +4,17 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-24
+
 ### Changed
 
 - 24-bit songs are checked before they play, and a phone that cannot play them correctly uses 16-bit and says so in the audio details
 
 ### Fixed
 
-- Mixes showing only the first 5 songs
 - Songs playing extremely loud, distorted and fast on some phones
 - Songs that TIDAL offers only in lower quality not playing while Lossless is selected
+- Mixes showing only the first 5 songs
 
 ## [0.8.0] - 2026-11-23
 
