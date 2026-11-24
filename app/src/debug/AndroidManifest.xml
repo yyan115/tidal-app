@@ -1,9 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!--
-      The emulators of the checks give an app 16 MB of memory on Android 10, because the system image sets no limit for it, and a long queue or a
-      screen with many rows fills that. A phone gives 192 MB or more. A large heap gives the debug app, and so its tests, the 512 MB that the emulator has.
-    -->
-    <application android:largeHeap="true">
+    <application>
         <activity android:name=".preview.ThemePreviewActivity" android:exported="true" />
         <!-- A folder tree for the tests of the folder scan. It serves the files in the private folder documents-test. -->
         <provider android:name=".preview.TestDocumentsProvider" android:authorities="${applicationId}.testdocuments"
