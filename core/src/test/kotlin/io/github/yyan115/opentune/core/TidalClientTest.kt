@@ -92,8 +92,109 @@ class TidalClientTest {
 
     @Test fun losslessRequestRejectsAacInsteadOfSilentlyDowngrading() = runBlocking {
         server.enqueue(MockResponse().setBody(streamResponse("mp4a.40.2")))
+        server.enqueue(MockResponse().setBody(trackResponse("LOSSLESS", listOf("LOSSLESS"))))
         try { client.stream("42", AudioQuality.LOSSLESS); fail("Lossy audio was accepted for a lossless request") }
         catch (error: ServiceException) { assertEquals(406, error.status); assertTrue(error.message.orEmpty().contains("lossless")) }
+    }
+
+    /** What TIDAL says about one song: the best quality that it offers and its quality tags. Either field may be missing. */
+    private fun trackResponse(audioQuality: String?, tags: List<String>?): String {
+        val quality = audioQuality?.let { """"audioQuality":"$it",""" }.orEmpty()
+        val metadata = tags?.let { """"mediaMetadata":{"tags":[${it.joinToString(",") { tag -> "\"$tag\"" }}]},""" }.orEmpty()
+        return """{"id":42,"title":"A song",$quality$metadata"duration":200}"""
+    }
+
+    private fun lossyOnly(vararg qualityAndTags: Pair<String?, List<String>?>) = qualityAndTags.forEach { (quality, tags) ->
+        runBlocking {
+            server.enqueue(MockResponse().setBody(streamResponse("mp4a.40.2")))
+            server.enqueue(MockResponse().setBody(trackResponse(quality, tags)))
+            val stream = client.stream("42", AudioQuality.LOSSLESS)
+            assertEquals("quality $quality, tags $tags", "mp4a.40.2", stream.codec)
+        }
+    }
+
+    private fun refused(quality: AudioQuality, answerAboutTheSong: MockResponse): ServiceException {
+        server.enqueue(MockResponse().setBody(streamResponse("mp4a.40.2")))
+        server.enqueue(answerAboutTheSong)
+        return try { runBlocking { client.stream("42", quality) }; fail("Lossy audio was accepted for a song that offers lossless"); error("unreachable") }
+        catch (error: ServiceException) { error }
+    }
+
+    @Test fun aLosslessAnswerToALosslessRequestAsksNothingElse() = runBlocking {
+        server.enqueue(MockResponse().setBody(streamResponse("flac")))
+        assertEquals("flac", client.stream("42", AudioQuality.LOSSLESS).codec)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun anAlacAnswerCountsAsLossless() = runBlocking {
+        server.enqueue(MockResponse().setBody(streamResponse("alac")))
+        assertEquals("alac", client.stream("42", AudioQuality.LOSSLESS).codec)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun aHiResAnswerToAHiResRequestAsksNothingElse() = runBlocking {
+        server.enqueue(MockResponse().setBody(streamResponse("flac")))
+        client.stream("42", AudioQuality.HI_RES_LOSSLESS)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun aLossyAnswerToALossyRequestAsksNothingElse() = runBlocking {
+        for (quality in listOf(AudioQuality.HIGH, AudioQuality.LOW)) {
+            server.enqueue(MockResponse().setBody(streamResponse("mp4a.40.2")))
+            assertEquals("mp4a.40.2", client.stream("42", quality).codec)
+        }
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test fun aLossyAnswerMakesTheClientAskTidalAboutTheSong() = runBlocking {
+        lossyOnly("HIGH" to emptyList())
+        assertEquals(2, server.requestCount)
+        assertTrue(server.takeRequest().path.orEmpty().contains("tracks/42/playbackinfopostpaywall"))
+        assertTrue(server.takeRequest().path.orEmpty().startsWith("/v1/tracks/42?"))
+    }
+
+    @Test fun aSongThatOnlyExistsAsLossyPlaysItsLossyStream() {
+        lossyOnly("HIGH" to emptyList(), "LOW" to emptyList(), "HIGH" to listOf("DOLBY_ATMOS"), "HIGH" to null)
+    }
+
+    @Test fun aLosslessSongThatGetsALossyAnswerStillFails() {
+        for (offer in listOf("LOSSLESS" to listOf("LOSSLESS"), "HI_RES_LOSSLESS" to listOf("LOSSLESS", "HIRES_LOSSLESS"))) {
+            val error = refused(AudioQuality.LOSSLESS, MockResponse().setBody(trackResponse(offer.first, offer.second)))
+            assertEquals(406, error.status); assertEquals(Problem.LOSSY_AUDIO, error.problem)
+        }
+    }
+
+    @Test fun aHiResSongThatGetsALossyAnswerStillFails() {
+        val error = refused(AudioQuality.HI_RES_LOSSLESS, MockResponse().setBody(trackResponse("HI_RES_LOSSLESS", listOf("HIRES_LOSSLESS"))))
+        assertEquals(Problem.LOSSY_AUDIO, error.problem)
+    }
+
+    @Test fun aSongThatIsLosslessOnlyByItsTagsStillFails() {
+        assertEquals(Problem.LOSSY_AUDIO, refused(AudioQuality.LOSSLESS, MockResponse().setBody(trackResponse(null, listOf("LOSSLESS")))).problem)
+        assertEquals(Problem.LOSSY_AUDIO, refused(AudioQuality.LOSSLESS, MockResponse().setBody(trackResponse("HIGH", listOf("HIRES_LOSSLESS")))).problem)
+    }
+
+    @Test fun aSongThatIsLosslessOnlyByItsQualityStillFails() {
+        assertEquals(Problem.LOSSY_AUDIO, refused(AudioQuality.LOSSLESS, MockResponse().setBody(trackResponse("LOSSLESS", null))).problem)
+    }
+
+    @Test fun anAnswerAboutTheSongThatCannotBeReadKeepsTheError() {
+        for (answer in listOf(MockResponse().setResponseCode(500), MockResponse().setResponseCode(404).setBody("{}"), MockResponse().setBody("not json"), MockResponse().setBody(""))) {
+            assertEquals(Problem.LOSSY_AUDIO, refused(AudioQuality.LOSSLESS, answer).problem)
+        }
+    }
+
+    @Test fun anAnswerThatSaysNothingAboutQualityKeepsTheError() {
+        assertEquals(Problem.LOSSY_AUDIO, refused(AudioQuality.LOSSLESS, MockResponse().setBody("""{"id":42,"title":"A song"}""")).problem)
+        assertEquals(Problem.LOSSY_AUDIO, refused(AudioQuality.LOSSLESS, MockResponse().setBody(trackResponse(null, emptyList()))).problem)
+    }
+
+    @Test fun theLossyStreamOfALossyOnlySongCarriesItsRealQualityLabel() = runBlocking {
+        server.enqueue(MockResponse().setBody(streamResponse("mp4a.40.2")))
+        server.enqueue(MockResponse().setBody(trackResponse("HIGH", emptyList())))
+        val stream = client.stream("42", AudioQuality.LOSSLESS)
+        assertEquals("audio/mp4", stream.mimeType)
+        assertFalse(stream.qualityLabel.contains("FLAC", ignoreCase = true))
     }
 
     @Test fun explicitAacQualityRemainsAvailable() = runBlocking {

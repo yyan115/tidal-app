@@ -171,12 +171,29 @@ class TidalClient(
     suspend fun stream(id: String, quality: AudioQuality): StreamInfo {
         val stream = StreamManifest.parse(request("tracks/$id/playbackinfopostpaywall", mapOf("audioquality" to quality.name,
             "playbackmode" to "STREAM", "assetpresentation" to "FULL")))
+        // Lossy audio in answer to a lossless request means a wrong sign-in, when the song offers lossless. A song that is not offered in lossless
+        // quality, such as an uploaded one, has only lossy audio to play, and that is what it gets.
         if (quality in setOf(AudioQuality.LOSSLESS, AudioQuality.HI_RES_LOSSLESS) &&
-            !stream.codec.equals("flac", ignoreCase = true) && !stream.codec.equals("alac", ignoreCase = true)) {
+            !stream.codec.equals("flac", ignoreCase = true) && !stream.codec.equals("alac", ignoreCase = true) && offersLossless(id)) {
             throw ServiceException(406, "TIDAL returned lossy audio instead of lossless. Sign in again using Sign in to TIDAL, or choose High quality to allow AAC.", Problem.LOSSY_AUDIO)
         }
         return stream
     }
+
+    /**
+     * Whether TIDAL offers the song in lossless quality, by the best quality that it names and by its quality tags. When the answer cannot be read,
+     * or says nothing about quality, the song counts as offered, so that a lossy answer is never played without a reason that can be shown.
+     */
+    private suspend fun offersLossless(id: String): Boolean = try {
+        val song = request("tracks/$id")
+        val best = if (song.isNull("audioQuality")) "" else song.optString("audioQuality")
+        val tags = JsonCodec.tags(song)
+        when {
+            best in LOSSLESS_QUALITIES || tags.any { it in LOSSLESS_TAGS } -> true
+            best.isBlank() && tags.isEmpty() -> true
+            else -> false
+        }
+    } catch (error: kotlinx.coroutines.CancellationException) { throw error } catch (error: Exception) { true }
 
     suspend fun setFavorite(id: String, favorite: Boolean) {
         if (favorite) request("users/${userId()}/favorites/tracks", method = "POST", form = mapOf("trackIds" to id))
@@ -412,3 +429,6 @@ class TidalClient(
 
     private val pageParameters get() = mapOf("locale" to locale(), "deviceType" to "PHONE")
 }
+
+private val LOSSLESS_QUALITIES = setOf("LOSSLESS", "HI_RES_LOSSLESS", "HI_RES")
+private val LOSSLESS_TAGS = setOf("LOSSLESS", "HIRES_LOSSLESS")
