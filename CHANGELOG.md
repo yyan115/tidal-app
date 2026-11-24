@@ -11,6 +11,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 ### Fixed
 
 - Songs playing extremely loud, distorted and fast on some phones
+- Songs that TIDAL offers only in lower quality not playing while Lossless is selected
 
 ## [0.8.0] - 2026-11-23
 
