@@ -61,13 +61,23 @@ class QueueSavingTest {
         compose.waitUntil(900) { savedTitles().isEmpty() }
     }
 
-    /** The emulator of the CI gives the app 16 MB of memory, and a queue of 3,000 songs nearly fills it, with the copies that the player, the screen and the saved queue hold. */
-    @Test fun aQueueOfThousandsOfTracksIsSavedWhole() {
-        val list = tracks(2_000, uri())
+    /**
+     * The emulator of the CI gives the app 16 MB, and every copy of a long queue counts, the ones of the player, of the screen and of the saved queue.
+     * So the queue has 1,000 songs, and the saved queue is counted as text, because decoding it on every poll would fill the memory by itself.
+     */
+    @Test fun aLongQueueIsSavedWhole() {
+        val list = tracks(1_000, uri())
         compose.runOnIdle { model.play(list) }
-        compose.waitUntil(30_000) { model.state.value.playback.queue.size == 2_000 }
-        compose.waitUntil(15_000) { savedTitles().size == 2_000 }
-        assertEquals("Saved 2000", savedTitles().last())
+        compose.waitUntil(30_000) { model.state.value.playback.queue.size == 1_000 }
+        compose.waitUntil(15_000) { savedSongCount() == 1_000 }
+        assertTrue(saved.getString("queue", "").orEmpty().contains("\"Saved 1000\""))
+    }
+
+    private fun savedSongCount(): Int {
+        val text = saved.getString("queue", "").orEmpty()
+        var count = 0; var at = text.indexOf("\"title\":")
+        while (at >= 0) { count++; at = text.indexOf("\"title\":", at + 8) }
+        return count
     }
 
     @Test fun thePositionIsSavedWhilePlaying() {
