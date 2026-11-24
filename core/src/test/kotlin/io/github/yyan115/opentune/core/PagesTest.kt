@@ -80,6 +80,17 @@ class PagesTest {
         assertTrue(track.explicit)
     }
 
+    @Test fun aMixPageThatShowsFiveOfFiftySongsSaysWhereTheRestIs() {
+        val page = fixture("mix-long.json")
+        val list = page.modules.filterIsInstance<TrackListModule>().single()
+        assertEquals(5, list.tracks.size)
+        assertEquals(50, list.total)
+        assertEquals("pages/data/mix-songs", list.dataPath)
+        assertEquals("", list.title)
+        assertNull(list.showMore)
+        assertEquals(1, page.modules.filterIsInstance<MixHeader>().size)
+    }
+
     @Test fun trackSurvivesEncodingWithItsNewFields() {
         val original = Track("1", "A", "B", artistId = "7", trackNumber = 4, replayGain = -3.25, peak = 0.9, tags = listOf("LOSSLESS"))
         assertEquals(original.copy(addedAt = 0), JsonCodec.decodeTrack(JsonCodec.encodeTrack(original)).copy(addedAt = 0))

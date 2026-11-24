@@ -1,0 +1,163 @@
+{
+ "id": "mix-page",
+ "title": "Page",
+ "rows": [
+  {
+   "modules": [
+    {
+     "type": "MIX_HEADER",
+     "id": "header",
+     "title": "",
+     "mix": {
+      "id": "mix1",
+      "title": "My Daily Discovery",
+      "subTitle": "Songs inspired by your listening",
+      "images": {
+       "MEDIUM": {
+        "url": "https://images.tidal.com/example/640.jpg"
+       }
+      },
+      "mixType": "DISCOVERY_MIX"
+     }
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "type": "TRACK_LIST",
+     "id": "TRACK_LIST",
+     "title": "",
+     "pagedList": {
+      "items": [
+       {
+        "id": 101,
+        "title": "Mix song 1",
+        "duration": 201,
+        "artists": [
+         {
+          "id": 7,
+          "name": "Artist One"
+         }
+        ],
+        "album": {
+         "id": 900,
+         "title": "Example Album",
+         "cover": "11111111-2222-3333-4444-555555555555"
+        },
+        "explicit": false,
+        "trackNumber": 1,
+        "volumeNumber": 1,
+        "mediaMetadata": {
+         "tags": [
+          "LOSSLESS"
+         ]
+        }
+       },
+       {
+        "id": 102,
+        "title": "Mix song 2",
+        "duration": 202,
+        "artists": [
+         {
+          "id": 7,
+          "name": "Artist One"
+         }
+        ],
+        "album": {
+         "id": 900,
+         "title": "Example Album",
+         "cover": "11111111-2222-3333-4444-555555555555"
+        },
+        "explicit": false,
+        "trackNumber": 2,
+        "volumeNumber": 1,
+        "mediaMetadata": {
+         "tags": [
+          "LOSSLESS"
+         ]
+        }
+       },
+       {
+        "id": 103,
+        "title": "Mix song 3",
+        "duration": 203,
+        "artists": [
+         {
+          "id": 7,
+          "name": "Artist One"
+         }
+        ],
+        "album": {
+         "id": 900,
+         "title": "Example Album",
+         "cover": "11111111-2222-3333-4444-555555555555"
+        },
+        "explicit": false,
+        "trackNumber": 3,
+        "volumeNumber": 1,
+        "mediaMetadata": {
+         "tags": [
+          "LOSSLESS"
+         ]
+        }
+       },
+       {
+        "id": 104,
+        "title": "Mix song 4",
+        "duration": 204,
+        "artists": [
+         {
+          "id": 7,
+          "name": "Artist One"
+         }
+        ],
+        "album": {
+         "id": 900,
+         "title": "Example Album",
+         "cover": "11111111-2222-3333-4444-555555555555"
+        },
+        "explicit": false,
+        "trackNumber": 4,
+        "volumeNumber": 1,
+        "mediaMetadata": {
+         "tags": [
+          "LOSSLESS"
+         ]
+        }
+       },
+       {
+        "id": 105,
+        "title": "Mix song 5",
+        "duration": 205,
+        "artists": [
+         {
+          "id": 7,
+          "name": "Artist One"
+         }
+        ],
+        "album": {
+         "id": 900,
+         "title": "Example Album",
+         "cover": "11111111-2222-3333-4444-555555555555"
+        },
+        "explicit": false,
+        "trackNumber": 5,
+        "volumeNumber": 1,
+        "mediaMetadata": {
+         "tags": [
+          "LOSSLESS"
+         ]
+        }
+       }
+      ],
+      "totalNumberOfItems": 50,
+      "dataApiPath": "pages/data/mix-songs",
+      "limit": 5,
+      "offset": 0
+     }
+    }
+   ]
+  }
+ ]
+}

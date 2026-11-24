@@ -10,6 +10,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Fixed
 
+- Mixes showing only the first 5 songs
 - Songs playing extremely loud, distorted and fast on some phones
 - Songs that TIDAL offers only in lower quality not playing while Lossless is selected
 

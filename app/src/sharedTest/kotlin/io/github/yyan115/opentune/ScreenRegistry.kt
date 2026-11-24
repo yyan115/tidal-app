@@ -9,13 +9,12 @@ object ScreenRegistry {
     val rendered = setOf(
         "AddSongsSheet", "AddToPlaylistSheet", "AppDialog", "AppearanceSheet", "AvoidRepeatsPage", "CreditsSheet", "DetailScreen", "DownloadQueuePage",
         "EqualizerSheet", "LibraryScreen", "LicenceDocumentPage", "LicencesPage", "ListenScreen", "MoveToFolderDialog", "NameDialog", "NewPlaylistDialog",
-        "NormalizationDialog", "NowPlayingScreen", "OnDeviceScreen", "QueueSheet", "ScrobbleDialog", "SearchScreen", "SettingsScreen", "SetupScreen",
+        "NormalizationDialog", "NowPlayingScreen", "OnDeviceScreen", "PageScreen", "QueueSheet", "ScrobbleDialog", "SearchScreen", "SettingsScreen", "SetupScreen",
         "SleepTimerSheet", "SourceDetailsSheet", "StatisticsPage", "WelcomeScreen",
     )
 
     /** The screens that the catalog does not render, each with what reaches them and checks them instead. */
     val elsewhere = mapOf(
         "AppSheet" to "It is the frame of the other sheets, and each of them is rendered inside it",
-        "PageScreen" to "Its content comes from the pages of TIDAL, so the crawler of the real app and PagesLiveTest reach it",
     )
 }
