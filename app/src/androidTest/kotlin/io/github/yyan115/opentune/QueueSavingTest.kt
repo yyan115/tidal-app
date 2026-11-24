@@ -61,12 +61,13 @@ class QueueSavingTest {
         compose.waitUntil(900) { savedTitles().isEmpty() }
     }
 
+    /** The emulator of the CI gives the app 16 MB of memory, and a queue of 3,000 songs nearly fills it, with the copies that the player, the screen and the saved queue hold. */
     @Test fun aQueueOfThousandsOfTracksIsSavedWhole() {
-        val list = tracks(3_000, uri())
+        val list = tracks(2_000, uri())
         compose.runOnIdle { model.play(list) }
-        compose.waitUntil(30_000) { model.state.value.playback.queue.size == 3_000 }
-        compose.waitUntil(15_000) { savedTitles().size == 3_000 }
-        assertEquals("Saved 3000", savedTitles().last())
+        compose.waitUntil(30_000) { model.state.value.playback.queue.size == 2_000 }
+        compose.waitUntil(15_000) { savedTitles().size == 2_000 }
+        assertEquals("Saved 2000", savedTitles().last())
     }
 
     @Test fun thePositionIsSavedWhilePlaying() {

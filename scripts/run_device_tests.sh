@@ -2,9 +2,9 @@
 # Runs the device tests of the app in several runs, and each run starts the app process again.
 # The tests share one app process. On the small emulator of the CI the app has 16 MB of heap, and what the tests leave behind adds up until a
 # test runs out of memory. A run for each shard of the tests starts with an empty process.
-# Usage: scripts/run_device_tests.sh API [SHARDS]
+# Usage: scripts/run_device_tests.sh API [SHARDS], three shards when the number is left out
 set -u
-api="$1"; shards="${2:-2}"
+api="$1"; shards="${2:-3}"
 extra=()
 case "$api" in
   36) extra+=(-Pandroid.testInstrumentationRunnerArguments.screenTour=true); offset=2 ;;
