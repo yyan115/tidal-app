@@ -19,8 +19,8 @@ tasks.test { testLogging { events("failed", "skipped") } }
 // the tests are, where code coverage says only which code they run. The report is in core/build/reports/pitest.
 pitest {
     pitestVersion.set("1.17.0")
-    // The share of changes that the tests notice. It was 68% when this check was added, and it may only go up, so the build fails below it.
-    mutationThreshold.set(68)
+    // The share of changes that the tests notice. It was 68% when this check was added and 70% after the tests of the requests of the client, and it may only go up, so the build fails below it.
+    mutationThreshold.set(70)
     targetClasses.set(listOf("io.github.yyan115.opentune.core.*"))
     targetTests.set(listOf("io.github.yyan115.opentune.core.*"))
     threads.set(2)
