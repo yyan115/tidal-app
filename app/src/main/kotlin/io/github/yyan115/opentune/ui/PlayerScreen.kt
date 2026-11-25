@@ -101,7 +101,7 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
         // The title and the tools stay where they are, and only the songs scroll.
         Column(Modifier.fillMaxWidth().fillMaxHeight().navigationBarsPadding().testTag("queue-sheet")) {
             // The song that plays stays in view at the top, with its cover, its title and the button to play and pause, so a change of song shows while the queue is open.
-            state.playback.track?.let { playing ->
+            state.playingTrack?.let { playing ->
                 Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp, bottom = 8.dp).testTag("queue-now-playing"), verticalAlignment = Alignment.CenterVertically) {
                     TrackArtwork(playing, null, Modifier.size(44.dp))
                     Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {

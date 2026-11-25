@@ -3,6 +3,7 @@ package io.github.yyan115.opentune.ui
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,15 +25,19 @@ import kotlinx.coroutines.launch
  * songs asks first and names how many there are.
  */
 @Composable
-fun DownloadAllButton(tracks: suspend () -> List<Track>, onDownload: (Track) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun DownloadAllButton(tracks: suspend () -> List<Track>, onDownload: (Track) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, compact: Boolean = false) {
     val scope = rememberCoroutineScope()
     var pending by remember { mutableStateOf<List<Track>?>(null) }
-    TuneOutlinedButton(onClick = {
+    val start = {
         scope.launch {
             val missing = tracks().filterNot(Track::onDevice)
             if (BulkDownload.needsConfirmation(missing.size)) pending = missing else missing.forEach(onDownload)
         }
-    }, modifier = modifier.testTag("download-all"), enabled = enabled) { Icon(OpenTuneIcons.Download, stringResource(R.string.album_download_all)) }
+        Unit
+    }
+    // A compact button is the icon alone, for the header of a list. The button of a page header has an outline.
+    if (compact) IconButton(onClick = start, modifier = modifier.testTag("download-all"), enabled = enabled) { Icon(OpenTuneIcons.Download, stringResource(R.string.album_download_all)) }
+    else TuneOutlinedButton(onClick = start, modifier = modifier.testTag("download-all"), enabled = enabled) { Icon(OpenTuneIcons.Download, stringResource(R.string.album_download_all)) }
     pending?.let { list ->
         AppDialog(onDismissRequest = { pending = null }, title = { Text(pluralStringResource(R.plurals.download_all_title, list.size, list.size)) },
             text = { Text(stringResource(R.string.download_all_text)) },

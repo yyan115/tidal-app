@@ -6,6 +6,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Added
 
+- A Download button in the header of the saved tracks list
 - A setting that plays 24-bit songs as 16-bit, under Experimental
 
 ### Changed

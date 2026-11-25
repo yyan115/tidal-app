@@ -29,8 +29,27 @@ class DownloadAllTest {
 
     private fun songs(count: Int, onDevice: Int = 0) = (1..count).map { Track("tidal-$it", "Song $it", "Artist", "Album", localUri = if (it <= onDevice) "content://stored/$it" else null) }
 
-    private fun show(tracks: List<Track>) {
-        compose.setContent { OpenTuneTheme("dark") { DownloadAllButton(tracks = { tracks }, onDownload = { started += it.id }) } }
+    private fun show(tracks: List<Track>, compact: Boolean = false) {
+        compose.setContent { OpenTuneTheme("dark") { DownloadAllButton(tracks = { tracks }, onDownload = { started += it.id }, compact = compact) } }
+    }
+
+    @Test fun theCompactButtonOfAListHeaderAsksAboutTheWholeListAndSkipsWhatIsOnTheDevice() {
+        show(songs(600, onDevice = 40), compact = true)
+        compose.onNodeWithTag("download-all").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Download 560 songs?").assertExists()
+        assertEquals("Nothing starts before the answer", 0, started.size)
+        compose.onNodeWithText("Download").performClick()
+        compose.waitForIdle()
+        assertEquals(560, started.size)
+        assertTrue("The songs that were on the device are left out", started.none { it in (1..40).map { n -> "tidal-$n" } })
+    }
+
+    @Test fun theCompactButtonStartsAShortListAtOnce() {
+        show(songs(4), compact = true)
+        compose.onNodeWithTag("download-all").performClick()
+        compose.waitForIdle()
+        assertEquals(4, started.size)
     }
 
     @Test fun tenSongsStartAtOnceWithoutAQuestion() {

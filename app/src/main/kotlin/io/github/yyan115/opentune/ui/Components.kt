@@ -109,13 +109,14 @@ fun LocalBadge(modifier: Modifier = Modifier) {
 
 /** The title of a section, with an action on its right. [arrow] is true when the action opens a page, and false when it does something where it stands. */
 @Composable
-fun SectionTitle(title: String, action: String? = null, arrow: Boolean = false, onAction: () -> Unit = {}) {
+fun SectionTitle(title: String, action: String? = null, arrow: Boolean = false, trailing: (@Composable () -> Unit)? = null, onAction: () -> Unit = {}) {
     Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 20.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, Modifier.weight(1f), style = AppFonts.title(27, 32))
         if (action != null) TextButton(onClick = onAction) {
             Text(action, style = MaterialTheme.typography.labelMedium)
             if (arrow) { Spacer(Modifier.width(7.dp)); Icon(OpenTuneIcons.ArrowForward, null, Modifier.size(16.dp).testTag("section-arrow")) }
         }
+        trailing?.invoke()
     }
 }
 

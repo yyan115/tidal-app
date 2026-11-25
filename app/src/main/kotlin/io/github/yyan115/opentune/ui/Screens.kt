@@ -249,7 +249,11 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onNew
             0 -> {
                 val all = if (state.settings.offline) state.favorites.filter(Track::onDevice) else state.favorites
                 val tracks = all.filter { matches(it.title, it.artist, it.album) }.ordered({ it.title }, { it.artist })
-                item { SectionTitle(pluralStringResource(R.plurals.track_count, tracks.size, tracks.size), if (tracks.size > 1) stringResource(R.string.action_shuffle) else null) { vm.playTracks(tracks, shuffle = true) } }
+                // The button downloads every saved track that is not on the device. It waits until the whole list is loaded, and a download of more than ten songs asks first.
+                item { SectionTitle(pluralStringResource(R.plurals.track_count, tracks.size, tracks.size), if (tracks.size > 1) stringResource(R.string.action_shuffle) else null,
+                    trailing = if (state.signedIn && !state.settings.offline) ({
+                        DownloadAllButton(tracks = { state.favorites }, onDownload = { vm.download(it) }, compact = true, enabled = !state.hasMoreFavorites && state.favorites.any { !it.onDevice })
+                    }) else null) { vm.playTracks(tracks, shuffle = true) } }
                 items(tracks, key = Track::id) { track -> TrackRow(track, state.playback.track?.id == track.id, { vm.play(tracks, tracks.indexOf(track), libraryTabs[0]) }, { onMenu(track) }) }
                 if (tracks.isEmpty() && !state.syncing) item { EmptyState(OpenTuneIcons.FavoriteBorder, if (text.isBlank()) stringResource(R.string.library_no_saved) else stringResource(R.string.library_no_matches),
                     if (text.isBlank()) stringResource(R.string.library_no_saved_text) else stringResource(R.string.library_try_filter), if (state.signedIn || text.isNotBlank()) null else stringResource(R.string.action_connect_tidal), onLogin) }
