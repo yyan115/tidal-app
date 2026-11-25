@@ -11,9 +11,9 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 ### Changed
 
 - Albums and Similar artists as the names of sections on artist pages
-
 - The theme picker is a page of Settings with a back button
 - Pull down to refresh the Library
+- Changes made to the library on another device appear within a minute
 - The backup, restore and download folder pickers start at the top of the storage
 - Shorter text on the Connect TIDAL card
 

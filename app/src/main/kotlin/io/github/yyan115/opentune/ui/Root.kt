@@ -52,6 +52,9 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
     var cancelAllDownloads by rememberSaveable { mutableStateOf(false) }
     var nowPlaying by rememberSaveable { mutableStateOf(initialPlayer) }
     val sheetScope = rememberCoroutineScope()
+    // While the app is on the screen it looks for changes that were made elsewhere, such as on the TIDAL website, and it looks at once when it comes back.
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_START) { vm.foreground(true) }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) { vm.foreground(false) }
     // How far the full player is open. A drag of the small player or of the full player moves it, and so do the buttons that open and close it.
     val sheet = remember { PlayerSheet(nowPlaying, sheetScope) }
     val windowHeight = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize.height

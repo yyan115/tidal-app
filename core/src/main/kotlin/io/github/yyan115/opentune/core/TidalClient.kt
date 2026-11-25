@@ -143,6 +143,26 @@ class TidalClient(
     }
 
     suspend fun allTracks(release: Release): List<Track> = allPages { tracksPage(release, it) }
+    /**
+     * One item of each list of the library, to see whether the library changed elsewhere. Each answer is a few hundred bytes, and the lists are not loaded.
+     * A playlist carries the time of its last change, so that a rename or an edit in another app counts too.
+     */
+    suspend fun probeLibrary(): Map<LibraryList, ListProbe> {
+        val user = userId()
+        fun probe(value: JSONObject): ListProbe {
+            val first = JsonCodec.items(value).firstOrNull()?.let { it.optJSONObject("playlist") ?: it }
+            val id = first?.let { it.optString("uuid").ifBlank { it.optString("id") } }.orEmpty()
+            val changed = first?.optString("lastUpdated").orEmpty().let { if (it.isBlank()) "" else "@$it" }
+            return ListProbe(value.optInt("totalNumberOfItems", -1), id + changed)
+        }
+        return mapOf(
+            LibraryList.Favorites to probe(request("users/$user/favorites/tracks", mapOf("limit" to "1", "order" to "DATE", "orderDirection" to "DESC"))),
+            LibraryList.Albums to probe(request("users/$user/favorites/albums", mapOf("limit" to "1"))),
+            LibraryList.Artists to probe(request("users/$user/favorites/artists", mapOf("limit" to "1"))),
+            LibraryList.Playlists to probe(request("users/$user/playlistsAndFavoritePlaylists", mapOf("limit" to "1"))),
+        )
+    }
+
     suspend fun allFavorites(): List<Track> = allPages(page = ::favoritesPage)
     suspend fun allFavoriteAlbums(): List<Release> = allPages(page = ::favoriteAlbumsPage)
     suspend fun allPlaylists(): List<Release> = allPages(50, ::playlistsPage)

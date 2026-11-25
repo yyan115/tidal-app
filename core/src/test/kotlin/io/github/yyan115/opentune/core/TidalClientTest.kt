@@ -27,6 +27,27 @@ class TidalClientTest {
     }
     @After fun tearDown() { server.shutdown() }
 
+    @Test fun probesOneItemOfEachListOfTheLibrary() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"totalNumberOfItems":120,"items":[{"created":"2026-11-25T10:00:00","item":{"id":555,"title":"Song"}}]}"""))
+        server.enqueue(MockResponse().setBody("""{"totalNumberOfItems":14,"items":[{"item":{"id":77,"title":"Album"}}]}"""))
+        server.enqueue(MockResponse().setBody("""{"totalNumberOfItems":9,"items":[{"item":{"id":31,"name":"Artist"}}]}"""))
+        server.enqueue(MockResponse().setBody("""{"totalNumberOfItems":5,"items":[{"type":"USER","playlist":{"uuid":"abc-1","title":"Mine","lastUpdated":"2026-11-20T08:00:00"}}]}"""))
+        val probes = client.probeLibrary()
+        assertEquals(ListProbe(120, "555"), probes.getValue(LibraryList.Favorites))
+        assertEquals(ListProbe(14, "77"), probes.getValue(LibraryList.Albums))
+        assertEquals(ListProbe(9, "31"), probes.getValue(LibraryList.Artists))
+        assertEquals(ListProbe(5, "abc-1@2026-11-20T08:00:00"), probes.getValue(LibraryList.Playlists))
+        val paths = (1..4).map { server.takeRequest() }
+        assertEquals(listOf("users/123/favorites/tracks", "users/123/favorites/albums", "users/123/favorites/artists", "users/123/playlistsAndFavoritePlaylists"),
+            paths.map { it.requestUrl!!.encodedPath.removePrefix("/v1/") })
+        assertTrue("Each probe asks for one item only", paths.all { it.requestUrl!!.queryParameter("limit") == "1" })
+    }
+
+    @Test fun anAnswerWithoutAListGivesAnEmptyProbe() = runBlocking {
+        repeat(4) { server.enqueue(MockResponse().setBody("""{"items":[]}""")) }
+        assertTrue(client.probeLibrary().values.all { it == ListProbe(-1, "") })
+    }
+
     @Test fun encodesSearchAndUsesAccountCountry() = runBlocking {
         server.enqueue(MockResponse().setBody("""{"tracks":{"items":[{"id":42,"title":"Song","duration":182,"artists":[{"name":"First"},{"name":"Second"}],"album":{"id":7,"title":"Album","cover":"a-b-c"}}]}}"""))
         val result = client.search("music & friends")

@@ -37,6 +37,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -314,11 +315,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // What the service showed of each list when the library was loaded last. A probe that differs from it means that the library changed elsewhere.
+    private var libraryProbes: Map<LibraryList, ListProbe>? = null
+    private var foregroundJob: Job? = null
+
+    /** Asks the service for one item of each list, and loads the library again only when a list changed elsewhere, such as on the TIDAL website. */
+    fun checkLibrary() {
+        if (!collectionReady || !app.tidal.signedIn || ui.value.settings.offline || ui.value.syncing) return
+        viewModelScope.launch {
+            val now = try { app.tidal.probeLibrary() } catch (error: Exception) { if (error is CancellationException) throw error; return@launch }
+            if (LibraryFreshness.changed(libraryProbes, now).isNotEmpty()) sync()
+        }
+    }
+
+    /** While the app is on the screen it looks for changes of the library once a minute, and it looks at once when the app comes back. */
+    fun foreground(active: Boolean) {
+        foregroundJob?.cancel()
+        if (!active) return
+        foregroundJob = viewModelScope.launch {
+            while (isActive) { checkLibrary(); delay(LibraryFreshness.PROBE_INTERVAL_MS) }
+        }
+    }
+
     fun sync() {
         if (!app.tidal.signedIn || ui.value.settings.offline || ui.value.syncing) return
         syncJob = viewModelScope.launch {
             ui.update { it.copy(syncing = true, error = null) }
             try {
+                // The probe is taken before the library is loaded, so that a change during the load shows at the next look.
+                val before = try { app.tidal.probeLibrary() } catch (error: Exception) { if (error is CancellationException) throw error; null }
                 val account = app.tidal.accountId
                 favoriteSyncLock.withLock {
                     drainFavorites(account)
@@ -342,6 +367,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val artists = app.tidal.followedArtists()
                 withContext(Dispatchers.IO) { app.library.cache(account, "artists", JsonCodec.encodeReleases(artists)) }
                 ui.update { it.copy(artists = artists) }
+                if (before != null) libraryProbes = before
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 ui.update { it.copy(error = userMessage(error)) }
