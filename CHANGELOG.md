@@ -11,6 +11,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 ### Changed
 
 - Albums and Similar artists as the names of sections on artist pages
+- The queue shows the song that plays at its top
 - The theme picker is a page of Settings with a back button
 - Pull down to refresh the Library
 - Changes made to the library on another device appear within a minute

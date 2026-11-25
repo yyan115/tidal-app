@@ -103,6 +103,20 @@ class QueueSheetTest {
         }
     }
 
+    @Test fun theSongThatPlaysStaysAtTheTopAndFollowsAChangeOfSong() {
+        play(3); openQueue(3)
+        compose.onNodeWithTag("queue-now-playing-title").assertTextEquals("Sheet Song 1")
+        val top = compose.onNodeWithTag("queue-now-playing").fetchSemanticsNode().positionOnScreen.y
+        compose.runOnIdle { model.next() }
+        compose.waitUntil(10_000) { model.state.value.playback.track?.id == tracks[1].id }
+        compose.onNodeWithTag("queue-now-playing-title").assertTextEquals("Sheet Song 2")
+        assertEquals("The bar does not move when the song changes", top, compose.onNodeWithTag("queue-now-playing").fetchSemanticsNode().positionOnScreen.y, 1f)
+        compose.onNodeWithTag("queue-now-playing-toggle").performClick()
+        compose.waitUntil(10_000) { !model.state.value.playback.playing }
+        compose.onNodeWithTag("queue-now-playing-toggle").performClick()
+        compose.waitUntil(10_000) { model.state.value.playback.playing }
+    }
+
     private fun sheetTop() = compose.onNodeWithTag("queue-sheet").fetchSemanticsNode().positionOnScreen.y
 
     @Test fun theTitleAndTheToolsStayAtTheTopWhileTheSongsScroll() {

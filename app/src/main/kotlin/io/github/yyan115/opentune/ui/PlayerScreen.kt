@@ -100,6 +100,20 @@ fun QueueSheet(state: AppState, vm: MainViewModel, onClose: () -> Unit) {
         // The sheet always has its full height, so that it does not grow and shrink with the queue, and an empty queue has the same sheet as a long one.
         // The title and the tools stay where they are, and only the songs scroll.
         Column(Modifier.fillMaxWidth().fillMaxHeight().navigationBarsPadding().testTag("queue-sheet")) {
+            // The song that plays stays in view at the top, with its cover, its title and the button to play and pause, so a change of song shows while the queue is open.
+            state.playback.track?.let { playing ->
+                Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp, bottom = 8.dp).testTag("queue-now-playing"), verticalAlignment = Alignment.CenterVertically) {
+                    TrackArtwork(playing, null, Modifier.size(44.dp))
+                    Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                        Text(playing.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall, modifier = Modifier.testTag("queue-now-playing-title"))
+                        Text(playing.artist, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = vm::togglePlay, modifier = Modifier.testTag("queue-now-playing-toggle")) {
+                        Icon(if (state.playback.playing) OpenTuneIcons.Pause else OpenTuneIcons.PlayArrow, stringResource(if (state.playback.playing) R.string.player_pause else R.string.player_play))
+                    }
+                }
+                HorizontalDivider()
+            }
             SectionTitle(stringResource(R.string.queue_title), if (queue.isNotEmpty()) stringResource(R.string.action_clear) else null, onAction = { confirmClear = true })
             if (queue.isNotEmpty()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
