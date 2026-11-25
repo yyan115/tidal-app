@@ -4,6 +4,17 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Changed
+
+- The theme picker is a page of Settings with a back button
+- Pull down to refresh the Library
+- The backup, restore and download folder pickers start at the top of the storage
+- Shorter text on the Connect TIDAL card
+
+### Fixed
+
+- A downloaded song appearing twice when its file is added by hand
+
 ## [0.8.1] - 2026-11-24
 
 ### Changed

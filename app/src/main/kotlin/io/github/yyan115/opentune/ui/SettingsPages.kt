@@ -33,7 +33,7 @@ import java.util.Date
 
 /** The pages that open from the Settings list. Each one has its own title in the top bar. */
 enum class SettingsPage(@StringRes val title: Int) {
-    Repeats(R.string.settings_repeats), Statistics(R.string.stats_title), Licenses(R.string.settings_licenses),
+    Repeats(R.string.settings_repeats), Statistics(R.string.stats_title), Appearance(R.string.appearance_title), Licenses(R.string.settings_licenses),
     Apache(R.string.licenses_apache),
     Inter(R.string.licenses_inter), Serif(R.string.licenses_serif), Space(R.string.licenses_space), Mono(R.string.licenses_mono);
 

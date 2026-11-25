@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.graphicsLayer
@@ -222,12 +223,13 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onNew
         LibrarySort.Title -> sortedBy { title(it).lowercase() }
         LibrarySort.Artist -> sortedWith(compareBy({ artist(it).lowercase() }, { title(it).lowercase() }))
     }
+    // A pull down refreshes the library, as it does on Home. The same sync runs when the app starts and when the network returns.
+    PullToRefreshBox(isRefreshing = state.syncing, onRefresh = { if (online) vm.sync() }, modifier = Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize().testTag("library-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Spacer(Modifier.height(8.dp)) }
         item { LazyRow(modifier = Modifier.testTag("library-filters"), state = filters, contentPadding = PaddingValues(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(libraryTabs) { index, label -> FilterTab(filter == index, { onFilter(index) }, label) }
         } }
-        if (state.syncing) item { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) }
         state.error?.let { item { ErrorCard(it, vm::sync) } }
         if (filter in 0..2) item(key = "tools") {
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -314,6 +316,7 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onNew
             else -> Unit
         }
     }
+    }
 }
 
 @UnstableApi
@@ -375,7 +378,6 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
     val context = LocalContext.current
     var quality by remember { mutableStateOf(false) }
     var mobile by remember { mutableStateOf(false) }
-    var theme by remember { mutableStateOf(false) }
     var signOut by remember { mutableStateOf(false) }
     var normalization by remember { mutableStateOf(false) }
     var equalizer by remember { mutableStateOf(false) }
@@ -384,14 +386,14 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
     var mobileDataWarning by remember { mutableStateOf(false) }
     var playedWarning by remember { mutableStateOf(false) }
     var changeFolder by remember { mutableStateOf(false) }
-    val backup = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(vm::exportBackup) }
-    val restore = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importBackup) }
+    val backup = androidx.activity.compose.rememberLauncherForActivityResult(CreateDocumentAtRoot("application/json")) { uri -> uri?.let(vm::exportBackup) }
+    val restore = androidx.activity.compose.rememberLauncherForActivityResult(OpenDocumentAtRoot()) { uri -> uri?.let(vm::importBackup) }
     val downloadFolder = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()) { uri -> uri?.let(vm::setDownloadFolder) }
     val settings = state.settings
     LazyColumn(Modifier.fillMaxSize().testTag("settings-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { SectionTitle(stringResource(R.string.settings_account)) }
         item { SettingRow(OpenTuneIcons.AccountCircle, if (state.signedIn) stringResource(R.string.settings_connected) else stringResource(R.string.action_connect_tidal),
-            if (state.signedIn) null else stringResource(R.string.settings_connect_text),
+            if (state.signedIn) null else stringResource(R.string.connect_card_text),
             onClick = if (state.signedIn) ({ signOut = true }) else onLogin,
             trailing = { Icon(if (state.signedIn) OpenTuneIcons.CheckCircle else OpenTuneIcons.ChevronRight, null) }) }
         // These settings change how TIDAL is streamed and downloaded, so they appear once an account is connected.
@@ -411,7 +413,7 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
                 { changeFolder = true }) }
         }
         item { SectionTitle(stringResource(R.string.settings_appearance)) }
-        item { SettingRow(OpenTuneIcons.Contrast, stringResource(R.string.settings_theme), stringResource(if (settings.theme == SYSTEM_THEME) R.string.theme_system else themeFor(settings.theme, false).nameRes), { theme = true }) }
+        item { SettingRow(OpenTuneIcons.Contrast, stringResource(R.string.settings_theme), stringResource(if (settings.theme == SYSTEM_THEME) R.string.theme_system else themeFor(settings.theme, false).nameRes), { onOpenPage(SettingsPage.Appearance) }) }
         item { SectionTitle(stringResource(R.string.settings_data)) }
         item { SettingRow(OpenTuneIcons.LibraryMusic, stringResource(R.string.stats_title), onClick = { onOpenPage(SettingsPage.Statistics) }, trailing = { Icon(OpenTuneIcons.ChevronRight, null) }) }
         item { SettingRow(OpenTuneIcons.SaveAlt, stringResource(R.string.settings_backup), stringResource(R.string.settings_backup_text), { backup.launch("opentune-backup.json") }) }
@@ -447,7 +449,7 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
     if (scrobbling) ScrobbleDialog(settings, vm) { scrobbling = false }
     if (changeFolder) AppDialog(onDismissRequest = { changeFolder = false }, title = { Text(stringResource(R.string.settings_download_folder_change_title)) },
         text = { Text(stringResource(R.string.settings_download_folder_change_text)) },
-        confirmButton = { DialogConfirm(onClick = { changeFolder = false; downloadFolder.launch(null) }) { Text(stringResource(R.string.settings_download_folder_change)) } },
+        confirmButton = { DialogConfirm(onClick = { changeFolder = false; downloadFolder.launch(StorageRoot.uri) }) { Text(stringResource(R.string.settings_download_folder_change)) } },
         dismissButton = { DialogDismiss(onClick = { changeFolder = false }) { Text(stringResource(R.string.action_cancel)) } })
     if (playedWarning) AppDialog(onDismissRequest = { playedWarning = false }, title = { Text(stringResource(R.string.download_played_title)) },
         text = { Text(stringResource(R.string.download_played_text)) },
@@ -469,7 +471,6 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
             RadioButton(if (mobile) settings.mobileQuality == value else settings.quality == value, onClick = null)
             Text(stringResource(value.labelRes()), Modifier.padding(start = 12.dp), style = MaterialTheme.typography.bodyMedium)
         } } } })
-    if (theme) AppearanceSheet(settings, { next -> vm.settings { next } }, onPreview = vm::previewTheme) { theme = false }
     if (signOut) AppDialog(onDismissRequest = { signOut = false }, title = { Text(stringResource(R.string.signout_title)) }, text = { Text(stringResource(R.string.signout_text)) },
         confirmButton = { DialogConfirm(destructive = true, onClick = { vm.signOut(); signOut = false }) { Text(stringResource(R.string.signout_confirm)) } }, dismissButton = { DialogDismiss(onClick = { signOut = false }) { Text(stringResource(R.string.action_cancel)) } })
 }

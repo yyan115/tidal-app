@@ -79,7 +79,7 @@ object ScreenCatalog {
         })
         add(ScreenCase("SleepTimerSheet", "idle") { vm -> SleepTimerSheet(AppState(), vm) {} })
         add(ScreenCase("EqualizerSheet", "default") { EqualizerSheet(Settings(welcomeDone = true), {}, {}) })
-        add(ScreenCase("AppearanceSheet", "default") { AppearanceSheet(Settings(welcomeDone = true), {}, {}, {}) })
+        add(ScreenCase("AppearancePage", "default") { AppearancePage(Settings(welcomeDone = true), {}, {}) })
         add(ScreenCase("AddToPlaylistSheet", "with playlists") { vm -> AddToPlaylistSheet(Fixtures.track(1), AppState(localPlaylists = listOf(LocalPlaylist("local:p1", "A playlist of files", emptyList()))), vm, {}, {}) })
         add(ScreenCase("AddSongsSheet", "with songs") { vm -> AddSongsSheet(Release("local:p1", "A playlist of files", "", null), AppState(local = Fixtures.tracks(6, files = true)), vm, {}) })
         add(ScreenCase("NormalizationDialog", "track") { NormalizationDialog("track", {}, {}) })

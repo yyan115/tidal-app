@@ -40,12 +40,11 @@ private val PreviewWidth = 300.dp
 private val PreviewHeight = 500.dp
 
 /**
- * Lets the listener browse the themes. Each page is a small copy of the real interface in that theme, drawn with the real components.
- * A theme applies to the whole app when the listener taps its button, and the sheet itself changes with it.
+ * Lets the listener browse the themes. Each card is a small copy of the real interface in that theme, drawn with the real components.
+ * A theme applies to the whole app when the listener taps its button, and the page itself changes with it. The back arrow of the top bar leaves the page.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppearanceSheet(settings: Settings, onChange: (Settings) -> Unit, onPreview: (String?) -> Unit = {}, onClose: () -> Unit) {
+fun AppearancePage(settings: Settings, onChange: (Settings) -> Unit, onPreview: (String?) -> Unit = {}) {
     val ids = listOf(SYSTEM_THEME) + appThemes.map { it.id }
     val systemDark = isSystemInDarkTheme()
     val pager = rememberPagerState(initialPage = ids.indexOf(settings.theme).coerceAtLeast(0)) { ids.size }
@@ -54,14 +53,10 @@ fun AppearanceSheet(settings: Settings, onChange: (Settings) -> Unit, onPreview:
     // The whole app shows the theme that the listener swipes to. It stays only after Use, and closing the picker brings back the saved theme.
     LaunchedEffect(shown, settings.theme) { onPreview(shown.takeIf { it != settings.theme }) }
     DisposableEffect(Unit) { onDispose { onPreview(null) } }
-    AppSheet(onDismissRequest = onClose) {
+    run {
         val theme = themeFor(shown, systemDark)
         val name = stringResource(if (shown == SYSTEM_THEME) R.string.theme_system else theme.nameRes)
-        Column(Modifier.fillMaxSize().navigationBarsPadding()) {
-            Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.appearance_title), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                TextButton(onClick = onClose) { Text(stringResource(R.string.action_done)) }
-            }
+        Column(Modifier.fillMaxSize()) {
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 val scale = ((maxHeight - 8.dp) / PreviewHeight).coerceIn(.3f, 1f)
                 val width = PreviewWidth * scale

@@ -19,7 +19,7 @@ import java.io.File
 /** The theme picker pages through every theme, shows each one as a preview of the real interface, and applies the chosen one to the app. */
 @UnstableApi
 @RunWith(AndroidJUnit4::class)
-class AppearanceSheetTest {
+class AppearancePageTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
     private fun screenshot(name: String) {

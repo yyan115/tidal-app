@@ -72,6 +72,10 @@ class LibraryStore(context: Context, databaseName: String = "library.db") : SQLi
 
     @Synchronized fun isDownloadFile(key: String): Boolean = readableDatabase.rawQuery("SELECT 1 FROM download_files WHERE key=?", arrayOf(key)).use { it.moveToFirst() }
 
+    /** The track that a download of the file became, or null when the file is not a download. */
+    @Synchronized fun downloadTrackIdFor(key: String): String? =
+        readableDatabase.rawQuery("SELECT track_id FROM download_files WHERE key=?", arrayOf(key)).use { if (it.moveToFirst()) it.getString(0) else null }
+
     @Synchronized fun removeDownloadFile(trackId: String) { writableDatabase.delete("download_files", "track_id=?", arrayOf(trackId)) }
 
     /** A track that the listener allowed again stays out of the avoid-repeats window until it plays once more. */

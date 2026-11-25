@@ -561,13 +561,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun import(uris: List<Uri>) = viewModelScope.launch {
         var imported = 0
+        var alreadyThere = 0
         for (uri in uris) {
             try {
                 app.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                app.importer.import(uri, direct = true); imported++
+                // A file that a download became comes back as the downloaded track, which has the id of the TIDAL song and not the id of a file.
+                if (app.importer.import(uri, direct = true).isFile) imported++ else alreadyThere++
             } catch (error: Exception) { if (error is CancellationException) throw error; notify(app.getString(R.string.notify_import_failed)) }
         }
         if (imported > 0) notify(app.resources.getQuantityString(R.plurals.notify_files_added, imported, imported))
+        else if (alreadyThere > 0) notify(app.getString(R.string.notify_already_local))
     }
 
     fun download(track: Track, quiet: Boolean = false) = viewModelScope.launch {

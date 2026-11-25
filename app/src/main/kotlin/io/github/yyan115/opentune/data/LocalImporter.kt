@@ -27,6 +27,9 @@ class LocalImporter(private val context: Context, private val library: LibrarySt
      */
     suspend fun import(uri: Uri, modified: Long = 0, size: Long = 0, cover: Uri? = null, direct: Boolean = false): Track = withContext(Dispatchers.IO) {
         val key = DocumentKey.of(uri.toString())
+        // A file that a download became is a track already. Every route, a folder scan and a file that the listener adds by hand, returns that track
+        // and adds nothing, so the same song is never listed twice.
+        library.downloadTrackIdFor(key)?.let { id -> library.get(id)?.let { return@withContext it } }
         val known = library.sourceFor(key)
         val id = known?.trackId ?: idFor(key)
         val previous = library.get(id)

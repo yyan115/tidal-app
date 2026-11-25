@@ -41,6 +41,22 @@ class LocalImporterTest {
         assertEquals(track.id, app.library.sourceFor(DocumentKey.of(uri.toString()))?.trackId)
     }
 
+    @Test fun aFileThatADownloadBecameIsNotAddedAgain() = runBlocking {
+        val key = DocumentKey.of(uri.toString())
+        val downloaded = io.github.yyan115.opentune.core.Track("90210", "Night Walk", "Harbour Lights", "Late Hours", localUri = "opentune-download:90210")
+        app.library.save(downloaded)
+        app.library.recordDownloadFile(key, downloaded.id)
+        try {
+            val result = app.importer.import(uri, direct = true)
+            assertEquals("The file gives back the downloaded track", downloaded.id, result.id)
+            assertFalse("No second track of the file exists", app.library.localTracks().any { it.localUri == uri.toString() })
+            assertNull("The file is not known as a file that was added", app.library.sourceFor(key))
+        } finally {
+            app.library.removeDownloadFile(downloaded.id)
+            app.library.removeLocal(downloaded.id)
+        }
+    }
+
     @Test fun readingTheSameFileAgainKeepsOneTrackAndItsDate() = runBlocking {
         val first = app.importer.import(uri, direct = true)
         Thread.sleep(20)

@@ -139,7 +139,6 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
                     Text(stringResource(R.string.brand_name), Modifier.weight(1f), fontFamily = AppFonts.body, fontSize = 11.sp, lineHeight = 16.sp,
                         letterSpacing = 2.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                     if (!settings && !downloadQueue) {
-                        if (destination == Destination.Library && !inDetail && state.signedIn && !state.settings.offline) IconButton(onClick = vm::sync, enabled = !state.syncing) { Icon(OpenTuneIcons.Refresh, stringResource(R.string.library_refresh)) }
                         state.detail?.takeIf { state.routes.isEmpty() }?.let { release ->
                             if (vm.canEdit(release)) IconButton(onClick = { playlistTitle = release.title; editPlaylist = true }) { Icon(OpenTuneIcons.Edit, stringResource(R.string.playlist_edit)) }
                             if (release.type == ReleaseType.PLAYLIST && state.signedIn && !release.isDevicePlaylist && !vm.canEdit(release)) IconButton(onClick = { vm.favoritePlaylist(release) }) {
@@ -186,6 +185,7 @@ fun OpenTuneRoot(vm: MainViewModel, state: AppState, initialDestination: Destina
                     settings -> when (settingsPageOpen) {
                         SettingsPage.Repeats -> AvoidRepeatsPage(state, vm)
                         SettingsPage.Statistics -> StatisticsPage(vm)
+                        SettingsPage.Appearance -> AppearancePage(state.settings, { next -> vm.settings { next } }, onPreview = vm::previewTheme)
                         SettingsPage.Licenses -> LicencesPage { settingsPage = it.name }
                         SettingsPage.Apache, SettingsPage.Inter, SettingsPage.Serif, SettingsPage.Space, SettingsPage.Mono -> LicenceDocumentPage(settingsPageOpen)
                         null -> SettingsScreen(state, vm, openLogin) { settingsPage = it.name }

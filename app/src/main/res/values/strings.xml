@@ -96,7 +96,6 @@
     <string name="home_mixes">Mixes</string>
 
     <!-- Library -->
-    <string name="library_refresh">Refresh library</string>
     <string name="library_saved_tracks">Saved tracks</string>
     <string name="library_mixes">Mixes</string>
     <string name="library_filter">Search</string>
@@ -418,7 +417,6 @@
     <string name="login_progress">Signing in</string>
     <string name="settings_account">Account</string>
     <string name="settings_connected">Connected to TIDAL</string>
-    <string name="settings_connect_text">Sign in to stream, download and manage your TIDAL library</string>
     <string name="settings_playback">Playback</string>
     <string name="settings_quality_wifi">Wi-Fi audio quality</string>
     <string name="settings_quality_mobile">Mobile audio quality</string>
@@ -509,7 +507,7 @@
     <string name="device_empty_text_local">Add audio files or folders to play on this device</string>
     <string name="settings_visualizer">Visualizer</string>
     <string name="settings_visualizer_text">Shows the spectrum of the music over the artwork in the player</string>
-    <string name="connect_card_text">Sign in to stream, download and manage your TIDAL library</string>
+    <string name="connect_card_text">Sign in to stream your TIDAL library</string>
 
     <!-- Listening -->
     <string name="scrobble_title">ListenBrainz</string>

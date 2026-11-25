@@ -7,7 +7,7 @@ package io.github.yyan115.opentune
 object ScreenRegistry {
     /** The screens that the catalog renders in each of their states, on every setting of the phone that the covering array lists. */
     val rendered = setOf(
-        "AddSongsSheet", "AddToPlaylistSheet", "AppDialog", "AppearanceSheet", "AvoidRepeatsPage", "CreditsSheet", "DetailScreen", "DownloadQueuePage",
+        "AddSongsSheet", "AddToPlaylistSheet", "AppDialog", "AppearancePage", "AvoidRepeatsPage", "CreditsSheet", "DetailScreen", "DownloadQueuePage",
         "EqualizerSheet", "LibraryScreen", "LicenceDocumentPage", "LicencesPage", "ListenScreen", "MoveToFolderDialog", "NameDialog", "NewPlaylistDialog",
         "NormalizationDialog", "NowPlayingScreen", "OnDeviceScreen", "PageScreen", "QueueSheet", "ScrobbleDialog", "SearchScreen", "SettingsScreen", "SetupScreen",
         "SleepTimerSheet", "SourceDetailsSheet", "StatisticsPage", "WelcomeScreen",
