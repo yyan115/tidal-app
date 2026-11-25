@@ -27,13 +27,15 @@ class OpenTuneAudioRenderer(
     eventListener: AudioRendererEventListener?,
     private val output: OutputSink,
     private val policy: () -> OutputPolicyState = { OutputPolicy.state },
+    /** Whether the listener chose to play every song as 16-bit audio. */
+    private val listenerLimit: () -> Boolean = { false },
 ) : MediaCodecAudioRenderer(context, codecAdapterFactory, mediaCodecSelector, enableDecoderFallback, eventHandler, eventListener, output) {
     private var requestedFloat = false
 
     override fun getMediaFormat(format: Format, codecMimeType: String, codecMaxInputSize: Int, codecOperatingRate: Float): MediaFormat {
         val mediaFormat = super.getMediaFormat(format, codecMimeType, codecMaxInputSize, codecOperatingRate)
         val needed = SourceDepth.isHighResolution(format.sampleMimeType, format.pcmEncoding, format.initializationData)
-        if (!(needed && policy().floatAllowed)) mediaFormat.removeKey(MediaFormat.KEY_PCM_ENCODING)
+        if (!(needed && policy().floatAllowed && !listenerLimit())) mediaFormat.removeKey(MediaFormat.KEY_PCM_ENCODING)
         requestedFloat = mediaFormat.containsKey(MediaFormat.KEY_PCM_ENCODING) && mediaFormat.getInteger(MediaFormat.KEY_PCM_ENCODING) == android.media.AudioFormat.ENCODING_PCM_FLOAT
         return mediaFormat
     }

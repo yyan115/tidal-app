@@ -4,6 +4,7 @@ import io.github.yyan115.opentune.R
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -63,6 +64,7 @@ private fun volumeName(volume: String): String = if (volume == "primary") string
 @Composable
 fun SourceDetailsSheet(label: String, track: Track?, vm: MainViewModel?, onClose: () -> Unit) {
     val source = SourceReadout.from(label)
+    val limited = vm?.state?.collectAsStateWithLifecycle()?.value?.settings?.limitTo16Bit == true
     val notReported = stringResource(R.string.source_not_reported)
     val context = LocalContext.current
     // A file that was added and a download both lie in a folder of the device. A download of an earlier version is kept in the private storage of the app and has no place to show.
@@ -87,6 +89,8 @@ fun SourceDetailsSheet(label: String, track: Track?, vm: MainViewModel?, onClose
                 add(Triple("source-rate", stringResource(R.string.source_sample_rate), source.rateText() ?: notReported))
                 // A phone that failed the check of the 24-bit output plays such a song at 16-bit, and the sheet says why.
                 source.bits?.toIntOrNull()?.takeIf { it > 16 && !OutputPolicy.state.floatAllowed }?.let { add(Triple("source-output", stringResource(R.string.source_output), stringResource(R.string.source_output_blocked, it))) }
+                // A listener who chose 16-bit output hears a song of more than 16 bits at 16 bits, and the sheet says so.
+                source.bits?.toIntOrNull()?.takeIf { it > 16 && limited && OutputPolicy.state.floatAllowed }?.let { add(Triple("source-output", stringResource(R.string.source_output), stringResource(R.string.source_output_limited))) }
                 source.bitrateText()?.let { add(Triple("source-bitrate", stringResource(R.string.source_bitrate), it)) }
                 if (stored != null) {
                     facts?.fileName?.let { add(Triple("source-file", stringResource(R.string.source_file), it)) }

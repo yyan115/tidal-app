@@ -319,6 +319,7 @@
     <string name="source_sample_rate">Sample rate</string>
     <string name="source_output">Output</string>
     <string name="source_output_blocked">%1$d-bit not supported on this phone</string>
+    <string name="source_output_limited">16-bit, as set in Settings</string>
     <string name="source_label">SOURCE</string>
     <string name="eq_title">Equalizer</string>
     <string name="eq_unavailable">This device has no equalizer that OpenTune can use</string>
@@ -425,6 +426,8 @@
     <string name="settings_off">Off</string>
     <string name="settings_on">On</string>
     <string name="settings_bitperfect">Bit-perfect USB output</string>
+    <string name="settings_limit_16_bit">16-bit output</string>
+    <string name="settings_limit_16_bit_text">Plays 24-bit songs as 16-bit. Turn it on if 24-bit songs sound wrong.</string>
     <string name="settings_bitperfect_text">Sends audio to a USB DAC without resampling. Requires Android 14 or later.</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_theme">Theme</string>

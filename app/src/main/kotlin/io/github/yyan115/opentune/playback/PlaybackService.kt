@@ -121,7 +121,7 @@ class PlaybackService : MediaLibraryService() {
                 AudioSpectrum.sinks++
                 fun output(floatSamples: Boolean) = androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context).setEnableFloatOutput(floatSamples)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).build()
-                return OutputSink(output(true), output(false), useInteger = { Build.VERSION.SDK_INT >= 34 && app.settings.state.value.bitPerfect })
+                return OutputSink(output(true), output(false), useInteger = { app.settings.state.value.limitTo16Bit || (Build.VERSION.SDK_INT >= 34 && app.settings.state.value.bitPerfect) })
             }
 
             // The renderer of the phone's decoder asks for float samples for every song. Ours asks only for the songs that need them.
@@ -131,7 +131,7 @@ class PlaybackService : MediaLibraryService() {
                 super.buildAudioRenderers(context, extensionRendererMode, mediaCodecSelector, enableDecoderFallback, audioSink, eventHandler, eventListener, out)
                 val index = out.indexOfFirst { it.javaClass == androidx.media3.exoplayer.audio.MediaCodecAudioRenderer::class.java }
                 if (index >= 0 && audioSink is OutputSink) out[index] = OpenTuneAudioRenderer(context, androidx.media3.exoplayer.mediacodec.DefaultMediaCodecAdapterFactory(context),
-                    mediaCodecSelector, enableDecoderFallback, eventHandler, eventListener, audioSink)
+                    mediaCodecSelector, enableDecoderFallback, eventHandler, eventListener, audioSink, listenerLimit = { app.settings.state.value.limitTo16Bit })
             }
         }
         player = ExoPlayer.Builder(this, renderers)

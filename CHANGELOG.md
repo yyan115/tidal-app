@@ -4,7 +4,13 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- A setting that plays 24-bit songs as 16-bit, under Experimental
+
 ### Changed
+
+- Albums and Similar artists as the names of sections on artist pages
 
 - The theme picker is a page of Settings with a back button
 - Pull down to refresh the Library

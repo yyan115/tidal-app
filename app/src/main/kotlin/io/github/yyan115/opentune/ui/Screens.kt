@@ -427,6 +427,7 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
         item { SettingRow(OpenTuneIcons.Lyrics, stringResource(R.string.scrobble_title), if (settings.scrobble) stringResource(R.string.settings_scrobble_on, settings.scrobbleServer.removePrefix("https://")) else stringResource(R.string.settings_off), { scrobbling = true }) }
         if (android.os.Build.VERSION.SDK_INT >= VISUALIZER_API) item { SwitchRow(OpenTuneIcons.GraphicEq, stringResource(R.string.settings_visualizer), settings.visualizer, { value -> vm.settings { it.copy(visualizer = value) } }, stringResource(R.string.settings_visualizer_text)) }
         if (android.os.Build.VERSION.SDK_INT >= 34) item { SwitchRow(OpenTuneIcons.Waves, stringResource(R.string.settings_bitperfect), settings.bitPerfect, { value -> vm.settings { it.copy(bitPerfect = value) } }, stringResource(R.string.settings_bitperfect_text)) }
+        item { SwitchRow(OpenTuneIcons.Waves, stringResource(R.string.settings_limit_16_bit), settings.limitTo16Bit, { value -> vm.settings { it.copy(limitTo16Bit = value) } }, stringResource(R.string.settings_limit_16_bit_text)) }
         if (state.signedIn) {
             // One rule decides what downloads, so turning one switch on turns the other off.
             item { SwitchRow(OpenTuneIcons.DownloadDone, stringResource(R.string.settings_download_saved), settings.downloadSaved, { value -> vm.settings { it.withDownloadSaved(value) } }, stringResource(R.string.settings_download_saved_text)) }
