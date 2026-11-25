@@ -173,6 +173,8 @@
 
     <!-- Albums and artists -->
     <string name="credits_title">Credits</string>
+    <string name="section_albums">Albums</string>
+    <string name="section_similar_artists">Similar artists</string>
     <string name="credits_none">No credits are listed for this release</string>
     <string name="page_empty_title">Nothing here yet</string>
     <string name="page_empty_text">Check again later</string>
