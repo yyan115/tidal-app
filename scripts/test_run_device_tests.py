@@ -14,7 +14,7 @@ REFUSED = "Could not GET 'https://repo.maven.apache.org/maven2/x.pom'. Received 
 class DeviceTestRun(unittest.TestCase):
     """The script that runs the device tests starts Gradle once for each shard, and tries again when Maven Central refuses a download."""
 
-    def run_script(self, behaviour: str, shards: int = 1, api: str = "29"):
+    def run_script(self, behaviour: str, shards: int = 1, api: str = "29", env: dict | None = None):
         """Runs the script with a Gradle that behaves as [behaviour] says for each call, in turn: 'ok', 'refused', 'notfound' or 'failed'."""
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
@@ -35,9 +35,15 @@ case "$what" in
 esac
 """, encoding="utf-8")
             gradle.chmod(gradle.stat().st_mode | stat.S_IEXEC)
+            # A stand-in for adb records what the script asks of the display.
+            (root / "bin").mkdir()
+            adb = root / "bin" / "adb"
+            adb.write_text('#!/usr/bin/env bash\necho "$*" >> "$(dirname "$0")/../adb.log"\n', encoding="utf-8")
+            adb.chmod(adb.stat().st_mode | stat.S_IEXEC)
             done = subprocess.run(["bash", "scripts/run_device_tests.sh", api, str(shards)], cwd=root, capture_output=True, text=True,
-                                  env={**os.environ, "RETRY_SECONDS": "0"})
+                                  env={**os.environ, "RETRY_SECONDS": "0", "PATH": f"{root / 'bin'}:{os.environ['PATH']}", **(env or {})})
             calls = (root / "calls.log").read_text(encoding="utf-8").splitlines()
+            self.adb_calls = (root / "adb.log").read_text(encoding="utf-8").splitlines() if (root / "adb.log").exists() else []
             return done.returncode, calls, sorted(p.name for p in (root / "shard-results").glob("*"))
 
     def test_runs_gradle_once_for_each_shard(self):
@@ -84,6 +90,25 @@ esac
         self.assertEqual(2, len(calls))
         self.assertEqual(calls[0], calls[1])
         self.assertIn("crawl=true", calls[0]); self.assertIn("matrixOffset=1", calls[0])
+
+    def test_a_pull_request_gives_each_android_version_a_third_of_the_matrix(self):
+        for api, offset in (("29", "0"), ("33", "1"), ("36", "2")):
+            _, calls, _ = self.run_script("ok", api=api)
+            self.assertIn("matrixStride=3", calls[0]); self.assertIn(f"matrixOffset={offset}", calls[0])
+
+    def test_a_nightly_run_gives_every_android_version_every_row_the_tour_and_the_crawler(self):
+        for api in ("29", "31", "34", "36"):
+            _, calls, _ = self.run_script("ok", api=api, env={"FULL_MATRIX": "1"})
+            self.assertIn("matrixStride=1", calls[0]); self.assertIn("matrixOffset=0", calls[0])
+            self.assertIn("screenTour=true", calls[0]); self.assertIn("crawl=true", calls[0])
+
+    def test_the_size_and_density_of_the_display_are_set_before_the_tests_start(self):
+        self.run_script("ok", env={"SCREEN": "1600x2560@320"})
+        self.assertEqual(["shell wm size 1600x2560", "shell wm density 320"], self.adb_calls)
+
+    def test_the_display_is_left_alone_without_a_screen(self):
+        self.run_script("ok")
+        self.assertEqual([], self.adb_calls)
 
 
 if __name__ == "__main__":
