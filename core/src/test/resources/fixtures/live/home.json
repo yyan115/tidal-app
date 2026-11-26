@@ -1,0 +1,1030 @@
+{
+ "selfLink": null,
+ "id": "eyJwIjoiMzc1OWFiMzAtMWUyNi00ZmRlLTlhOTYtZTdlNjM3ZTBhNDFlIiwicFYiOjJ9",
+ "title": "Example title 1",
+ "rows": [
+  {
+   "modules": [
+    {
+     "id": "eyJwIjoiMzc1OWFiMzAtMWUyNi00ZmRlLTlhOTYtZTdlNjM3ZTBhNDFlIiwicFYiOjIsIm0iOiI1ZWI0MzcyYi0xZjk5LTQxZDMtYjc1OC0zNjJkOTI1NGI1ZjkiLCJtViI6MSwibUgiOiJjOTVhM2FhZCJ9",
+     "type": "PLAYLIST_LIST",
+     "width": 100,
+     "scroll": "HORIZONTAL",
+     "title": "The Hits",
+     "description": "",
+     "showMore": {
+      "title": "Example title 2",
+      "apiPath": "pages/single-module-page/3759ab30-1e26-4fde-9a96-e7e637e0a41e/2/5eb4372b-1f99-41d3-b758-362d9254b5f9/1"
+     },
+     "pagedList": {
+      "dataApiPath": "pages/data/dba67408-bd39-46fb-99ac-f2593aa716bf",
+      "limit": 15,
+      "offset": 0,
+      "totalNumberOfItems": 10,
+      "items": [
+       {
+        "uuid": "edf3b7d2-cb42-41d7-93c0-afa2a395521b",
+        "title": "Example title 3",
+        "type": "EDITORIAL",
+        "url": "https://example.invalid/1",
+        "image": "00000000-0000-4000-8000-000000000001",
+        "squareImage": "00000000-0000-4000-8000-000000000002",
+        "duration": 19083,
+        "numberOfTracks": 100,
+        "numberOfVideos": 0,
+        "lastItemAddedAt": "2026-11-19T18:58:44.066Z",
+        "promotedArtists": [
+         {
+          "id": 36589538,
+          "name": "Example name 1",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000003",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 6162086,
+          "name": "Example name 2",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000004",
+          "handle": null,
+          "userId": 192487937,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 7067135,
+          "name": "Example name 3",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000005",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 10697175,
+          "name": "Example name 4",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000006",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 3632070,
+          "name": "Example name 5",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000007",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 10251336,
+          "name": "Example name 6",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000008",
+          "handle": null,
+          "userId": 190367077,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 3970137,
+          "name": "Example name 7",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000009",
+          "handle": null,
+          "userId": 56489353,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 3618971,
+          "name": "Example name 8",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000010",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 6884754,
+          "name": "Example name 9",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000011",
+          "handle": null,
+          "userId": 191156833,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 9279273,
+          "name": "Example name 10",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000012",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 9850354,
+          "name": "Example name 11",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000013",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 3958646,
+          "name": "Example name 12",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000014",
+          "handle": null,
+          "userId": 191309876,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 14979,
+          "name": "Example name 13",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000015",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 57425,
+          "name": "Example name 14",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000016",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 17009569,
+          "name": "Example name 15",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000017",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 7301626,
+          "name": "Example name 16",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000018",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 15783216,
+          "name": "Example name 17",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000019",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 8935680,
+          "name": "Example name 18",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000020",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 3816041,
+          "name": "Example name 19",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000021",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 4899960,
+          "name": "Example name 20",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000022",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 5700677,
+          "name": "Example name 21",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000023",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 40578772,
+          "name": "Example name 22",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000024",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 6444921,
+          "name": "Example name 23",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000025",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 5652094,
+          "name": "Example name 24",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000026",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 3670233,
+          "name": "Example name 25",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000027",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 1566,
+          "name": "Example name 26",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000028",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 8161298,
+          "name": "Example name 27",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000029",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 10653658,
+          "name": "Example name 28",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000030",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 7375309,
+          "name": "Example name 29",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000031",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 5237820,
+          "name": "Example name 30",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000032",
+          "handle": null,
+          "userId": 194595340,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 62075550,
+          "name": "Example name 31",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000033",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 8164544,
+          "name": "Example name 32",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000034",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 3633269,
+          "name": "Example name 33",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000035",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 9380062,
+          "name": "Example name 34",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000036",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 3933554,
+          "name": "Example name 35",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000037",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 5421651,
+          "name": "Example name 36",
+          "type": "MAIN",
+          "picture": null,
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 8027279,
+          "name": "Example name 37",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000038",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 5942805,
+          "name": "Example name 38",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000039",
+          "handle": null,
+          "userId": 191223913,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 3261,
+          "name": "Example name 39",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000040",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 3966408,
+          "name": "Example name 40",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000041",
+          "handle": null,
+          "userId": 195853372,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 8451939,
+          "name": "Example name 41",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000042",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 9070476,
+          "name": "Example name 42",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000043",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 8549802,
+          "name": "Example name 43",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000044",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         }
+        ],
+        "creators": [],
+        "description": "Example text 1"
+       },
+       {
+        "uuid": "36ea71a8-445e-41a4-82ab-6628c581535d",
+        "title": "Example title 4",
+        "type": "EDITORIAL",
+        "url": "https://example.invalid/2",
+        "image": "00000000-0000-4000-8000-000000000045",
+        "squareImage": "00000000-0000-4000-8000-000000000046",
+        "duration": 9998,
+        "numberOfTracks": 50,
+        "numberOfVideos": 0,
+        "lastItemAddedAt": "2026-10-30T04:12:17.167Z",
+        "promotedArtists": [
+         {
+          "id": 9380062,
+          "name": "Example name 34",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000036",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 10697175,
+          "name": "Example name 4",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000006",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 3557299,
+          "name": "Example name 44",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000047",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 5237820,
+          "name": "Example name 30",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000032",
+          "handle": null,
+          "userId": 194595340,
+          "contributionLinkUrl": null
+         }
+        ],
+        "creators": [],
+        "description": "Example text 2"
+       }
+      ]
+     },
+     "supportsPaging": false,
+     "layout": null,
+     "quickPlay": false,
+     "playlistStyle": null,
+     "preTitle": null
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "id": "eyJwIjoiMzc1OWFiMzAtMWUyNi00ZmRlLTlhOTYtZTdlNjM3ZTBhNDFlIiwicFYiOjIsIm0iOiJmMjRlNWIyZC05ZjNlLTQ4ZWQtYjY4ZC05OGIxMTg0YmI0OTMiLCJtViI6MSwibUgiOiI0ZjBkOTg3NCJ9",
+     "type": "TRACK_LIST",
+     "width": 100,
+     "title": "New Tracks",
+     "description": "",
+     "listFormat": "COVERS",
+     "scroll": null,
+     "showMore": {
+      "title": "Example title 2",
+      "apiPath": "pages/single-module-page/3759ab30-1e26-4fde-9a96-e7e637e0a41e/2/f24e5b2d-9f3e-48ed-b68d-98b1184bb493/1"
+     },
+     "pagedList": {
+      "dataApiPath": "pages/data/6eebf48e-fc39-4480-ad57-bdb217164971",
+      "limit": 5,
+      "offset": 0,
+      "totalNumberOfItems": 265,
+      "items": [
+       {
+        "id": 580355798,
+        "title": "Example title 5",
+        "duration": 263,
+        "version": null,
+        "url": "https://example.invalid/3",
+        "artists": [
+         {
+          "id": 11063,
+          "name": "Example name 45",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000048",
+          "handle": null,
+          "userId": null
+         },
+         {
+          "id": 90386313,
+          "name": "Example name 46",
+          "type": "MAIN",
+          "picture": null,
+          "handle": null,
+          "userId": null
+         }
+        ],
+        "album": {
+         "id": 580355797,
+         "title": "Example title 5",
+         "cover": "00000000-0000-4000-8000-000000000049",
+         "vibrantColor": "#808080",
+         "videoCover": null,
+         "url": "https://example.invalid/4",
+         "releaseDate": "2026-11-23",
+         "ai": false
+        },
+        "explicit": false,
+        "volumeNumber": 1,
+        "trackNumber": 1,
+        "popularity": 63,
+        "doublePopularity": 0.6284885309553064,
+        "allowStreaming": true,
+        "streamReady": true,
+        "streamStartDate": "2026-11-23T23:00:00.000+0000",
+        "adSupportedStreamReady": true,
+        "djReady": true,
+        "stemReady": false,
+        "editable": false,
+        "replayGain": -6.87,
+        "audioQuality": "LOSSLESS",
+        "audioModes": [
+         "STEREO"
+        ],
+        "mixes": {
+         "TRACK_MIX": "001d8870e517cc54397b003aefc954"
+        },
+        "mediaMetadata": {
+         "tags": [
+          "LOSSLESS",
+          "HIRES_LOSSLESS"
+         ]
+        },
+        "upload": false,
+        "payToStream": false,
+        "accessType": "PUBLIC",
+        "spotlighted": false,
+        "ai": false
+       },
+       {
+        "id": 574443759,
+        "title": "Example title 6",
+        "duration": 149,
+        "version": null,
+        "url": "https://example.invalid/5",
+        "artists": [
+         {
+          "id": 9313125,
+          "name": "Example name 47",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000050",
+          "handle": null,
+          "userId": null
+         }
+        ],
+        "album": {
+         "id": 574443758,
+         "title": "Example title 6",
+         "cover": "00000000-0000-4000-8000-000000000051",
+         "vibrantColor": "#808080",
+         "videoCover": null,
+         "url": "https://example.invalid/6",
+         "releaseDate": "2026-11-19",
+         "ai": false
+        },
+        "explicit": true,
+        "volumeNumber": 1,
+        "trackNumber": 1,
+        "popularity": 61,
+        "doublePopularity": 0.6088058923462718,
+        "allowStreaming": true,
+        "streamReady": true,
+        "streamStartDate": "2026-11-20T00:00:00.000+0000",
+        "adSupportedStreamReady": true,
+        "djReady": true,
+        "stemReady": false,
+        "editable": false,
+        "replayGain": -9.23,
+        "audioQuality": "LOSSLESS",
+        "audioModes": [
+         "STEREO"
+        ],
+        "mixes": {
+         "TRACK_MIX": "001c2a6664f202f5a2fca79ebe7721"
+        },
+        "mediaMetadata": {
+         "tags": [
+          "LOSSLESS",
+          "HIRES_LOSSLESS"
+         ]
+        },
+        "upload": false,
+        "payToStream": false,
+        "accessType": "PUBLIC",
+        "spotlighted": false,
+        "ai": false
+       }
+      ]
+     },
+     "supportsPaging": false,
+     "showTableHeaders": false,
+     "layout": null,
+     "quickPlay": false,
+     "preTitle": null
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "id": "eyJwIjoiMzc1OWFiMzAtMWUyNi00ZmRlLTlhOTYtZTdlNjM3ZTBhNDFlIiwicFYiOjIsIm0iOiIwMmYxODU3ZC01MjJlLTRhYzktODZhMS00ZGRkNjU4Y2VjMWEiLCJtViI6MSwibUgiOiJkMzFmZDFmYSJ9",
+     "type": "ALBUM_LIST",
+     "width": 100,
+     "scroll": "HORIZONTAL",
+     "title": "New Albums",
+     "description": "",
+     "showMore": {
+      "title": "Example title 2",
+      "apiPath": "pages/single-module-page/3759ab30-1e26-4fde-9a96-e7e637e0a41e/2/02f1857d-522e-4ac9-86a1-4ddd658cec1a/1"
+     },
+     "listFormat": null,
+     "pagedList": {
+      "dataApiPath": "pages/data/b047c1c8-9512-4244-9333-cc0f0f75673f",
+      "limit": 15,
+      "offset": 0,
+      "totalNumberOfItems": 205,
+      "items": [
+       {
+        "id": 581022786,
+        "title": "Example title 7",
+        "cover": "00000000-0000-4000-8000-000000000052",
+        "vibrantColor": "#808080",
+        "videoCover": null,
+        "url": "https://example.invalid/7",
+        "artists": [
+         {
+          "id": 42973803,
+          "name": "Example name 48",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000053",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         }
+        ],
+        "explicit": true,
+        "streamReady": true,
+        "streamStartDate": "2026-11-23T22:00:00.000+00:00",
+        "allowStreaming": true,
+        "payToStream": false,
+        "numberOfTracks": 57,
+        "numberOfVideos": 0,
+        "audioQuality": "LOSSLESS",
+        "audioModes": [
+         "STEREO"
+        ],
+        "releaseDate": "2026-11-23",
+        "duration": 10560,
+        "upload": false,
+        "ai": false,
+        "mediaMetadata": {
+         "tags": [
+          "LOSSLESS",
+          "HIRES_LOSSLESS"
+         ]
+        }
+       },
+       {
+        "id": 577956341,
+        "title": "Example title 8",
+        "cover": "00000000-0000-4000-8000-000000000054",
+        "vibrantColor": "#808080",
+        "videoCover": null,
+        "url": "https://example.invalid/8",
+        "artists": [
+         {
+          "id": 7375309,
+          "name": "Example name 29",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000031",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         }
+        ],
+        "explicit": true,
+        "streamReady": true,
+        "streamStartDate": "2026-10-30T00:00:00.000+00:00",
+        "allowStreaming": true,
+        "payToStream": false,
+        "numberOfTracks": 11,
+        "numberOfVideos": 0,
+        "audioQuality": "LOSSLESS",
+        "audioModes": [
+         "STEREO"
+        ],
+        "releaseDate": "2026-11-20",
+        "duration": 2420,
+        "upload": false,
+        "ai": false,
+        "mediaMetadata": {
+         "tags": [
+          "LOSSLESS",
+          "HIRES_LOSSLESS"
+         ]
+        }
+       }
+      ]
+     },
+     "header": null,
+     "supportsPaging": false,
+     "layout": null,
+     "quickPlay": false,
+     "preTitle": null
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "id": "eyJwIjoiMzc1OWFiMzAtMWUyNi00ZmRlLTlhOTYtZTdlNjM3ZTBhNDFlIiwicFYiOjIsIm0iOiIwZDlmZWRkZi00ZDU5LTQ4MmEtYjA2NC05OGYyZGU2NWNlMDkiLCJtViI6MiwibUgiOiIyZDdiOGI0NyJ9",
+     "type": "TRACK_LIST",
+     "width": 100,
+     "title": "Spotlighted Uploads",
+     "description": "",
+     "listFormat": "COVERS",
+     "scroll": null,
+     "showMore": {
+      "title": "Example title 2",
+      "apiPath": "pages/single-module-page/3759ab30-1e26-4fde-9a96-e7e637e0a41e/2/0d9feddf-4d59-482a-b064-98f2de65ce09/2"
+     },
+     "pagedList": {
+      "dataApiPath": "pages/data/44753606-8a7e-4c49-9403-cb5ecc804ad2",
+      "limit": 5,
+      "offset": 0,
+      "totalNumberOfItems": 5,
+      "items": [
+       {
+        "id": 578475518,
+        "title": "Example title 9",
+        "duration": 168,
+        "version": null,
+        "url": "https://example.invalid/9",
+        "artists": [
+         {
+          "id": 20462918,
+          "name": "Example name 49",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000055",
+          "handle": "Example name 50",
+          "userId": 205377257
+         }
+        ],
+        "album": {
+         "id": 578475504,
+         "title": "Example title 9",
+         "cover": "00000000-0000-4000-8000-000000000056",
+         "vibrantColor": "#808080",
+         "videoCover": null,
+         "url": "https://example.invalid/10",
+         "releaseDate": "2026-11-12",
+         "ai": false
+        },
+        "explicit": true,
+        "volumeNumber": 1,
+        "trackNumber": 1,
+        "popularity": 18,
+        "doublePopularity": 0.18141393834041172,
+        "allowStreaming": true,
+        "streamReady": true,
+        "streamStartDate": "1970-01-01T00:00:00.000+0000",
+        "adSupportedStreamReady": true,
+        "djReady": true,
+        "stemReady": false,
+        "editable": false,
+        "replayGain": -8.43,
+        "audioQuality": "HIGH",
+        "audioModes": [
+         "STEREO"
+        ],
+        "mixes": {
+         "TRACK_MIX": "001b49ae943ebcdc33fd004d1ef229"
+        },
+        "mediaMetadata": {
+         "tags": []
+        },
+        "upload": true,
+        "payToStream": false,
+        "accessType": "PUBLIC",
+        "spotlighted": true,
+        "ai": false
+       },
+       {
+        "id": 578764971,
+        "title": "Example title 10",
+        "duration": 226,
+        "version": null,
+        "url": "https://example.invalid/11",
+        "artists": [
+         {
+          "id": 89138100,
+          "name": "Example name 51",
+          "type": "MAIN",
+          "picture": null,
+          "handle": null,
+          "userId": 209622836
+         }
+        ],
+        "album": {
+         "id": 578764970,
+         "title": "Example title 10",
+         "cover": "00000000-0000-4000-8000-000000000057",
+         "vibrantColor": null,
+         "videoCover": null,
+         "url": "https://example.invalid/12",
+         "releaseDate": "2026-11-13",
+         "ai": false
+        },
+        "explicit": false,
+        "volumeNumber": 1,
+        "trackNumber": 1,
+        "popularity": 20,
+        "doublePopularity": 0.1983126855804201,
+        "allowStreaming": true,
+        "streamReady": true,
+        "streamStartDate": "1970-01-01T00:00:00.000+0000",
+        "adSupportedStreamReady": true,
+        "djReady": true,
+        "stemReady": false,
+        "editable": false,
+        "replayGain": -9.62,
+        "audioQuality": "LOSSLESS",
+        "audioModes": [
+         "STEREO"
+        ],
+        "mixes": {
+         "TRACK_MIX": "0012b5a5b9f140116e5f34f502fd78"
+        },
+        "mediaMetadata": {
+         "tags": [
+          "LOSSLESS"
+         ]
+        },
+        "upload": true,
+        "payToStream": false,
+        "accessType": "PUBLIC",
+        "spotlighted": true,
+        "ai": false
+       }
+      ]
+     },
+     "supportsPaging": false,
+     "showTableHeaders": false,
+     "layout": null,
+     "quickPlay": false,
+     "preTitle": null
+    }
+   ]
+  },
+  {
+   "modules": [
+    {
+     "id": "eyJwIjoiMzc1OWFiMzAtMWUyNi00ZmRlLTlhOTYtZTdlNjM3ZTBhNDFlIiwicFYiOjIsIm0iOiIwNWY1ZDk0Ni1iY2Y5LTRjNzctYWZkMS05MWIzM2MyMTBiYzciLCJtViI6MSwibUgiOiI0NDc0MGVmYyJ9",
+     "type": "PLAYLIST_LIST",
+     "width": 100,
+     "scroll": "HORIZONTAL",
+     "title": "From our editors",
+     "description": "",
+     "showMore": {
+      "title": "Example title 2",
+      "apiPath": "pages/single-module-page/3759ab30-1e26-4fde-9a96-e7e637e0a41e/2/05f5d946-bcf9-4c77-afd1-91b33c210bc7/1"
+     },
+     "pagedList": {
+      "dataApiPath": "pages/data/202c0e67-a076-4f3c-b794-f42429e8b5e7",
+      "limit": 15,
+      "offset": 0,
+      "totalNumberOfItems": 40,
+      "items": [
+       {
+        "uuid": "56f063e8-d4e1-4d0c-90df-ce35a95f6651",
+        "title": "Example title 11",
+        "type": "EDITORIAL",
+        "url": "https://example.invalid/13",
+        "image": "00000000-0000-4000-8000-000000000058",
+        "squareImage": "00000000-0000-4000-8000-000000000059",
+        "duration": 7453,
+        "numberOfTracks": 31,
+        "numberOfVideos": 0,
+        "lastItemAddedAt": "2025-08-20T08:02:04.713Z",
+        "promotedArtists": [
+         {
+          "id": 4416,
+          "name": "Example name 52",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000060",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 4288,
+          "name": "Example name 53",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000061",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 13393,
+          "name": "Example name 54",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000062",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 6456201,
+          "name": "Example name 55",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000063",
+          "handle": null,
+          "userId": 192630430,
+          "contributionLinkUrl": null
+         }
+        ],
+        "creators": [],
+        "description": "Example text 3"
+       },
+       {
+        "uuid": "918d645b-e5a9-46ef-a4a8-50da28b6311f",
+        "title": "Example title 12",
+        "type": "EDITORIAL",
+        "url": "https://example.invalid/14",
+        "image": "00000000-0000-4000-8000-000000000064",
+        "squareImage": "00000000-0000-4000-8000-000000000065",
+        "duration": 5316,
+        "numberOfTracks": 30,
+        "numberOfVideos": 0,
+        "lastItemAddedAt": "2025-11-26T15:18:52.853Z",
+        "promotedArtists": [
+         {
+          "id": 518,
+          "name": "Example name 56",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000066",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 4416,
+          "name": "Example name 52",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000060",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 3502192,
+          "name": "Example name 57",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000067",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         },
+         {
+          "id": 15134,
+          "name": "Example name 58",
+          "type": "MAIN",
+          "picture": "00000000-0000-4000-8000-000000000068",
+          "handle": null,
+          "userId": null,
+          "contributionLinkUrl": null
+         }
+        ],
+        "creators": [],
+        "description": "Example text 4"
+       }
+      ]
+     },
+     "supportsPaging": false,
+     "layout": null,
+     "quickPlay": false,
+     "playlistStyle": null,
+     "preTitle": null
+    }
+   ]
+  }
+ ]
+}

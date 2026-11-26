@@ -1,0 +1,146 @@
+{
+ "limit": 5,
+ "offset": 0,
+ "totalNumberOfItems": 6,
+ "items": [
+  {
+   "created": "2026-11-19T07:05:30.375+0000",
+   "item": {
+    "id": 239896795,
+    "title": "Example title 1",
+    "duration": 201,
+    "replayGain": -10.82,
+    "peak": 0.996377,
+    "allowStreaming": true,
+    "streamReady": true,
+    "payToStream": false,
+    "adSupportedStreamReady": true,
+    "djReady": true,
+    "stemReady": false,
+    "streamStartDate": "2022-08-02T23:00:00.000+0000",
+    "premiumStreamingOnly": false,
+    "trackNumber": 1,
+    "volumeNumber": 1,
+    "version": null,
+    "popularity": 30,
+    "copyright": "Example copyright 1",
+    "bpm": 128,
+    "key": "B",
+    "keyScale": "MINOR",
+    "url": "https://example.invalid/1",
+    "isrc": "EX0000000001",
+    "editable": false,
+    "explicit": false,
+    "audioQuality": "LOSSLESS",
+    "audioModes": [
+     "STEREO"
+    ],
+    "mediaMetadata": {
+     "tags": [
+      "LOSSLESS",
+      "HIRES_LOSSLESS"
+     ]
+    },
+    "upload": false,
+    "accessType": "PUBLIC",
+    "spotlighted": false,
+    "ai": false,
+    "artist": {
+     "id": 9082645,
+     "name": "Example name 1",
+     "handle": null,
+     "type": "MAIN",
+     "picture": null
+    },
+    "artists": [
+     {
+      "id": 9082645,
+      "name": "Example name 1",
+      "handle": null,
+      "type": "MAIN",
+      "picture": null
+     }
+    ],
+    "album": {
+     "id": 239896794,
+     "title": "Example title 1",
+     "cover": "00000000-0000-4000-8000-000000000001",
+     "vibrantColor": "#808080",
+     "videoCover": null
+    },
+    "mixes": {
+     "TRACK_MIX": "0010753d7d29ca3623f37d161a37d2"
+    }
+   }
+  },
+  {
+   "created": "2026-11-03T07:13:30.223+0000",
+   "item": {
+    "id": 189587450,
+    "title": "Example title 2",
+    "duration": 271,
+    "replayGain": -10.39,
+    "peak": 1.0,
+    "allowStreaming": true,
+    "streamReady": true,
+    "payToStream": false,
+    "adSupportedStreamReady": true,
+    "djReady": true,
+    "stemReady": false,
+    "streamStartDate": "2023-07-31T23:00:00.000+0000",
+    "premiumStreamingOnly": false,
+    "trackNumber": 1,
+    "volumeNumber": 1,
+    "version": null,
+    "popularity": 34,
+    "copyright": "Example copyright 2",
+    "bpm": 132,
+    "key": "Bb",
+    "keyScale": "MAJOR",
+    "url": "https://example.invalid/2",
+    "isrc": "EX0000000002",
+    "editable": false,
+    "explicit": false,
+    "audioQuality": "LOSSLESS",
+    "audioModes": [
+     "STEREO"
+    ],
+    "mediaMetadata": {
+     "tags": [
+      "LOSSLESS"
+     ]
+    },
+    "upload": false,
+    "accessType": "PUBLIC",
+    "spotlighted": false,
+    "ai": false,
+    "artist": {
+     "id": 26660657,
+     "name": "Example name 2",
+     "handle": null,
+     "type": "MAIN",
+     "picture": null
+    },
+    "artists": [
+     {
+      "id": 26660657,
+      "name": "Example name 2",
+      "handle": null,
+      "type": "MAIN",
+      "picture": null
+     }
+    ],
+    "album": {
+     "id": 189587439,
+     "title": "Example title 2",
+     "cover": "00000000-0000-4000-8000-000000000002",
+     "vibrantColor": "#808080",
+     "videoCover": null
+    },
+    "mixes": {
+     "TRACK_MIX": "00105b202896d5585e7f1463ee2c6f"
+    }
+   }
+  }
+ ]
+}
