@@ -57,7 +57,8 @@ class DownloadQueueTest {
         compose.waitUntil(10_000) { compose.onAllNodes(entry).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("device-list").performScrollToNode(entry)
         compose.onAllNodes(entry).onFirst().performClick()
-        compose.onNodeWithTag("download-queue").assertIsDisplayed()
+        // The page slides in, and on a slow device the first frames after the tap show it outside the screen.
+        compose.waitUntil(10_000) { runCatching { compose.onNodeWithTag("download-queue").assertIsDisplayed() }.isSuccess }
     }
 
     @Test fun cancelAllStopsEveryWaitingDownloadAfterTheListenerAnswers() {
