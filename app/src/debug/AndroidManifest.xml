@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application>
+    <application android:networkSecurityConfig="@xml/network_security_config">
         <activity android:name=".preview.ThemePreviewActivity" android:exported="true" />
         <!-- A folder tree for the tests of the folder scan. It serves the files in the private folder documents-test. -->
         <provider android:name=".preview.TestDocumentsProvider" android:authorities="${applicationId}.testdocuments"

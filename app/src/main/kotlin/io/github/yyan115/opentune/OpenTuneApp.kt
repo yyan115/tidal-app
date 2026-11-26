@@ -23,7 +23,12 @@ class OpenTuneApp : Application() {
             if (settings.state.value.offline) throw java.io.IOException("Offline mode is enabled")
             chain.proceed(chain.request())
         }.build() }
-    val tidal by lazy { TidalClient(sessions::identity, sessions, http, locale = ::tidalLocale) }
+    private val tidalOfTheApp by lazy { TidalClient(sessions::identity, sessions, http, locale = ::tidalLocale) }
+    private var tidalReplacement: TidalClient? = null
+    val tidal: TidalClient get() = tidalReplacement ?: tidalOfTheApp
+
+    /** For tests of the app: sends the requests of the app to another service, such as a fake one on the device. Null puts the client of the app back. */
+    fun replaceTidal(client: TidalClient?) { tidalReplacement = client }
     val importer by lazy { LocalImporter(this, library) }
     val scrobbler by lazy { io.github.yyan115.opentune.data.Scrobbler(this) }
     val exporter by lazy { OfflineExporter(this) }
