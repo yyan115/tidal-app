@@ -23,7 +23,7 @@ import java.util.concurrent.CopyOnWriteArrayList
  *
  * It keeps saved tracks, albums, followed artists and playlists as lists of numbers, newest first, and it answers the lists page by page as TIDAL does.
  */
-class FakeTidal : TestRule {
+class FakeTidal(private val signedIn: Boolean = true) : TestRule {
     private val server = MockWebServer()
     val tracks = CopyOnWriteArrayList<Int>()
     val albums = CopyOnWriteArrayList<Int>()
@@ -33,16 +33,37 @@ class FakeTidal : TestRule {
     /** Every request that arrived, as `METHOD path?query`. */
     val log = CopyOnWriteArrayList<String>()
 
+    /** The bodies of the requests that carry a form, in the order of arrival, as `path` to form text. */
+    val forms = CopyOnWriteArrayList<Pair<String, String>>()
+
+    /** The answers for radio, mixes and top tracks, and the tracks among them that TIDAL marks as AI-generated. */
+    val radio = CopyOnWriteArrayList<Int>()
+    val marked = CopyOnWriteArrayList<Int>()
+
+    /** Playlist folders: the folder ids with their names, and the folder that holds each playlist. A playlist without an entry is at the top level. */
+    val folders = java.util.concurrent.ConcurrentHashMap<String, String>()
+    val folderOf = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /** What the next token request answers: null for a good answer, or the OAuth error code such as invalid_grant. */
+    @Volatile var tokenError: String? = null
+
     /** A status for the next requests of a path, such as 503. A path that holds the text is refused. */
     @Volatile var refuse: Pair<String, Int>? = null
 
     val userId = "9"
 
-    private fun track(id: Int) = JSONObject().put("id", id).put("title", "Song $id").put("duration", 100)
+    private fun track(id: Int) = JSONObject().put("id", id).put("title", "Song $id").put("duration", 100).put("ai", id in marked)
         .put("artists", JSONArray().put(JSONObject().put("id", 1).put("name", "Artist"))).put("album", JSONObject().put("id", 5).put("title", "Album"))
     private fun album(id: Int) = JSONObject().put("id", id).put("title", "Album $id").put("artists", JSONArray().put(JSONObject().put("id", 1).put("name", "Artist")))
     private fun artist(id: Int) = JSONObject().put("id", id).put("name", "Artist $id")
     private fun playlist(id: String) = JSONObject().put("type", "USER").put("playlist", JSONObject().put("uuid", id).put("title", "Playlist $id").put("lastUpdated", "2026-01-01T00:00:00"))
+
+    /** The track ids that a playlist holds, in the order that they were added. */
+    val playlistItems = java.util.concurrent.ConcurrentHashMap<String, CopyOnWriteArrayList<Int>>()
+    private fun itemsOf(id: String) = playlistItems.getOrPut(id) { CopyOnWriteArrayList() }
+
+    private fun folderEntry(id: String) = JSONObject().put("itemType", "FOLDER").put("name", folders[id]).put("trn", "trn:folder:$id")
+        .put("data", JSONObject().put("id", id).put("totalNumberOfItems", playlists.count { folderOf[it] == id }))
 
     private fun page(request: RecordedRequest, total: Int, item: (Int) -> JSONObject): MockResponse {
         val url = request.requestUrl!!
@@ -60,7 +81,31 @@ class FakeTidal : TestRule {
             log += "${request.method} $path" + (url.query?.let { "?$it" } ?: "")
             refuse?.let { (part, status) -> if (path.contains(part)) return MockResponse().setResponseCode(status) }
             val base = "users/$userId/"
+            if (request.method != "GET") forms += path to request.body.peek().readUtf8()
             return when {
+                request.method == "POST" && url.encodedPath == "/oauth/token" -> tokenError?.let { code -> MockResponse().setResponseCode(400).setBody(JSONObject().put("error", code).toString()) }
+                    ?: MockResponse().setBody(JSONObject().put("access_token", "fresh-access").put("refresh_token", "fresh-refresh").put("expires_in", 86_400).toString())
+                request.method == "GET" && path == "sessions" -> MockResponse().setBody(JSONObject().put("userId", userId.toInt()).put("countryCode", "US").toString())
+                request.method == "GET" && (path.matches(Regex("(tracks|artists)/[^/]+/radio")) || path.matches(Regex("mixes/[^/]+/items")) || path.matches(Regex("artists/[^/]+/toptracks"))) ->
+                    page(request, radio.size) { JSONObject().put("item", track(radio[it])) }
+                request.method == "GET" && path.matches(Regex("playlists/[^/]+")) ->
+                    MockResponse().addHeader("ETag", "\"1\"").setBody(JSONObject().put("uuid", path.substringAfter('/')).put("numberOfTracks", itemsOf(path.substringAfter('/')).size).toString())
+                request.method == "POST" && path.matches(Regex("playlists/[^/]+/items")) -> {
+                    val body = request.body.peek().readUtf8()
+                    val ids = body.substringAfter("trackIds=").substringBefore("&").let { java.net.URLDecoder.decode(it, "UTF-8") }.split(',').map(String::toInt)
+                    itemsOf(path.substringAfter("playlists/").substringBefore('/')).addAll(ids)
+                    MockResponse().addHeader("ETag", "\"2\"").setBody("{}")
+                }
+                request.method == "PUT" && path == "my-collection/playlists/folders/create-folder" -> {
+                    val id = "f${folders.size + 1}"
+                    folders[id] = url.queryParameter("name").orEmpty()
+                    MockResponse().setBody(folderEntry(id).toString())
+                }
+                request.method == "PUT" && path == "my-collection/playlists/folders/rename" -> { folders[url.queryParameter("trn")!!.substringAfterLast(':')] = url.queryParameter("name").orEmpty(); MockResponse().setBody("{}") }
+                request.method == "PUT" && path == "my-collection/playlists/folders/move" -> {
+                    folderOf[url.queryParameter("trns")!!.substringAfterLast(':')] = url.queryParameter("folderId").orEmpty(); MockResponse().setBody("{}")
+                }
+                request.method == "PUT" && path == "my-collection/playlists/folders/remove" -> { folders.remove(url.queryParameter("trns")!!.substringAfterLast(':')); MockResponse().setBody("{}") }
                 request.method == "GET" && path == base + "favorites/tracks" -> page(request, tracks.size) { JSONObject().put("created", "2026-01-01T00:00:00").put("item", track(tracks[it])) }
                 request.method == "POST" && path == base + "favorites/tracks" -> {
                     val id = request.body.readUtf8().substringAfter("trackIds=").substringBefore("&").toInt()
@@ -75,13 +120,19 @@ class FakeTidal : TestRule {
                 request.method == "POST" && path == base + "playlists" -> {
                     val id = "made-${playlists.size + 1}"
                     playlists.add(0, id)
-                    MockResponse().setBody(JSONObject().put("uuid", id).put("title", request.body.readUtf8().substringAfter("title=").substringBefore("&")).toString())
+                    MockResponse().setBody(JSONObject().put("uuid", id).put("title", java.net.URLDecoder.decode(request.body.readUtf8().substringAfter("title=").substringBefore("&"), "UTF-8")).toString())
                 }
                 request.method == "DELETE" && path.startsWith("playlists/") -> { playlists.remove(path.substringAfter("playlists/").substringBefore('/')); MockResponse().setBody("{}") }
                 request.method == "GET" && path == base + "favorites/albums" -> page(request, albums.size) { JSONObject().put("item", album(albums[it])) }
                 request.method == "GET" && path == base + "favorites/artists" -> page(request, artists.size) { JSONObject().put("item", artist(artists[it])) }
                 request.method == "GET" && path == base + "playlistsAndFavoritePlaylists" -> page(request, playlists.size) { playlist(playlists[it]) }
-                request.method == "GET" && path == "my-collection/playlists/folders" -> MockResponse().setBody("""{"items":[]}""")
+                request.method == "GET" && path == "my-collection/playlists/folders" -> {
+                    val parent = url.queryParameter("folderId") ?: "root"
+                    val entries = JSONArray()
+                    if (parent == "root") folders.keys.sorted().forEach { entries.put(folderEntry(it)) }
+                    playlists.filter { (folderOf[it] ?: "root") == parent }.forEach { entries.put(JSONObject().put("itemType", "PLAYLIST").put("data", playlist(it).getJSONObject("playlist"))) }
+                    MockResponse().setBody(JSONObject().put("items", entries).toString())
+                }
                 else -> MockResponse().setResponseCode(404)
             }
         }
@@ -107,7 +158,7 @@ class FakeTidal : TestRule {
             server.dispatcher = dispatcher
             server.start()
             val store = object : SessionStore {
-                @Volatile var session: Session? = Session("access", "refresh", System.currentTimeMillis() + 24 * 3_600_000, userId, "US")
+                @Volatile var session: Session? = if (signedIn) Session("access", "refresh", System.currentTimeMillis() + 24 * 3_600_000, userId, "US") else null
                 override fun read() = session
                 override fun write(session: Session) { this.session = session }
                 override fun clear() { session = null }
