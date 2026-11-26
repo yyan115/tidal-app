@@ -60,6 +60,11 @@ android {
             applicationIdSuffix = ".debug"
             // Adds the en-XA and ar-XB test languages, which mark every string that comes from a resource.
             isPseudoLocalesEnabled = true
+            // Coverage of the tests slows them down, so it is a switch: ./gradlew -Pcoverage :app:createDebugCoverageReport writes the report to app/build/reports/coverage.
+            if (providers.gradleProperty("coverage").isPresent) {
+                enableAndroidTestCoverage = true
+                enableUnitTestCoverage = true
+            }
         }
     }
     compileOptions {
