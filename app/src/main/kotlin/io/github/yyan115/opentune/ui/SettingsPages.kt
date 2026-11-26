@@ -181,7 +181,10 @@ fun StatisticsPage(vm: MainViewModel) {
                 SegmentedButton(days == value, { days = value }, SegmentedButtonDefaults.itemShape(index, ranges.size), icon = {},
                     colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primary, activeContentColor = MaterialTheme.colorScheme.onPrimary,
                         activeBorderColor = MaterialTheme.colorScheme.primary),
-                    contentPadding = PaddingValues(horizontal = 4.dp)) { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    contentPadding = PaddingValues(horizontal = 4.dp)) {
+                    // A label wraps to a second line before it is cut, because "30 …" does not say which period it is on a small screen with large text.
+                    Text(label, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
             }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {

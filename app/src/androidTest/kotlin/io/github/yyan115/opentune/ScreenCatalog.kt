@@ -1,5 +1,6 @@
 package io.github.yyan115.opentune
 
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.media3.common.util.UnstableApi
@@ -101,7 +102,8 @@ object ScreenCatalog {
         add(ScreenCase("SetupScreen", "chosen folder") { SetupScreen("content://com.android.externalstorage.documents/tree/primary%3AMusic%2FLossless", {}, {}) })
         add(ScreenCase("WelcomeScreen", "default") { WelcomeScreen({}, {}) })
         add(ScreenCase("AvoidRepeatsPage", "default") { vm -> AvoidRepeatsPage(AppState(settings = Settings(welcomeDone = true)), vm) })
-        add(ScreenCase("StatisticsPage", "default") { vm -> StatisticsPage(vm) })
+        // The page sits under the top bar of the app. The case gives it the space of the status bar, so that the clock of the emulator does not draw over its first row.
+        add(ScreenCase("StatisticsPage", "default") { vm -> androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.statusBarsPadding()) { StatisticsPage(vm) } })
         add(ScreenCase("LicencesPage", "default") { LicencesPage {} })
         add(ScreenCase("LicenceDocumentPage", "Apache") { LicenceDocumentPage(SettingsPage.Apache) })
         for ((name, s) in listOf("playing" to queueOf(5, false), "last song" to queueOf(1, false)))
