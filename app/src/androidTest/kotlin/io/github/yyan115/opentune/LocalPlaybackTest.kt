@@ -251,7 +251,7 @@ class LocalPlaybackTest {
         compose.onNodeWithContentDescription("Settings").performClick()
         val list = compose.onNodeWithTag("settings-list")
         // Rows that change how TIDAL is streamed and downloaded need an account.
-        for (hidden in listOf("Wi-Fi audio quality", "Mobile audio quality", "Autoplay", "Volume normalization", "Offline mode", "Download over mobile data", "Download saved tracks", "Download played tracks", "Audio output", "Keep saved tracks offline"))
+        for (hidden in listOf("Wi-Fi audio quality", "Mobile audio quality", "Autoplay", "Volume normalization", "Offline mode", "Download over mobile data", "Download saved tracks", "Download played tracks", "Audio output", "Keep saved tracks offline", "Hide AI-generated music"))
             compose.onAllNodesWithText(hidden).assertCountEquals(0)
         // The update check can be turned off.
         list.performScrollToNode(hasText("Check for updates"))

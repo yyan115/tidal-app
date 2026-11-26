@@ -80,8 +80,8 @@ fun SearchScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onMenu
     val local = remember(state.local, query) { if (query.isBlank()) emptyList() else state.local.filter {
         it.title.contains(query, true) || it.artist.contains(query, true) || it.album.contains(query, true)
     } }
-    val songs = (local + if (state.settings.offline) emptyList() else state.search.tracks).distinctBy(Track::id)
-    val result = state.search
+    val result = AiFilter.search(state.search, state.settings.hideAiMusic)
+    val songs = (local + if (state.settings.offline) emptyList() else result.tracks).distinctBy(Track::id)
     val open: (Release) -> Unit = { release -> vm.rememberSearch(query); keyboard?.hide(); vm.open(release) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Spacer(Modifier.height(12.dp)) }
@@ -414,6 +414,7 @@ fun SettingsScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onOp
             item { SettingRow(OpenTuneIcons.Wifi, stringResource(R.string.settings_quality_wifi), stringResource(settings.quality.labelRes()), { quality = true }) }
             item { SettingRow(OpenTuneIcons.SignalCellularAlt, stringResource(R.string.settings_quality_mobile), stringResource(settings.mobileQuality.labelRes()), { mobile = true }) }
             item { SwitchRow(OpenTuneIcons.Radio, stringResource(R.string.settings_autoplay), settings.autoplay, { value -> vm.settings { it.copy(autoplay = value) } }, stringResource(R.string.settings_autoplay_text)) }
+            item { SwitchRow(OpenTuneIcons.FilterList, stringResource(R.string.settings_hide_ai), settings.hideAiMusic, { value -> vm.settings { it.copy(hideAiMusic = value) } }, stringResource(R.string.settings_hide_ai_text)) }
             item { SettingRow(OpenTuneIcons.GraphicEq, stringResource(R.string.normalization_title), stringResource(when (settings.normalization) { "track" -> R.string.normalization_track; "album" -> R.string.normalization_album; else -> R.string.settings_off }), { normalization = true }) }
             item { SwitchRow(OpenTuneIcons.CloudOff, stringResource(R.string.status_offline), settings.offline, { value -> vm.settings { it.copy(offline = value) } }) }
             item { SwitchRow(OpenTuneIcons.SignalCellularAlt, stringResource(R.string.settings_mobile_downloads), !settings.downloadOnWifi, { value ->

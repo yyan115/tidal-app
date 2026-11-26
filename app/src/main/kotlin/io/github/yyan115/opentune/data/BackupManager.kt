@@ -26,7 +26,7 @@ class BackupManager(private val app: OpenTuneApp) {
             put("settings", JSONObject().apply {
                 put("quality", settings.quality.name); put("mobileQuality", settings.mobileQuality.name); put("downloadOnWifi", settings.downloadOnWifi)
                 put("theme", settings.theme); put("normalization", settings.normalization)
-                put("equalizer", settings.equalizer); put("equalizerLevels", JSONArray(settings.equalizerLevels)); put("bitPerfect", settings.bitPerfect); put("limitTo16Bit", settings.limitTo16Bit)
+                put("equalizer", settings.equalizer); put("equalizerLevels", JSONArray(settings.equalizerLevels)); put("bitPerfect", settings.bitPerfect); put("limitTo16Bit", settings.limitTo16Bit); put("hideAiMusic", settings.hideAiMusic)
                 put("downloadSaved", settings.downloadSaved); put("downloadPlayed", settings.downloadPlayed); put("scrobble", settings.scrobble); put("scrobbleServer", settings.scrobbleServer)
                 put("equalizerCustom", JSONArray(settings.equalizerCustom)); put("equalizerUsesCustom", settings.equalizerUsesCustom)
                 put("autoplay", settings.autoplay); put("avoidRepeatMinutes", settings.avoidRepeatMinutes)
@@ -60,7 +60,7 @@ class BackupManager(private val app: OpenTuneApp) {
                     theme = io.github.yyan115.opentune.ui.migrateTheme(values.optString("theme", current.theme), values.optString("colorTheme").ifBlank { null }),
                     normalization = values.optString("normalization", current.normalization), equalizer = values.optBoolean("equalizer", current.equalizer),
                     equalizerLevels = values.optJSONArray("equalizerLevels")?.let { array -> (0 until array.length()).map(array::getInt) } ?: current.equalizerLevels,
-                    bitPerfect = values.optBoolean("bitPerfect", current.bitPerfect), limitTo16Bit = values.optBoolean("limitTo16Bit", current.limitTo16Bit),
+                    bitPerfect = values.optBoolean("bitPerfect", current.bitPerfect), limitTo16Bit = values.optBoolean("limitTo16Bit", current.limitTo16Bit), hideAiMusic = values.optBoolean("hideAiMusic", current.hideAiMusic),
                     downloadSaved = values.optBoolean("downloadSaved", values.optBoolean("keepFavoritesOffline", current.downloadSaved)),
                     downloadPlayed = values.optBoolean("downloadPlayed", current.downloadPlayed),
                     scrobble = values.optBoolean("scrobble", current.scrobble), scrobbleServer = values.optString("scrobbleServer", current.scrobbleServer),

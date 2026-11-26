@@ -793,7 +793,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (!state.settings.autoplay || !state.signedIn || state.settings.offline || last.isFile) return
         viewModelScope.launch {
             val known = state.playback.queue.map(Track::id).toSet()
-            val similar = try { RepeatPolicy.dropRecent(app.tidal.trackRadio(last.id).filterNot { it.id in known }, Track::id, recentlyPlayed()) }
+            val similar = try { RepeatPolicy.dropRecent(hideAi(app.tidal.trackRadio(last.id)).filterNot { it.id in known }, Track::id, recentlyPlayed()) }
             catch (error: Exception) { if (error is CancellationException) throw error; return@launch }
             if (similar.isEmpty()) return@launch
             val first = player.mediaItemCount
@@ -803,6 +803,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Leaves out the tracks that TIDAL marks as AI-generated, when the listener chose that. Radio, mixes and the music that follows the queue use it. */
+    private fun hideAi(tracks: List<Track>) = AiFilter.tracks(tracks, ui.value.settings.hideAiMusic)
+
     /** The ids of the tracks that played within the window of the avoid repeats setting. Empty when the setting is off. */
     private suspend fun recentlyPlayed(): Set<String> {
         val minutes = ui.value.settings.avoidRepeatMinutes
@@ -810,19 +813,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun playTrackRadio(track: Track) = accountAction {
-        val radio = RepeatPolicy.dropRecent(app.tidal.trackRadio(track.id).filterNot { it.id == track.id }, Track::id, recentlyPlayed())
+        val radio = RepeatPolicy.dropRecent(hideAi(app.tidal.trackRadio(track.id)).filterNot { it.id == track.id }, Track::id, recentlyPlayed())
         if (radio.isEmpty()) notify(app.getString(R.string.notify_no_radio_track)) else play(listOf(track) + radio)
     }
     fun playArtistRadio(artistId: String) = accountAction {
-        val radio = RepeatPolicy.dropRecent(app.tidal.artistRadio(artistId), Track::id, recentlyPlayed())
+        val radio = RepeatPolicy.dropRecent(hideAi(app.tidal.artistRadio(artistId)), Track::id, recentlyPlayed())
         if (radio.isEmpty()) notify(app.getString(R.string.notify_no_radio_artist)) else play(radio)
     }
     fun playArtistTopTracks(artistId: String, shuffle: Boolean = false) = accountAction {
-        val tracks = app.tidal.artistTopTracks(artistId)
+        val tracks = hideAi(app.tidal.artistTopTracks(artistId))
         if (tracks.isEmpty()) notify(app.getString(R.string.notify_artist_empty)) else playTracks(tracks, shuffle)
     }
     fun playMix(mixId: String, shuffle: Boolean = false) = accountAction {
-        val tracks = app.tidal.mixTracks(mixId)
+        val tracks = hideAi(app.tidal.mixTracks(mixId))
         if (tracks.isEmpty()) notify(app.getString(R.string.notify_mix_empty)) else playTracks(tracks, shuffle)
     }
     /** Plays [tracks] from the first one, or shuffled from a random one. Playing in order leaves shuffle as it is. */

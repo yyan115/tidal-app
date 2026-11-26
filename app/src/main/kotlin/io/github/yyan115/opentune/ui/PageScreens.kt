@@ -89,7 +89,9 @@ fun LazyListScope.pageContent(page: PageData, entry: PageUi, routeKey: String, c
 
 @UnstableApi
 private fun LazyListScope.carousel(module: CarouselModule, entry: PageUi, routeKey: String, ctx: PageContext, key: String, viewAll: Boolean, names: SectionNames) {
-    val items = module.items + entry.moreReleases[module.id].orEmpty()
+    val loaded = module.items + entry.moreReleases[module.id].orEmpty()
+    // Albums that TIDAL marks as AI-generated are left out when the listener chose that. The count of what was loaded stays the count of TIDAL's list.
+    val items = AiFilter.releases(loaded, ctx.state.settings.hideAiMusic)
     if (viewAll) {
         val columns = if (module.layout == CarouselLayout.VIDEOS) 1 else 2
         itemsIndexed(items.chunked(columns), key = { row, _ -> "$key:row$row" }) { _, row ->
@@ -98,7 +100,7 @@ private fun LazyListScope.carousel(module: CarouselModule, entry: PageUi, routeK
                 repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
-        if (module.dataPath != null && items.size < module.total) item(key = "$key:more") { LoadMore(routeKey, module, entry, ctx) }
+        if (module.dataPath != null && loaded.size < module.total) item(key = "$key:more") { LoadMore(routeKey, module, entry, ctx) }
     } else item(key = key) {
         Column {
             val title = names.of(module.title)
@@ -114,7 +116,9 @@ private fun LazyListScope.carousel(module: CarouselModule, entry: PageUi, routeK
 
 @UnstableApi
 private fun LazyListScope.trackList(module: TrackListModule, entry: PageUi, routeKey: String, ctx: PageContext, key: String, viewAll: Boolean, names: SectionNames) {
-    val tracks = module.tracks + entry.moreTracks[module.id].orEmpty()
+    // The tracks of an album stay as they are, because the listener opened that album. Other lists leave out what TIDAL marks as AI-generated, when the listener chose that.
+    val loaded = module.tracks + entry.moreTracks[module.id].orEmpty()
+    val tracks = AiFilter.tracks(loaded, ctx.state.settings.hideAiMusic && !module.numbered)
     if (module.title.isNotBlank()) item(key = "$key:title") {
         val title = names.of(module.title)
         SectionTitle(title, if (!viewAll && (module.showMore != null)) stringResource(R.string.action_view_all) else null, arrow = true) {
@@ -127,7 +131,7 @@ private fun LazyListScope.trackList(module: TrackListModule, entry: PageUi, rout
         TrackRow(track, ctx.state.playback.track?.id == track.id, onPlay = { ctx.vm.play(tracks, position, ctx.source) }, onMenu = { ctx.onMenu(track) },
             index = if (module.numbered) position else null, detail = roles[track.id]?.joinToString(", "))
     }
-    if (viewAll && module.hasMore(tracks.size)) item(key = "$key:more") { LoadMore(routeKey, module, entry, ctx) }
+    if (viewAll && module.hasMore(loaded.size)) item(key = "$key:more") { LoadMore(routeKey, module, entry, ctx) }
 }
 
 @UnstableApi
@@ -221,7 +225,7 @@ private fun firstTracks(page: PageData): TrackListModule? = page.modules.filterI
 @UnstableApi
 private fun playFromPage(ctx: PageContext, routeKey: String, page: PageData, shuffle: Boolean) {
     val module = firstTracks(page) ?: return
-    ctx.scope.launch { ctx.vm.playTracks(ctx.pages.allTracks(routeKey, module), shuffle, ctx.source) }
+    ctx.scope.launch { ctx.vm.playTracks(AiFilter.tracks(ctx.pages.allTracks(routeKey, module), ctx.state.settings.hideAiMusic && !module.numbered), shuffle, ctx.source) }
 }
 
 @UnstableApi

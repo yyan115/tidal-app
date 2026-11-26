@@ -427,6 +427,8 @@
     <string name="settings_off">Off</string>
     <string name="settings_on">On</string>
     <string name="settings_bitperfect">Bit-perfect USB output</string>
+    <string name="settings_hide_ai">Hide AI-generated music</string>
+    <string name="settings_hide_ai_text">In search, on pages and in radio</string>
     <string name="settings_limit_16_bit">16-bit output</string>
     <string name="settings_limit_16_bit_text">Plays 24-bit songs as 16-bit, for phones that play them wrongly.</string>
     <string name="settings_bitperfect_text">Sends audio to a USB DAC without resampling. Requires Android 14 or later.</string>

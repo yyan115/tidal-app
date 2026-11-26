@@ -29,6 +29,7 @@ object JsonCodec {
             replayGain = number(value, "replayGain"),
             peak = number(value, "peak"),
             tags = tags(value),
+            ai = value.optBoolean("ai"),
         )
     }
 
@@ -89,6 +90,7 @@ object JsonCodec {
             tags = tags(value),
             description = text(value, "description"),
             artistId = firstArtist?.opt("id")?.toString()?.takeIf { it != "null" }.orEmpty(),
+            ai = type == ReleaseType.ALBUM && value.optBoolean("ai"),
         )
     }
 
@@ -129,6 +131,7 @@ object JsonCodec {
         track.replayGain?.let { put("replayGain", it) }
         track.peak?.let { put("peak", it) }
         if (track.tags.isNotEmpty()) put("tags", JSONArray(track.tags))
+        if (track.ai) put("ai", true)
     }
 
     fun decodeTrack(value: JSONObject) = Track(
@@ -143,6 +146,7 @@ object JsonCodec {
         trackNumber = value.optInt("trackNumber"),
         replayGain = number(value, "replayGain"), peak = number(value, "peak"),
         tags = value.optJSONArray("tags")?.let { array -> (0 until array.length()).map(array::getString) }.orEmpty(),
+        ai = value.optBoolean("ai"),
     )
 
     fun encodeTracks(tracks: List<Track>) = JSONArray().apply { tracks.forEach { put(encodeTrack(it)) } }.toString()
@@ -155,13 +159,14 @@ object JsonCodec {
         put("subtitle", release.subtitle); put("type", release.type.name); put("ownerId", release.ownerId)
         put("artistId", release.artistId); put("description", release.description)
         if (release.tags.isNotEmpty()) put("tags", JSONArray(release.tags))
+        if (release.ai) put("ai", true)
     }
 
     fun decodeRelease(json: JSONObject) = Release(json.getString("id"), json.getString("title"), json.getString("artist"),
         json.optString("artwork").takeIf { it.isNotBlank() && it != "null" }, json.optString("subtitle"),
         ReleaseType.valueOf(json.getString("type")), json.optString("ownerId"),
         json.optJSONArray("tags")?.let { array -> (0 until array.length()).map(array::getString) }.orEmpty(),
-        json.optString("description"), json.optString("artistId"))
+        json.optString("description"), json.optString("artistId"), json.optBoolean("ai"))
 
     fun encodeReleases(releases: List<Release>) = JSONArray().apply { releases.forEach { put(encodeRelease(it)) } }.toString()
 

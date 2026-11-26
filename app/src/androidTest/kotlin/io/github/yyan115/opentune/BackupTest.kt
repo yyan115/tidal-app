@@ -47,12 +47,13 @@ class BackupTest {
     @Test fun theSettingsOfPlaybackAndTheEqualizerSurviveABackupAndRestore() {
         val before = app.settings.state.value
         try {
-            app.settings.update { it.copy(autoplay = false, avoidRepeatMinutes = 2160, visualizer = true, checkUpdates = false,
+            app.settings.update { it.copy(autoplay = false, avoidRepeatMinutes = 2160, visualizer = true, checkUpdates = false, hideAiMusic = true,
                 equalizerCustom = listOf(300, -200, 0, 150, 450), equalizerUsesCustom = true) }
             val text = BackupManager(app).toJson().toString()
-            app.settings.update { it.copy(autoplay = true, avoidRepeatMinutes = 0, visualizer = false, checkUpdates = true, equalizerCustom = emptyList(), equalizerUsesCustom = false) }
+            app.settings.update { it.copy(autoplay = true, avoidRepeatMinutes = 0, visualizer = false, checkUpdates = true, hideAiMusic = false, equalizerCustom = emptyList(), equalizerUsesCustom = false) }
             BackupManager(app).restore(JSONObject(text))
             val restored = app.settings.state.value
+            assertTrue("The choice to hide AI-generated music is in the backup", restored.hideAiMusic)
             assertFalse(restored.autoplay)
             assertEquals(36 * 60, restored.avoidRepeatMinutes)
             assertTrue(restored.visualizer)

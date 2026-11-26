@@ -24,6 +24,8 @@ data class Settings(
     val bitPerfect: Boolean = false,
     /** Plays a song of more than 16 bits as 16-bit audio. It is an escape for a phone whose decoder spoils 24-bit audio in a way that the check of the output cannot see. */
     val limitTo16Bit: Boolean = false,
+    /** Hides tracks and albums that TIDAL marks as AI-generated in search, on pages and in radio. What the listener saved stays. */
+    val hideAiMusic: Boolean = false,
     /** Downloads a track when it is saved with the heart button. At most one of [downloadSaved] and [downloadPlayed] is on. */
     val downloadSaved: Boolean = false,
     /** Downloads each track that counts as played. At most one of [downloadSaved] and [downloadPlayed] is on. */
@@ -69,6 +71,7 @@ class AppSettings(context: Context) {
         equalizerUsesCustom = preferences.getBoolean("equalizerUsesCustom", false),
         bitPerfect = preferences.getBoolean("bitPerfect", false),
         limitTo16Bit = preferences.getBoolean("limitTo16Bit", false),
+        hideAiMusic = preferences.getBoolean("hideAiMusic", false),
         // The option that kept saved tracks offline became the download of saved tracks.
         downloadSaved = preferences.getBoolean("downloadSaved", preferences.getBoolean("keepFavoritesOffline", false)),
         downloadPlayed = preferences.getBoolean("downloadPlayed", false),
@@ -85,7 +88,7 @@ class AppSettings(context: Context) {
             .putString("theme", next.theme).remove("colorTheme")
             .putString("normalization", next.normalization).putBoolean("equalizer", next.equalizer)
             .putString("equalizerLevels", next.equalizerLevels.joinToString(",")).putString("equalizerCustom", next.equalizerCustom.joinToString(","))
-            .putBoolean("equalizerUsesCustom", next.equalizerUsesCustom).putBoolean("bitPerfect", next.bitPerfect).putBoolean("limitTo16Bit", next.limitTo16Bit)
+            .putBoolean("equalizerUsesCustom", next.equalizerUsesCustom).putBoolean("bitPerfect", next.bitPerfect).putBoolean("limitTo16Bit", next.limitTo16Bit).putBoolean("hideAiMusic", next.hideAiMusic)
             .putBoolean("downloadSaved", next.downloadSaved).putBoolean("downloadPlayed", next.downloadPlayed).remove("keepFavoritesOffline").putBoolean("scrobble", next.scrobble)
             .putString("scrobbleServer", next.scrobbleServer).putBoolean("welcomeDone", next.welcomeDone).putBoolean("autoplay", next.autoplay)
             .putInt("avoidRepeatMinutes", next.avoidRepeatMinutes).remove("avoidRepeatHours").putBoolean("visualizer", next.visualizer).putBoolean("checkUpdates", next.checkUpdates).putBoolean("setupPending", next.setupPending)

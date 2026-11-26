@@ -17,6 +17,8 @@ data class Track(
     val replayGain: Double? = null,
     val peak: Double? = null,
     val tags: List<String> = emptyList(),
+    /** Whether TIDAL marks the track as AI-generated. */
+    val ai: Boolean = false,
 ) {
     /** A file that the listener added from the device. It has no TIDAL page, lyrics or radio. */
     val isFile get() = isDeviceId(id)
@@ -41,6 +43,8 @@ data class Release(
     val tags: List<String> = emptyList(),
     val description: String = "",
     val artistId: String = "",
+    /** Whether TIDAL marks the album as AI-generated. Only albums carry the mark. */
+    val ai: Boolean = false,
 )
 
 enum class ReleaseType { ALBUM, PLAYLIST, ARTIST, MIX, VIDEO, FOLDER }

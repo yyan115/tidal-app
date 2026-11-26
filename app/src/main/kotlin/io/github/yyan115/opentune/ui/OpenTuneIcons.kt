@@ -21,6 +21,7 @@ object OpenTuneIcons {
     val Notifications by lazy { glyph("Notifications", "M6 17V11A6 6 0 0 1 18 11V17L19.5 18.5H4.5Z M10 21A2 2 0 0 0 14 21") }
     val Radio by lazy { glyph("Radio", "M5.5 18.5A9 9 0 0 1 5.5 5.5 M18.5 5.5A9 9 0 0 1 18.5 18.5 M8.6 15.4A4.6 4.6 0 0 1 8.6 8.6 M15.4 8.6A4.6 4.6 0 0 1 15.4 15.4 M13.2 12A1.2 1.2 0 1 1 10.8 12A1.2 1.2 0 0 1 13.2 12Z") }
     val Timer by lazy { glyph("Timer", "M20 13.5A8 8 0 1 1 4 13.5A8 8 0 0 1 20 13.5Z M12 9V13.5L15 15.2 M9.5 2.8H14.5") }
+    val FilterList by lazy { glyph("Filter", "M4 5.5H20L14 12.5V19L10 17V12.5Z") }
     val Sort by lazy { glyph("Sort", "M4 7H20 M4 12H15 M4 17H10") }
     val Equalizer by lazy { glyph("Equalizer", "M4 7H20 M4 17H20 M8 4V10 M16 14V20") }
     val Video by lazy { glyph("Video", "M3.5 6.5H15V17.5H3.5Z M15 10.5L20.5 7.5V16.5L15 13.5") }
