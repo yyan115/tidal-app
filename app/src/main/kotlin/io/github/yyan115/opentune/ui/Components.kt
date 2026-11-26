@@ -157,16 +157,19 @@ fun ErrorCard(message: String, onRetry: (() -> Unit)? = null) {
     }
 }
 
-/** A track in a list. Swiping the row to the right queues the track, unless [swipeToQueue] is false or the app gives no queue action. */
+/**
+ * A track in a list. Swiping the row to the right queues the track, unless [swipeToQueue] is false or the app gives no queue action.
+ * [detail] is a third line under the artist, such as the roles that an artist had on a track in a list of credits.
+ */
 @Composable
-fun TrackRow(track: Track, playing: Boolean = false, onPlay: () -> Unit, onMenu: () -> Unit, index: Int? = null, swipeToQueue: Boolean = true) {
+fun TrackRow(track: Track, playing: Boolean = false, onPlay: () -> Unit, onMenu: () -> Unit, index: Int? = null, swipeToQueue: Boolean = true, detail: String? = null) {
     val queue = LocalQueueTrack.current
-    if (!swipeToQueue || queue == null) { TrackRowContent(track, playing, onPlay, onMenu, index); return }
-    SwipeToQueueBox(onPlayNext = { queue(track, true) }, onAddToQueue = { queue(track, false) }) { guard -> TrackRowContent(track, playing, guard(onPlay), onMenu, index) }
+    if (!swipeToQueue || queue == null) { TrackRowContent(track, playing, onPlay, onMenu, index, detail); return }
+    SwipeToQueueBox(onPlayNext = { queue(track, true) }, onAddToQueue = { queue(track, false) }) { guard -> TrackRowContent(track, playing, guard(onPlay), onMenu, index, detail) }
 }
 
 @Composable
-private fun TrackRowContent(track: Track, playing: Boolean, onPlay: () -> Unit, onMenu: () -> Unit, index: Int?) {
+private fun TrackRowContent(track: Track, playing: Boolean, onPlay: () -> Unit, onMenu: () -> Unit, index: Int?, detail: String?) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onPlay).padding(start = 24.dp, end = 8.dp, top = 11.dp, bottom = 11.dp),
         verticalAlignment = Alignment.CenterVertically) {
         if (index != null) Text("%02d".format(index + 1), Modifier.widthIn(min = 32.dp), fontFamily = AppFonts.mono, fontSize = 10.sp,
@@ -186,6 +189,8 @@ private fun TrackRowContent(track: Track, playing: Boolean, onPlay: () -> Unit, 
                 Text(track.artist, fontFamily = AppFonts.body, fontSize = 11.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            if (detail != null) Text(detail, Modifier.padding(top = 2.dp).testTag("track-detail"), fontFamily = AppFonts.body, fontSize = 11.sp, lineHeight = 16.sp,
+                color = MaterialTheme.colorScheme.primary, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         IconButton(onClick = onMenu) { Icon(OpenTuneIcons.MoreVert, stringResource(R.string.track_options, track.title), Modifier.size(20.dp)) }
     }

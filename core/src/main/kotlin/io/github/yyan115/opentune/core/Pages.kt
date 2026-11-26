@@ -14,9 +14,13 @@ data class CarouselModule(
     val showMore: String? = null, val dataPath: String? = null, val total: Int = items.size,
 ) : PageModule
 
+/**
+ * [roles] holds, for a list of credits, the roles that the artist of the page had on each track, such as Producer or Composer. It is empty for other lists.
+ */
 data class TrackListModule(
     override val id: String, override val title: String, val tracks: List<Track>, val numbered: Boolean = false,
     val showMore: String? = null, val dataPath: String? = null, val total: Int = tracks.size,
+    val roles: Map<String, List<String>> = emptyMap(),
 ) : PageModule
 
 data class PageLink(val title: String, val path: String)
@@ -78,7 +82,8 @@ object PageCodec {
             "TRACK_LIST", "ALBUM_ITEMS", "ITEM_LIST_WITH_ROLES" -> {
                 val tracks = tracks(paged)
                 if (tracks.isEmpty()) null else TrackListModule(id, title, tracks, numbered = type == "ALBUM_ITEMS",
-                    showMore = showMore, dataPath = dataPath, total = if (total >= 0) total else tracks.size)
+                    showMore = showMore, dataPath = dataPath, total = if (total >= 0) total else tracks.size,
+                    roles = if (type == "ITEM_LIST_WITH_ROLES") trackRoles(paged) else emptyMap())
             }
             "PAGE_LINKS_CLOUD", "PAGE_LINKS" -> {
                 val items = paged?.optJSONArray("items")
@@ -126,6 +131,23 @@ object PageCodec {
             } else fallback
             JsonCodec.release(body, kind).takeIf { it.id.isNotBlank() }
         }
+    }
+
+    /**
+     * The roles of each track of a list of credits, by track id. An item of such a list names the track and an array of roles, and a role names itself
+     * and its category. A role that an item repeats is kept once, in the order that TIDAL gives.
+     */
+    fun trackRoles(paged: JSONObject?): Map<String, List<String>> {
+        val array = paged?.optJSONArray("items") ?: return emptyMap()
+        val result = linkedMapOf<String, List<String>>()
+        for (index in 0 until array.length()) {
+            val element = array.optJSONObject(index) ?: continue
+            val id = (element.optJSONObject("item") ?: element).optString("id").takeIf { it.isNotBlank() && it != "null" } ?: continue
+            val roles = element.optJSONArray("roles") ?: continue
+            val names = (0 until roles.length()).mapNotNull { roles.optJSONObject(it)?.optString("name")?.takeIf { name -> name.isNotBlank() && name != "null" } }.distinct()
+            if (names.isNotEmpty()) result[id] = names
+        }
+        return result
     }
 
     fun tracks(paged: JSONObject?): List<Track> = if (paged == null) emptyList() else JsonCodec.items(paged).mapNotNull { item ->

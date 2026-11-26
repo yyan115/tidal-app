@@ -34,6 +34,8 @@ data class PageUi(
     /** Items appended to a module after the first response, keyed by module id. */
     val moreReleases: Map<String, List<Release>> = emptyMap(),
     val moreTracks: Map<String, List<Track>> = emptyMap(),
+    /** The roles of the tracks that were appended to a list of credits, keyed by module id and then by track id. */
+    val moreRoles: Map<String, Map<String, List<String>>> = emptyMap(),
     val loadingMore: Set<String> = emptySet(),
 )
 
@@ -93,8 +95,11 @@ class PagesViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     is TrackListModule -> {
                         val shown = module.tracks.size + (entry.moreTracks[module.id]?.size ?: 0)
-                        val next = PageCodec.tracks(app.tidal.moduleItems(path, shown))
-                        update(routeKey) { it.copy(moreTracks = it.moreTracks + (module.id to (it.moreTracks[module.id].orEmpty() + next))) }
+                        val page = app.tidal.moduleItems(path, shown)
+                        val next = PageCodec.tracks(page)
+                        val roles = if (module.roles.isEmpty()) emptyMap() else PageCodec.trackRoles(page)
+                        update(routeKey) { it.copy(moreTracks = it.moreTracks + (module.id to (it.moreTracks[module.id].orEmpty() + next)),
+                            moreRoles = it.moreRoles + (module.id to (it.moreRoles[module.id].orEmpty() + roles))) }
                     }
                     else -> Unit
                 }

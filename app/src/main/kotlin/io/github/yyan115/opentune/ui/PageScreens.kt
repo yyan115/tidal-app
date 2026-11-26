@@ -122,9 +122,10 @@ private fun LazyListScope.trackList(module: TrackListModule, entry: PageUi, rout
         }
     }
     val shown = if (viewAll || module.numbered) tracks else tracks.take(PREVIEW_TRACKS)
+    val roles = module.roles + entry.moreRoles[module.id].orEmpty()
     itemsIndexed(shown, key = { position, track -> "$key:${track.id}:$position" }) { position, track ->
         TrackRow(track, ctx.state.playback.track?.id == track.id, onPlay = { ctx.vm.play(tracks, position, ctx.source) }, onMenu = { ctx.onMenu(track) },
-            index = if (module.numbered) position else null)
+            index = if (module.numbered) position else null, detail = roles[track.id]?.joinToString(", "))
     }
     if (viewAll && module.hasMore(tracks.size)) item(key = "$key:more") { LoadMore(routeKey, module, entry, ctx) }
 }

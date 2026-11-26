@@ -11,6 +11,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Changed
 
+- Roles of the artist under each song of the credits on artist pages
 - Section names on artist pages: Albums and Similar artists
 - Queue with the song that plays at its top
 - Theme picker as a page of Settings

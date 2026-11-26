@@ -67,6 +67,32 @@ class PagesTest {
         assertEquals(14, tracks.total)
     }
 
+    // The shape of a credits module of an artist page as TIDAL answers it: a track with the roles that the artist had on it.
+    private val creditsPage = """{"rows":[{"modules":[{"id":"c1","type":"ITEM_LIST_WITH_ROLES","title":"Credits","showMore":{"apiPath":"pages/contributor?artistId=10249"},
+        "pagedList":{"dataApiPath":"pages/data/c1?artistId=10249","limit":4,"offset":0,"totalNumberOfItems":1049,"items":[
+        {"type":"track","item":{"id":112706881,"title":"Come Away With Me","duration":198,"artists":[{"id":10249,"name":"Norah Jones","type":"MAIN"}],"album":{"id":1,"title":"Come Away With Me"}},
+         "roles":[{"name":"Composer","category":"Songwriter","categoryId":2},{"name":"Lyricist","category":"Songwriter","categoryId":2},{"name":"Piano","category":"Performer","categoryId":11},{"name":"Piano","category":"Performer","categoryId":11}]},
+        {"type":"track","item":{"id":112706882,"title":"Don't Know Why","duration":186,"artists":[{"id":10249,"name":"Norah Jones","type":"MAIN"}],"album":{"id":1,"title":"Come Away With Me"}},"roles":[]}]}}]}]}"""
+
+    @Test fun aListOfCreditsKeepsTheRolesOfEachTrack() {
+        val module = PageCodec.parse(JSONObject(creditsPage)).modules.filterIsInstance<TrackListModule>().single()
+        assertEquals(1049, module.total)
+        assertEquals("Come Away With Me", module.tracks.first().title)
+        assertEquals("A role that an item repeats is kept once, in the order of TIDAL", listOf("Composer", "Lyricist", "Piano"), module.roles["112706881"])
+        assertNull("A track without roles has no entry", module.roles["112706882"])
+    }
+
+    @Test fun otherListsOfTracksHaveNoRoles() {
+        val module = fixture("home.json").modules.filterIsInstance<TrackListModule>().first()
+        assertTrue(module.roles.isEmpty())
+    }
+
+    @Test fun theRolesOfALaterPageAreReadFromItsItems() {
+        val page = JSONObject(creditsPage).getJSONArray("rows").getJSONObject(0).getJSONArray("modules").getJSONObject(0).getJSONObject("pagedList")
+        assertEquals(mapOf("112706881" to listOf("Composer", "Lyricist", "Piano")), PageCodec.trackRoles(page))
+        assertTrue(PageCodec.trackRoles(null).isEmpty())
+    }
+
     @Test fun mixPageKeepsTrackDetailsNeededForPlayback() {
         val page = fixture("mix.json")
         val header = page.modules.filterIsInstance<MixHeader>().single()

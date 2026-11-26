@@ -97,6 +97,7 @@ object ScreenCatalog {
         add(ScreenCase("PageScreen", "mix with every song") { vm -> PageCase(PageFixtures.page(PageFixtures.mixHeader, PageFixtures.list(20)), vm) })
         add(ScreenCase("PageScreen", "mix with one song") { vm -> PageCase(PageFixtures.page(PageFixtures.mixHeader, PageFixtures.list(1)), vm) })
         add(ScreenCase("PageScreen", "mix without songs") { vm -> PageCase(PageFixtures.page(PageFixtures.mixHeader), vm) })
+        add(ScreenCase("PageScreen", "artist with credits that name the roles") { vm -> PageCase(PageFixtures.page(PageFixtures.artistHeader, PageFixtures.list(12, title = "Credits", showMore = "pages/contributor", roles = true)), vm) })
         add(ScreenCase("PageScreen", "artist with a preview of the top songs") { vm -> PageCase(PageFixtures.page(PageFixtures.artistHeader, PageFixtures.list(12, title = "Top tracks", showMore = "pages/data/top")), vm) })
         add(ScreenCase("SetupScreen", "default") { SetupScreen("", {}, {}) })
         add(ScreenCase("SetupScreen", "chosen folder") { SetupScreen("content://com.android.externalstorage.documents/tree/primary%3AMusic%2FLossless", {}, {}) })
