@@ -38,6 +38,11 @@ class LibraryActionsTest {
         screen.runOnIdle { model.clearQueue(); model.settings { it.copy(offline = false, welcomeDone = true, downloadSaved = false, hideAiMusic = false, theme = "dark") } }
         // The view model loads the library by itself when the screen starts, and the tests start after that load.
         screen.waitUntil(30_000) { fake.log.any { it.contains("playlistsAndFavoritePlaylists") } && !model.state.value.syncing }
+        // An earlier test may have left shuffle on, and a shuffled queue lists its songs in the shuffled order.
+        screen.waitUntil(15_000) {
+            if (model.state.value.playback.shuffle) { screen.runOnIdle { model.toggleShuffle() }; Thread.sleep(400) }
+            !model.state.value.playback.shuffle
+        }
     }
 
     @After fun clean() {
