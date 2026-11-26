@@ -76,6 +76,8 @@ android {
     sourceSets {
         getByName("test").java.srcDir("src/sharedTest/kotlin")
         getByName("androidTest").java.srcDir("src/sharedTest/kotlin")
+        // The fake TIDAL of the tests builds its answers from real answers of the service, which the tests of the core module read as well.
+        getByName("androidTest").assets.srcDir("../core/src/test/resources/fixtures")
     }
     // The list of languages in the system settings follows the values-xx folders.
     androidResources { generateLocaleConfig = true }

@@ -52,11 +52,22 @@ class FakeTidal(private val signedIn: Boolean = true) : TestRule {
 
     val userId = "9"
 
-    private fun track(id: Int) = JSONObject().put("id", id).put("title", "Song $id").put("duration", 100).put("ai", id in marked)
-        .put("artists", JSONArray().put(JSONObject().put("id", 1).put("name", "Artist"))).put("album", JSONObject().put("id", 5).put("title", "Album"))
-    private fun album(id: Int) = JSONObject().put("id", id).put("title", "Album $id").put("artists", JSONArray().put(JSONObject().put("id", 1).put("name", "Artist")))
-    private fun artist(id: Int) = JSONObject().put("id", id).put("name", "Artist $id")
-    private fun playlist(id: String) = JSONObject().put("type", "USER").put("playlist", JSONObject().put("uuid", id).put("title", "Playlist $id").put("lastUpdated", "2026-01-01T00:00:00"))
+    // Every item is a copy of an item of a real answer of the service, with its own id and title. So the app reads the fields that TIDAL really sends,
+    // and a field that the app needs but the fake lacks cannot hide. The real answers are in the fixtures of the core module, and LiveContractTest keeps them true.
+    private object Real {
+        private fun asset(name: String) = JSONObject(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().context.assets.open("live/$name").bufferedReader().use { it.readText() })
+        val track: JSONObject by lazy { asset("favorites.json").getJSONArray("items").getJSONObject(0).getJSONObject("item") }
+        val album: JSONObject by lazy { asset("search.json").getJSONObject("albums").getJSONArray("items").getJSONObject(0) }
+        val artist: JSONObject by lazy { asset("search.json").getJSONObject("artists").getJSONArray("items").getJSONObject(0) }
+        val playlist: JSONObject by lazy { asset("search.json").getJSONObject("playlists").getJSONArray("items").getJSONObject(0) }
+        fun copy(value: JSONObject) = JSONObject(value.toString())
+    }
+
+    private fun track(id: Int) = Real.copy(Real.track).put("id", id).put("title", "Song $id").put("ai", id in marked)
+    private fun album(id: Int) = Real.copy(Real.album).put("id", id).put("title", "Album $id")
+    private fun artist(id: Int) = Real.copy(Real.artist).put("id", id).put("name", "Artist $id")
+    private fun playlistBody(id: String) = Real.copy(Real.playlist).put("uuid", id).put("title", "Playlist $id").put("lastUpdated", "2026-01-01T00:00:00.000+0000")
+    private fun playlist(id: String) = JSONObject().put("type", "USER").put("playlist", playlistBody(id))
 
     /** The track ids that a playlist holds, in the order that they were added. */
     val playlistItems = java.util.concurrent.ConcurrentHashMap<String, CopyOnWriteArrayList<Int>>()
