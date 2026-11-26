@@ -144,6 +144,62 @@ class LibrarySyncTest {
         assertTrue(saved.any { it.id == "777" })
     }
 
+    @Test fun savingAnAlbumIsSentAndIsNotMistakenForAChangeElsewhere() {
+        startWith(1, 2, 3, albums = listOf(1, 2, 3))
+        screen.runOnIdle { model.favoriteAlbum(io.github.yyan115.opentune.core.Release("55", "Album 55", "Artist")) }
+        screen.waitUntil(30_000) { fake.albums.contains(55) && model.state.value.albums.any { it.id == "55" } }
+        assertEquals("The new album is the first one", "55", model.state.value.albums.first().id)
+        quiet()
+        val mark = fake.log.size
+        lookForChanges()
+        assertEquals("The look found only the change of the listener: ${fake.since(mark)}", emptyList<String>(), fake.fullLoads(fake.since(mark)))
+        screen.runOnIdle { model.favoriteAlbum(io.github.yyan115.opentune.core.Release("55", "Album 55", "Artist")) }
+        screen.waitUntil(30_000) { !fake.albums.contains(55) && model.state.value.albums.none { it.id == "55" } }
+    }
+
+    @Test fun followingAndUnfollowingAnArtistIsSentAndIsNotMistakenForAChangeElsewhere() {
+        startWith(1, artists = listOf(7, 8))
+        val artist = io.github.yyan115.opentune.core.Release("31", "Artist 31", "", type = io.github.yyan115.opentune.core.ReleaseType.ARTIST)
+        screen.runOnIdle { model.toggleFollow(artist) }
+        screen.waitUntil(30_000) { fake.artists.contains(31) && model.state.value.artists.any { it.id == "31" } }
+        quiet()
+        val mark = fake.log.size
+        lookForChanges()
+        assertEquals("The look found only the change of the listener: ${fake.since(mark)}", emptyList<String>(), fake.fullLoads(fake.since(mark)))
+        screen.runOnIdle { model.toggleFollow(artist) }
+        screen.waitUntil(30_000) { !fake.artists.contains(31) && model.state.value.artists.none { it.id == "31" } }
+    }
+
+    @Test fun aNewPlaylistAndItsDeletionAreSentAndAreNotMistakenForAChangeElsewhere() {
+        startWith(1, playlists = listOf("a"))
+        screen.runOnIdle { model.createCloudPlaylist("Road trip") }
+        screen.waitUntil(30_000) { fake.playlists.size == 2 && model.state.value.playlists.size == 2 }
+        quiet()
+        val mark = fake.log.size
+        lookForChanges()
+        assertEquals("The look found only the change of the listener: ${fake.since(mark)}", emptyList<String>(), fake.fullLoads(fake.since(mark)))
+        val made = model.state.value.playlists.first { it.id.startsWith("made-") }
+        screen.runOnIdle { model.deletePlaylist(made) }
+        screen.waitUntil(30_000) { fake.playlists == listOf("a") && model.state.value.playlists.size == 1 }
+        quiet()
+        val second = fake.log.size
+        lookForChanges()
+        assertEquals("The deletion is not a change elsewhere either: ${fake.since(second)}", emptyList<String>(), fake.fullLoads(fake.since(second)))
+    }
+
+    @Test fun signingOutLeavesNoAccountAndNoTracksOfItOnTheScreens() {
+        startWith(*(1..12).toList().toIntArray(), albums = listOf(1), artists = listOf(7), playlists = listOf("a"))
+        screen.runOnIdle { model.signOut() }
+        screen.waitUntil(30_000) { !model.state.value.signedIn }
+        screen.waitUntil(30_000) { saved.isEmpty() }
+        assertTrue(model.state.value.albums.isEmpty() && model.state.value.artists.isEmpty() && model.state.value.playlists.isEmpty())
+        assertFalse("The client has no account", app.tidal.signedIn)
+        assertFalse("The offline switch belongs to the account", model.state.value.settings.offline)
+        val mark = fake.log.size
+        lookForChanges()
+        assertEquals("A look without an account asks for nothing", emptyList<String>(), fake.since(mark))
+    }
+
     @Test fun aFailedLoadIsNotAskedForAgainByTheLooksThatFollow() {
         startWith(*(1..50).toList().toIntArray())
         fake.tracks.add(0, 900)

@@ -68,6 +68,16 @@ class FakeTidal : TestRule {
                     MockResponse().setBody("{}")
                 }
                 request.method == "DELETE" && path.startsWith(base + "favorites/tracks/") -> { tracks.remove(path.substringAfterLast('/').toInt()); MockResponse().setBody("{}") }
+                request.method == "POST" && path == base + "favorites/albums" -> { add(albums, request.body.readUtf8(), "albumIds"); MockResponse().setBody("{}") }
+                request.method == "DELETE" && path.startsWith(base + "favorites/albums/") -> { albums.remove(path.substringAfterLast('/').toInt()); MockResponse().setBody("{}") }
+                request.method == "POST" && path == base + "favorites/artists" -> { add(artists, request.body.readUtf8(), "artistIds"); MockResponse().setBody("{}") }
+                request.method == "DELETE" && path.startsWith(base + "favorites/artists/") -> { artists.remove(path.substringAfterLast('/').toInt()); MockResponse().setBody("{}") }
+                request.method == "POST" && path == base + "playlists" -> {
+                    val id = "made-${playlists.size + 1}"
+                    playlists.add(0, id)
+                    MockResponse().setBody(JSONObject().put("uuid", id).put("title", request.body.readUtf8().substringAfter("title=").substringBefore("&")).toString())
+                }
+                request.method == "DELETE" && path.startsWith("playlists/") -> { playlists.remove(path.substringAfter("playlists/").substringBefore('/')); MockResponse().setBody("{}") }
                 request.method == "GET" && path == base + "favorites/albums" -> page(request, albums.size) { JSONObject().put("item", album(albums[it])) }
                 request.method == "GET" && path == base + "favorites/artists" -> page(request, artists.size) { JSONObject().put("item", artist(artists[it])) }
                 request.method == "GET" && path == base + "playlistsAndFavoritePlaylists" -> page(request, playlists.size) { playlist(playlists[it]) }
@@ -75,6 +85,11 @@ class FakeTidal : TestRule {
                 else -> MockResponse().setResponseCode(404)
             }
         }
+    }
+
+    private fun add(list: MutableList<Int>, form: String, field: String) {
+        val id = form.substringAfter("$field=").substringBefore("&").toInt()
+        if (id !in list) list.add(0, id)
     }
 
     /** The requests that the library asked for since [mark] of the log, without the answers of one item that look for changes. */
