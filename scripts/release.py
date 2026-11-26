@@ -3,7 +3,7 @@
 
     release.py prepare VERSION   Update VERSION, CHANGELOG.md and the F-Droid changelog.
     release.py verify VERSION    Check that a merged release pull request prepared VERSION.
-    release.py notes VERSION     Print the changelog entry for VERSION.
+    release.py notes VERSION     Print the description of the GitHub release of VERSION: the greeting and the changelog entry.
 """
 
 import argparse
@@ -15,6 +15,9 @@ import sys
 VERSION_PATTERN = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 UNRELEASED = "## [Unreleased]"
 FASTLANE_LIMIT = 500
+# The first lines of the description of every release on GitHub. They ask for issues and for a star, and they thank the people who use the app.
+GREETING = ("Please open an issue at https://github.com/yyan115/tidal-app/issues if you find a problem or have feedback. "
+            "If you like OpenTune or find it helpful, please consider starring the repository. Thank you all for the support!")
 
 
 class ReleaseError(Exception):
@@ -55,6 +58,11 @@ def entry(changelog: str, version: str) -> str:
     following = re.search(r"^## \[", changelog[match.end():], flags=re.MULTILINE)
     end = match.end() + following.start() if following else len(changelog)
     return changelog[match.end():end].strip() + "\n"
+
+
+def release_notes(changelog: str, version: str) -> str:
+    """The description of the release on GitHub. The greeting is not part of the changelog, so F-Droid and the update dialog do not show it."""
+    return f"{GREETING}\n\n{entry(changelog, version)}"
 
 
 def plain_text(notes: str) -> str:
@@ -116,7 +124,7 @@ def main(argv: list[str]) -> int:
         elif args.command == "verify":
             verify(root, args.version)
         else:
-            sys.stdout.write(entry((root / "CHANGELOG.md").read_text(), args.version))
+            sys.stdout.write(release_notes((root / "CHANGELOG.md").read_text(), args.version))
     except ReleaseError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
