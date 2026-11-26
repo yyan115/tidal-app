@@ -86,7 +86,6 @@ data class AppState(
     val sleepEndsAt: Long = 0, val sleepAtTrackEnd: Boolean = false,
     /** Playlist folder listings by folder id. The top level is stored as "root". */
     val folders: Map<String, List<Release>> = emptyMap(),
-    val hasMoreFavorites: Boolean = false,
     /** A release that is newer than the installed version, shown in a dialog until it is dismissed. */
     val update: io.github.yyan115.opentune.core.ReleaseNotice? = null,
 )
@@ -119,7 +118,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val searchPreferences = application.getSharedPreferences("search", Application.MODE_PRIVATE)
     private val missingLyrics = mutableSetOf<String>()
     private var cloudFavorites = emptyList<Track>()
-    private var favoritesOffset = 0
     private val favoriteSyncLock = Mutex()
     private var collectionReady = false
     private var updateChecked = false
@@ -309,7 +307,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         cancelLogin(); syncJob?.cancel(); detailJob?.cancel(); app.tidal.signOut(); cloudFavorites = emptyList()
         // The offline switch belongs to the account, so it cannot stay on once the account is gone.
         app.settings.update { it.copy(offline = false) }
-        ui.update { it.copy(signedIn = false, syncing = false, hasMoreFavorites = false, albums = emptyList(), playlists = emptyList(), artists = emptyList(),
+        ui.update { it.copy(signedIn = false, syncing = false, albums = emptyList(), playlists = emptyList(), artists = emptyList(),
             search = SearchResult(), searchError = null, detail = null, routes = emptyList()) }
         viewModelScope.launch {
             withContext(Dispatchers.IO) { saved.forEach { app.library.setFavorite(it, true) }; app.library.clearCache(account) }
@@ -362,7 +360,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     drainFavorites(account)
                     // The probe is taken after the changes of the listener were sent and before the library is loaded, so that a change during the load shows at the next look.
                     before = try { app.tidal.probeLibrary() } catch (error: Exception) { if (error is CancellationException) throw error; null }
-                    cloudFavorites = app.tidal.allFavorites(); favoritesOffset = cloudFavorites.size
+                    cloudFavorites = app.tidal.allFavorites()
                     withContext(Dispatchers.IO) {
                         app.library.cache(account, "favorites", JsonCodec.encodeTracks(cloudFavorites))
                         // A track that was removed from the saved tracks in another app stops being shown as saved.
@@ -370,7 +368,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         if (removed.isNotEmpty()) app.library.clearFavorites(removed.map(Track::id))
                     }
                 }
-                ui.update { it.copy(hasMoreFavorites = false) }
                 refreshLocal()
                 val albums = app.tidal.allFavoriteAlbums()
                 withContext(Dispatchers.IO) { app.library.cache(account, "albums", JsonCodec.encodeReleases(albums)) }
@@ -390,14 +387,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 ui.update { it.copy(error = userMessage(error)) }
             } finally { ui.update { it.copy(syncing = false) } }
         }
-    }
-
-    fun moreFavorites() = viewModelScope.launch {
-        try {
-            val next = app.tidal.favorites(favoritesOffset)
-            cloudFavorites = (cloudFavorites + next).distinctBy(Track::id); favoritesOffset += next.size
-            ui.update { it.copy(hasMoreFavorites = next.size == 100) }; refreshLocal()
-        } catch (error: Exception) { if (error is CancellationException) throw error; notify(userMessage(error)) }
     }
 
     /** Opens an album, artist, mix or playlist, or starts a music video. */

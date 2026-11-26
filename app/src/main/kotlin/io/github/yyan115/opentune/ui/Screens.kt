@@ -256,16 +256,14 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onNew
             0 -> {
                 val all = if (state.settings.offline) state.favorites.filter(Track::onDevice) else state.favorites
                 val tracks = all.filter { matches(it.title, it.artist, it.album) }.ordered({ it.title }, { it.artist })
-                // The button downloads the songs of the list that are not on the device, so a search narrows it. Without a search it waits until the whole list is loaded.
-                // A download of more than ten songs asks first.
+                // The button downloads the songs of the list that are not on the device, so a search narrows it. A download of more than ten songs asks first.
                 item { SectionTitle(pluralStringResource(R.plurals.track_count, tracks.size, tracks.size), if (tracks.size > 1) stringResource(R.string.action_shuffle) else null,
                     trailing = if (state.signedIn && !state.settings.offline) ({
-                        DownloadAllButton(tracks = { tracks }, onDownload = { vm.download(it) }, compact = true, enabled = (text.isNotBlank() || !state.hasMoreFavorites) && tracks.any { !it.onDevice })
+                        DownloadAllButton(tracks = { tracks }, onDownload = { vm.download(it) }, compact = true, enabled = tracks.any { !it.onDevice })
                     }) else null) { vm.playTracks(tracks, shuffle = true) } }
                 items(tracks, key = Track::id) { track -> TrackRow(track, state.playback.track?.id == track.id, { vm.play(tracks, tracks.indexOf(track), libraryTabs[0]) }, { onMenu(track) }) }
                 if (tracks.isEmpty() && !state.syncing) item { EmptyState(OpenTuneIcons.FavoriteBorder, if (text.isBlank()) stringResource(R.string.library_no_saved) else stringResource(R.string.library_no_matches),
                     if (text.isBlank()) stringResource(R.string.library_no_saved_text) else stringResource(R.string.library_try_filter), if (state.signedIn || text.isNotBlank()) null else stringResource(R.string.action_connect_tidal), onLogin) }
-                if (state.hasMoreFavorites && text.isBlank()) item { TextButton(onClick = { vm.moreFavorites() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.library_load_more_tracks)) } }
             }
             1 -> {
                 val albums = state.albums.filter { matches(it.title, it.artist) }.ordered({ it.title }, { it.artist })

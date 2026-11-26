@@ -106,7 +106,6 @@
     <string name="library_no_matches">No matches</string>
     <string name="library_no_saved_text">Save tracks from the player or connect your TIDAL collection</string>
     <string name="library_try_filter">Try a different filter</string>
-    <string name="library_load_more_tracks">Load more tracks</string>
     <string name="library_no_albums">No saved albums</string>
     <string name="library_no_albums_text">Saved albums appear here</string>
     <string name="library_no_artists">No followed artists</string>
