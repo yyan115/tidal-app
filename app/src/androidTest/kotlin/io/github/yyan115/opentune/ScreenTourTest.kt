@@ -95,8 +95,8 @@ class ScreenTourTest {
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Theme"))
         compose.onNodeWithText("Theme").performClick()
         picture("10-appearance")
-        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
-        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("settings-list").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Licenses"))
         compose.onNode(hasText("Licenses") and hasClickAction()).performClick()
         picture("11-licences")
@@ -134,7 +134,7 @@ class ScreenTourTest {
         compose.onNodeWithTag("theme-pager").performTouchInput { swipeLeft() }
         compose.waitForIdle()
         picture("27-theme-preview")
-        compose.onNodeWithText("Done").performClick()
+        compose.onNodeWithContentDescription("Back").performClick()
         compose.runOnIdle { model.settings { it.copy(equalizer = true) } }
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Equalizer"))
         compose.onNode(hasText("Equalizer") and hasClickAction()).performClick()
