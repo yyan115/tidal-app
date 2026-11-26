@@ -98,6 +98,7 @@
     <!-- Library -->
     <string name="library_saved_tracks">Saved tracks</string>
     <string name="library_mixes">Mixes</string>
+    <string name="library_refresh">Refresh library</string>
     <string name="library_filter">Search</string>
     <string name="library_filter_clear">Clear filter</string>
     <string name="library_sort_by">Sort by %1$s</string>
@@ -427,7 +428,7 @@
     <string name="settings_on">On</string>
     <string name="settings_bitperfect">Bit-perfect USB output</string>
     <string name="settings_limit_16_bit">16-bit output</string>
-    <string name="settings_limit_16_bit_text">Plays 24-bit songs as 16-bit. Turn it on if 24-bit songs sound wrong.</string>
+    <string name="settings_limit_16_bit_text">Plays 24-bit songs as 16-bit, for phones that play them wrongly.</string>
     <string name="settings_bitperfect_text">Sends audio to a USB DAC without resampling. Requires Android 14 or later.</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_theme">Theme</string>

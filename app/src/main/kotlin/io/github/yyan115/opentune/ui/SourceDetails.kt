@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import io.github.yyan115.opentune.core.DocumentKey
 import io.github.yyan115.opentune.core.Track
 import io.github.yyan115.opentune.core.formatDuration
+import io.github.yyan115.opentune.playback.OutputFormat
 import io.github.yyan115.opentune.playback.OutputPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -64,7 +65,10 @@ private fun volumeName(volume: String): String = if (volume == "primary") string
 @Composable
 fun SourceDetailsSheet(label: String, track: Track?, vm: MainViewModel?, onClose: () -> Unit) {
     val source = SourceReadout.from(label)
-    val limited = vm?.state?.collectAsStateWithLifecycle()?.value?.settings?.limitTo16Bit == true
+    val appState = vm?.state?.collectAsStateWithLifecycle()?.value
+    // The setting applies from the next stream. The song that plays now says 16-bit only when its output is open at 16 bits.
+    val playingNow = track != null && appState?.playingTrack?.id == track.id
+    val limited = appState?.settings?.limitTo16Bit == true && (!playingNow || OutputFormat.encoding == androidx.media3.common.C.ENCODING_PCM_16BIT)
     val notReported = stringResource(R.string.source_not_reported)
     val context = LocalContext.current
     // A file that was added and a download both lie in a folder of the device. A download of an earlier version is kept in the private storage of the app and has no place to show.

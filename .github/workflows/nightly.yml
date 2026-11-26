@@ -11,9 +11,10 @@ on:
 permissions:
   contents: read
 
+# A run that is started while another one runs waits for it. A manual run does not stop the run of the night, and the run of the night does not stop a manual run.
 concurrency:
   group: nightly-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   device:

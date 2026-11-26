@@ -158,7 +158,7 @@ class PseudoLocaleTest {
             inWindow(name) { compose.onAllNodes(hasText(s(row)) and hasClickAction()).onFirst().performClick() }
         }
         // The pages that open from the list. The avoid-repeats page also shows its list of excluded tracks.
-        for ((row, name) in listOf(R.string.settings_repeats to "Avoid repeats page", R.string.stats_title to "Statistics page", R.string.settings_licenses to "Licenses page")) {
+        for ((row, name) in listOf(R.string.settings_repeats to "Avoid repeats page", R.string.stats_title to "Statistics page", R.string.settings_theme to "Appearance page", R.string.settings_licenses to "Licenses page")) {
             if (row == R.string.settings_repeats) app.settings.update { it.copy(avoidRepeatMinutes = 1440) }
             list.performScrollToNode(hasText(s(row)))
             compose.onAllNodes(hasText(s(row)) and hasClickAction()).onFirst().performClick()
@@ -211,7 +211,7 @@ class PseudoLocaleTest {
     }
 
     private fun settingsDialogs() = listOf(
-        R.string.eq_title to "Equalizer", R.string.settings_theme to "Theme", R.string.scrobble_title to "Scrobbling",
+        R.string.eq_title to "Equalizer", R.string.scrobble_title to "Scrobbling",
         R.string.settings_clear_history to "Clear history",
     )
 

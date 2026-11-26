@@ -47,6 +47,9 @@ class TidalClient(
     val signedIn get() = sessions.read() != null
     val accountId get() = sessions.read()?.userId.orEmpty()
 
+    /** Called after a request of this client changed a list of the library, so that the app can tell its own changes from changes made elsewhere. */
+    @Volatile var onLibraryWritten: ((LibraryList) -> Unit)? = null
+
     fun beginPkce(): PkceLogin {
         fun random(size: Int): String = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(size).also { java.security.SecureRandom().nextBytes(it) })
         val verifier = random(32)
@@ -145,9 +148,11 @@ class TidalClient(
     suspend fun allTracks(release: Release): List<Track> = allPages { tracksPage(release, it) }
     /**
      * One item of each list of the library, to see whether the library changed elsewhere. Each answer is a few hundred bytes, and the lists are not loaded.
-     * A playlist carries the time of its last change, so that a rename or an edit in another app counts too.
+     * The first playlist carries the time of its last change, so that a rename or an edit of that playlist in another app counts too. A change of another
+     * playlist shows when the number of playlists changes, or when the listener refreshes the library by hand.
+     * [lists] limits the probe to some lists.
      */
-    suspend fun probeLibrary(): Map<LibraryList, ListProbe> {
+    suspend fun probeLibrary(lists: Set<LibraryList> = LibraryList.entries.toSet()): Map<LibraryList, ListProbe> {
         val user = userId()
         fun probe(value: JSONObject): ListProbe {
             val first = JsonCodec.items(value).firstOrNull()?.let { it.optJSONObject("playlist") ?: it }
@@ -155,12 +160,14 @@ class TidalClient(
             val changed = first?.optString("lastUpdated").orEmpty().let { if (it.isBlank()) "" else "@$it" }
             return ListProbe(value.optInt("totalNumberOfItems", -1), id + changed)
         }
-        return mapOf(
-            LibraryList.Favorites to probe(request("users/$user/favorites/tracks", mapOf("limit" to "1", "order" to "DATE", "orderDirection" to "DESC"))),
-            LibraryList.Albums to probe(request("users/$user/favorites/albums", mapOf("limit" to "1"))),
-            LibraryList.Artists to probe(request("users/$user/favorites/artists", mapOf("limit" to "1"))),
-            LibraryList.Playlists to probe(request("users/$user/playlistsAndFavoritePlaylists", mapOf("limit" to "1"))),
-        )
+        return LibraryList.entries.filter { it in lists }.associateWith { list ->
+            when (list) {
+                LibraryList.Favorites -> probe(request("users/$user/favorites/tracks", mapOf("limit" to "1", "order" to "DATE", "orderDirection" to "DESC")))
+                LibraryList.Albums -> probe(request("users/$user/favorites/albums", mapOf("limit" to "1")))
+                LibraryList.Artists -> probe(request("users/$user/favorites/artists", mapOf("limit" to "1")))
+                LibraryList.Playlists -> probe(request("users/$user/playlistsAndFavoritePlaylists", mapOf("limit" to "1")))
+            }
+        }
     }
 
     suspend fun allFavorites(): List<Track> = allPages(page = ::favoritesPage)
@@ -404,6 +411,7 @@ class TidalClient(
             if (result.first == 401 && attempt == 0) continue
             if (result.first !in 200..299) throw ServiceException(result.first, errorMessage(result.first))
             result.third?.let { etags[path] = it }
+            if (method != "GET") sessions.read()?.userId?.let { LibraryFreshness.listChangedBy(path, it) }?.let { onLibraryWritten?.invoke(it) }
             return if (result.second.isBlank()) JSONObject() else try {
                 if (result.second.trimStart().startsWith("[")) JSONObject().put("items", org.json.JSONArray(result.second)) else JSONObject(result.second)
             } catch (_: Exception) { throw ServiceException(502, "TIDAL returned an unreadable response.", Problem.UNREADABLE_RESPONSE) }

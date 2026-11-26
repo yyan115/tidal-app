@@ -21,6 +21,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.graphicsLayer
@@ -224,7 +227,11 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onNew
         LibrarySort.Artist -> sortedWith(compareBy({ artist(it).lowercase() }, { title(it).lowercase() }))
     }
     // A pull down refreshes the library, as it does on Home. The same sync runs when the app starts and when the network returns.
-    PullToRefreshBox(isRefreshing = state.syncing, onRefresh = { if (online) vm.sync() }, modifier = Modifier.fillMaxSize()) {
+    // The refresh is also an action of the list for screen readers and switch access, which cannot pull.
+    val refresh = { if (online) { vm.sync(); if (filter == 4) pages.load(mixes, force = true) } }
+    val refreshLabel = stringResource(R.string.library_refresh)
+    PullToRefreshBox(isRefreshing = state.syncing, onRefresh = refresh,
+        modifier = Modifier.fillMaxSize().semantics { customActions = listOf(CustomAccessibilityAction(refreshLabel) { refresh(); true }) }) {
     LazyColumn(Modifier.fillMaxSize().testTag("library-list"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { Spacer(Modifier.height(8.dp)) }
         item { LazyRow(modifier = Modifier.testTag("library-filters"), state = filters, contentPadding = PaddingValues(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -249,10 +256,11 @@ fun LibraryScreen(state: AppState, vm: MainViewModel, onLogin: () -> Unit, onNew
             0 -> {
                 val all = if (state.settings.offline) state.favorites.filter(Track::onDevice) else state.favorites
                 val tracks = all.filter { matches(it.title, it.artist, it.album) }.ordered({ it.title }, { it.artist })
-                // The button downloads every saved track that is not on the device. It waits until the whole list is loaded, and a download of more than ten songs asks first.
+                // The button downloads the songs of the list that are not on the device, so a search narrows it. Without a search it waits until the whole list is loaded.
+                // A download of more than ten songs asks first.
                 item { SectionTitle(pluralStringResource(R.plurals.track_count, tracks.size, tracks.size), if (tracks.size > 1) stringResource(R.string.action_shuffle) else null,
                     trailing = if (state.signedIn && !state.settings.offline) ({
-                        DownloadAllButton(tracks = { state.favorites }, onDownload = { vm.download(it) }, compact = true, enabled = !state.hasMoreFavorites && state.favorites.any { !it.onDevice })
+                        DownloadAllButton(tracks = { tracks }, onDownload = { vm.download(it) }, compact = true, enabled = (text.isNotBlank() || !state.hasMoreFavorites) && tracks.any { !it.onDevice })
                     }) else null) { vm.playTracks(tracks, shuffle = true) } }
                 items(tracks, key = Track::id) { track -> TrackRow(track, state.playback.track?.id == track.id, { vm.play(tracks, tracks.indexOf(track), libraryTabs[0]) }, { onMenu(track) }) }
                 if (tracks.isEmpty() && !state.syncing) item { EmptyState(OpenTuneIcons.FavoriteBorder, if (text.isBlank()) stringResource(R.string.library_no_saved) else stringResource(R.string.library_no_matches),

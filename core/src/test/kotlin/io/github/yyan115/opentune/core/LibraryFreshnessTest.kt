@@ -38,6 +38,29 @@ class LibraryFreshnessTest {
         assertEquals(LibraryList.entries.toSet(), LibraryFreshness.changed(null, seen))
     }
 
+    @Test fun theAppLooksAgainOnlyAfterTheWaitThatFollowsAFailedLoad() {
+        assertTrue(LibraryFreshness.mayLook(null, 1_000L))
+        assertTrue(!LibraryFreshness.mayLook(1_000L, 1_000L + LibraryFreshness.RETRY_AFTER_FAILURE_MS - 1))
+        assertTrue(LibraryFreshness.mayLook(1_000L, 1_000L + LibraryFreshness.RETRY_AFTER_FAILURE_MS))
+    }
+
+    @Test fun everyRequestThatChangesAListNamesThatList() {
+        val user = "42"
+        assertEquals(LibraryList.Favorites, LibraryFreshness.listChangedBy("users/42/favorites/tracks", user))
+        assertEquals(LibraryList.Favorites, LibraryFreshness.listChangedBy("users/42/favorites/tracks/777", user))
+        assertEquals(LibraryList.Albums, LibraryFreshness.listChangedBy("users/42/favorites/albums", user))
+        assertEquals(LibraryList.Artists, LibraryFreshness.listChangedBy("users/42/favorites/artists/9", user))
+        assertEquals(LibraryList.Playlists, LibraryFreshness.listChangedBy("users/42/favorites/playlists", user))
+        assertEquals(LibraryList.Playlists, LibraryFreshness.listChangedBy("users/42/playlists", user))
+        assertEquals(LibraryList.Playlists, LibraryFreshness.listChangedBy("playlists/abc/items", user))
+    }
+
+    @Test fun aRequestOfAnotherListenerOrAboutNoListChangesNoList() {
+        assertEquals(null, LibraryFreshness.listChangedBy("users/7/favorites/tracks", "42"))
+        assertEquals(null, LibraryFreshness.listChangedBy("tracks/1/lyrics", "42"))
+        assertEquals(null, LibraryFreshness.listChangedBy("my-collection/folders", "42"))
+    }
+
     @Test fun theProbeRunsOnceAMinuteAtMost() {
         assertTrue(LibraryFreshness.PROBE_INTERVAL_MS >= 60_000L)
     }

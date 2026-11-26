@@ -6,22 +6,22 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Added
 
-- A Download button in the header of the saved tracks list
-- A setting that plays 24-bit songs as 16-bit, under Experimental
+- Download button in the header of the saved tracks list
+- Setting that plays 24-bit songs as 16-bit, under Experimental
 
 ### Changed
 
-- Albums and Similar artists as the names of sections on artist pages
-- The queue shows the song that plays at its top
-- The theme picker is a page of Settings with a back button
-- Pull down to refresh the Library
-- Changes made to the library on another device appear within a minute
-- The backup, restore and download folder pickers start at the top of the storage
-- Shorter text on the Connect TIDAL card
+- Section names on artist pages: Albums and Similar artists
+- Queue with the song that plays at its top
+- Theme picker as a page of Settings
+- Pull to refresh in the Library
+- Detection of changes made to the library on other devices, once a minute
+- Backup, restore and download folder pickers opening at the root of the storage
+- Text of the Connect TIDAL card
 
 ### Fixed
 
-- A downloaded song appearing twice when its file is added by hand
+- Downloaded songs listed twice when their file is added by hand or found in a folder
 
 ## [0.8.1] - 2026-11-24
 

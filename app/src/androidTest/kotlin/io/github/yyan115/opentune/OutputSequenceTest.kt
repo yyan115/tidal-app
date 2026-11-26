@@ -50,7 +50,7 @@ class OutputSequenceTest {
     }
 
     @Before fun prepare() {
-        compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", offline = false, welcomeDone = true, visualizer = false, bitPerfect = false, normalization = "off", equalizer = false) } }
+        compose.runOnIdle { model.clearQueue(); model.settings { it.copy(theme = "dark", offline = false, welcomeDone = true, visualizer = false, bitPerfect = false, normalization = "off", equalizer = false, limitTo16Bit = false) } }
         OutputPolicy.state.clear()
         queue = kinds.filter { canDecode(it.mime) }.map { kind ->
             val file = File(app.filesDir, "sequence-${kind.asset}")
@@ -64,7 +64,7 @@ class OutputSequenceTest {
     }
 
     @After fun clean() {
-        compose.runOnIdle { model.stopPlayback() }
+        compose.runOnIdle { model.stopPlayback(); model.settings { it.copy(limitTo16Bit = false) } }
         OutputPolicy.state.clear()
         if (::queue.isInitialized) queue.forEach { app.library.removeLocal(it.second.id) }
     }
@@ -102,7 +102,8 @@ class OutputSequenceTest {
             compose.waitUntil(25_000) { model.state.value.playback.track?.id == track.id && model.state.value.playback.playing && model.position.value > 300 }
             if (OutputFormat.encoding != C.ENCODING_PCM_16BIT) failures += "${kind.asset}: the output uses encoding ${OutputFormat.encoding} and not 16-bit"
         }
-        compose.runOnIdle { model.settings { it.copy(limitTo16Bit = false) } }
+        // When the check of the phone blocked the float output, 16 bits is the check's choice and not the setting's.
+        if (!OutputPolicy.state.floatAllowed) failures += "the check blocked the float output, so the setting was not what chose 16 bits: ${OutputPolicy.state.blockedReason}"
         assertTrue("These songs did not reach the output at 16 bits:\n" + failures.joinToString("\n"), failures.isEmpty())
     }
 }

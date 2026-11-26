@@ -61,6 +61,7 @@ class LocalFolders(private val app: OpenTuneApp) {
     /** Scans every folder that was not scanned during the last [maxAgeMs], and every folder when files were read by an older importer. */
     fun rescanStale(maxAgeMs: Long = 24 * 3600_000L) {
         val now = System.currentTimeMillis()
+        app.library.mergeFilesIntoDownloads()
         val outdated = app.library.outdatedFiles(LocalImporter.VERSION).isNotEmpty()
         app.library.folders().filter { outdated || now - it.scannedAt > maxAgeMs }.forEach(::rescan)
         if (outdated) scope.launch { refreshFiles() }

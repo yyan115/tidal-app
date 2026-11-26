@@ -76,6 +76,24 @@ class LibraryStore(context: Context, databaseName: String = "library.db") : SQLi
     @Synchronized fun downloadTrackIdFor(key: String): String? =
         readableDatabase.rawQuery("SELECT track_id FROM download_files WHERE key=?", arrayOf(key)).use { if (it.moveToFirst()) it.getString(0) else null }
 
+    /**
+     * Joins a track of a file with the download that the file became. Version 0.8.1 and earlier listed such a file twice, once as a download and once as a file
+     * that was added by hand or found in a folder. The place of the file in playlists passes to the download, and the file track goes. Returns how many it joined.
+     */
+    @Synchronized fun mergeFilesIntoDownloads(): Int {
+        val pairs = readableDatabase.rawQuery("SELECT s.track_id, d.track_id FROM local_sources s JOIN download_files d ON d.key=s.key WHERE s.track_id<>d.track_id", null).use { cursor ->
+            buildList { while (cursor.moveToNext()) add(cursor.getString(0) to cursor.getString(1)) }
+        }
+        for ((file, download) in pairs) {
+            if (get(download) == null) continue
+            val cover = get(file)?.artwork
+            writableDatabase.execSQL("UPDATE OR IGNORE playlist_tracks SET track_id=? WHERE track_id=?", arrayOf(download, file))
+            removeLocalTrack(file)
+            removeCoverIfUnused(cover)
+        }
+        return pairs.size
+    }
+
     @Synchronized fun removeDownloadFile(trackId: String) { writableDatabase.delete("download_files", "track_id=?", arrayOf(trackId)) }
 
     /** A track that the listener allowed again stays out of the avoid-repeats window until it plays once more. */

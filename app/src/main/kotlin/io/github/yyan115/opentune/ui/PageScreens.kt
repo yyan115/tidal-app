@@ -70,6 +70,7 @@ fun PageScreen(route: PageRoute, state: AppState, vm: MainViewModel, pages: Page
 /** Adds the rows of a page. [viewAll] lists every item of the single module instead of a preview. */
 @UnstableApi
 fun LazyListScope.pageContent(page: PageData, entry: PageUi, routeKey: String, ctx: PageContext, viewAll: Boolean) {
+    val names = SectionNames(routeKey, page.modules.map { it.title })
     page.modules.forEachIndexed { index, module ->
         val key = "$routeKey:${module.id}:$index"
         when (module) {
@@ -79,15 +80,15 @@ fun LazyListScope.pageContent(page: PageData, entry: PageUi, routeKey: String, c
             is TextModule -> item(key = key) {
                 Text(module.text, Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            is LinksModule -> item(key = key) { LinksRow(module, ctx) }
-            is CarouselModule -> carousel(module, entry, routeKey, ctx, key, viewAll)
-            is TrackListModule -> trackList(module, entry, routeKey, ctx, key, viewAll || page.showsEverySong())
+            is LinksModule -> item(key = key) { LinksRow(module, ctx, names) }
+            is CarouselModule -> carousel(module, entry, routeKey, ctx, key, viewAll, names)
+            is TrackListModule -> trackList(module, entry, routeKey, ctx, key, viewAll || page.showsEverySong(), names)
         }
     }
 }
 
 @UnstableApi
-private fun LazyListScope.carousel(module: CarouselModule, entry: PageUi, routeKey: String, ctx: PageContext, key: String, viewAll: Boolean) {
+private fun LazyListScope.carousel(module: CarouselModule, entry: PageUi, routeKey: String, ctx: PageContext, key: String, viewAll: Boolean, names: SectionNames) {
     val items = module.items + entry.moreReleases[module.id].orEmpty()
     if (viewAll) {
         val columns = if (module.layout == CarouselLayout.VIDEOS) 1 else 2
@@ -100,7 +101,7 @@ private fun LazyListScope.carousel(module: CarouselModule, entry: PageUi, routeK
         if (module.dataPath != null && items.size < module.total) item(key = "$key:more") { LoadMore(routeKey, module, entry, ctx) }
     } else item(key = key) {
         Column {
-            val title = sectionTitle(module.title)
+            val title = names.of(module.title)
             SectionTitle(title, module.showMore?.let { stringResource(R.string.action_view_all) }, arrow = true) { module.showMore?.let { ctx.vm.openPage(PageRoute.path(it, title)) } }
             LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 itemsIndexed(items, key = { position, release -> "${release.type}:${release.id}:$position" }) { _, release ->
@@ -112,10 +113,10 @@ private fun LazyListScope.carousel(module: CarouselModule, entry: PageUi, routeK
 }
 
 @UnstableApi
-private fun LazyListScope.trackList(module: TrackListModule, entry: PageUi, routeKey: String, ctx: PageContext, key: String, viewAll: Boolean) {
+private fun LazyListScope.trackList(module: TrackListModule, entry: PageUi, routeKey: String, ctx: PageContext, key: String, viewAll: Boolean, names: SectionNames) {
     val tracks = module.tracks + entry.moreTracks[module.id].orEmpty()
     if (module.title.isNotBlank()) item(key = "$key:title") {
-        val title = sectionTitle(module.title)
+        val title = names.of(module.title)
         SectionTitle(title, if (!viewAll && (module.showMore != null)) stringResource(R.string.action_view_all) else null, arrow = true) {
             module.showMore?.let { ctx.vm.openPage(PageRoute.path(it, title)) }
         }
@@ -139,9 +140,9 @@ private fun LoadMore(routeKey: String, module: PageModule, entry: PageUi, ctx: P
 
 @UnstableApi
 @Composable
-private fun LinksRow(module: LinksModule, ctx: PageContext) {
+private fun LinksRow(module: LinksModule, ctx: PageContext, names: SectionNames) {
     Column {
-        if (module.title.isNotBlank()) SectionTitle(sectionTitle(module.title))
+        if (module.title.isNotBlank()) SectionTitle(names.of(module.title))
         if (module.cloud) FlowRow(Modifier.padding(horizontal = 24.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             module.links.forEach { link -> LinkPill(link.title) { ctx.vm.openPage(PageRoute.path(link.path, link.title)) } }
         } else module.links.forEach { link ->
@@ -291,14 +292,21 @@ private fun MixHeaderRow(header: MixHeader, ctx: PageContext, routeKey: String, 
 private const val PREVIEW_TRACKS = 5
 
 /**
- * The resource of the name that the app uses for a section of a TIDAL page, or null when TIDAL's own name stays. TIDAL names the sections of its pages,
- * and two of its names are replaced by the names that the app and other music apps use.
+ * The resource of the name that the app uses for a section of an artist page, or null when TIDAL's own name stays. TIDAL names the sections of its pages,
+ * and two of its names on an artist page are replaced by the names that the app and other music apps use. Other pages keep TIDAL's names, because a
+ * featured list of an editorial page is not a list of albums by one artist. [pageTitles] are the names of all sections of the page, so that a page that
+ * has a section named Albums already does not get a second one.
  */
-fun sectionTitleRes(title: String): Int? = when (title.trim().lowercase()) {
-    "featured albums" -> R.string.section_albums
-    "related artists" -> R.string.section_similar_artists
-    else -> null
+fun sectionTitleRes(title: String, routeKey: String, pageTitles: List<String>): Int? {
+    if (!routeKey.startsWith("pages/artist")) return null
+    return when (title.trim().lowercase()) {
+        "featured albums" -> R.string.section_albums.takeIf { pageTitles.none { it.trim().equals("albums", ignoreCase = true) } }
+        "related artists" -> R.string.section_similar_artists
+        else -> null
+    }
 }
 
-@Composable
-private fun sectionTitle(title: String): String = sectionTitleRes(title)?.let { stringResource(it) } ?: title
+/** The names of the sections of one page, as the page shows them. */
+class SectionNames(private val routeKey: String, private val pageTitles: List<String>) {
+    @Composable fun of(title: String): String = sectionTitleRes(title, routeKey, pageTitles)?.let { stringResource(it) } ?: title
+}

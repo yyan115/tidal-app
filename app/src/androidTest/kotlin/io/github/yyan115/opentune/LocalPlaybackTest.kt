@@ -231,7 +231,7 @@ class LocalPlaybackTest {
         compose.onNodeWithContentDescription("Settings").performClick()
         compose.onNodeWithTag("settings-list").performScrollToNode(hasText("Theme"))
         compose.onNodeWithText("Theme").performClick()
-        // The sheet opens on the current theme. A swipe moves to the next one, and its button applies it to the whole app.
+        // The page opens on the current theme. A swipe moves to the next one, and its button applies it to the whole app.
         compose.onNodeWithTag("theme-pager").performTouchInput { swipeLeft() }
         // The app shows the swiped theme at once, and the saved theme stays until Use.
         compose.waitUntil(5_000) { model.previewTheme.value != null }
@@ -240,7 +240,8 @@ class LocalPlaybackTest {
         compose.waitUntil(5_000) { model.state.value.settings.theme != "light" }
         compose.waitUntil(5_000) { model.previewTheme.value == null }
         val chosen = model.state.value.settings.theme
-        compose.onNodeWithText("Done").performClick()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("settings-list").fetchSemanticsNodes().isNotEmpty() }
         compose.activityRule.scenario.recreate()
         compose.waitUntil(5_000) { ViewModelProvider(compose.activity)[MainViewModel::class.java].state.value.settings.theme == chosen }
         screenshot("settings-dark")

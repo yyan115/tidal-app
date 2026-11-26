@@ -57,6 +57,29 @@ class LocalImporterTest {
         }
     }
 
+    @Test fun aFileThatWasListedNextToItsDownloadIsJoinedWithTheDownload() = runBlocking {
+        val key = DocumentKey.of(uri.toString())
+        val file = app.importer.import(uri, direct = true)
+        val playlist = app.library.createPlaylist("Join check")
+        app.library.addToPlaylist(playlist.id, file)
+        val downloaded = io.github.yyan115.opentune.core.Track("90211", "Night Walk", "Harbour Lights", "Late Hours", localUri = "opentune-download:90211")
+        app.library.save(downloaded)
+        // The state that version 0.8.1 left: the download and the file are both in the library, and the file is a known download file.
+        app.library.recordDownloadFile(key, downloaded.id)
+        try {
+            assertEquals(1, app.library.mergeFilesIntoDownloads())
+            assertNull("The track of the file is gone", app.library.get(file.id))
+            assertNull(app.library.sourceFor(key))
+            assertNotNull("The download stays", app.library.get(downloaded.id))
+            assertEquals("The playlist holds the download in the place of the file", listOf(downloaded.id), app.library.playlistTracks(playlist.id).map { it.id })
+            assertEquals("A second run finds nothing", 0, app.library.mergeFilesIntoDownloads())
+        } finally {
+            app.library.deletePlaylist(playlist.id)
+            app.library.removeDownloadFile(downloaded.id)
+            app.library.removeLocal(downloaded.id)
+        }
+    }
+
     @Test fun readingTheSameFileAgainKeepsOneTrackAndItsDate() = runBlocking {
         val first = app.importer.import(uri, direct = true)
         Thread.sleep(20)

@@ -43,6 +43,34 @@ class TidalClientTest {
         assertTrue("Each probe asks for one item only", paths.all { it.requestUrl!!.queryParameter("limit") == "1" })
     }
 
+    @Test fun aProbeOfOneListAsksForThatListOnly() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"totalNumberOfItems":14,"items":[{"item":{"id":77,"title":"Album"}}]}"""))
+        val probes = client.probeLibrary(setOf(LibraryList.Albums))
+        assertEquals(setOf(LibraryList.Albums), probes.keys)
+        assertEquals("users/123/favorites/albums", server.takeRequest().requestUrl!!.encodedPath.removePrefix("/v1/"))
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun theClientReportsTheListThatItsOwnWriteChanged() = runBlocking {
+        val written = mutableListOf<LibraryList>()
+        client.onLibraryWritten = { written += it }
+        repeat(3) { server.enqueue(MockResponse().setBody("{}")) }
+        client.setFavorite("555", true)
+        client.setAlbumFavorite("77", false)
+        client.setArtistFollowed("31", true)
+        assertEquals(listOf(LibraryList.Favorites, LibraryList.Albums, LibraryList.Artists), written)
+    }
+
+    @Test fun aReadAndAFailedWriteReportNothing() = runBlocking {
+        val written = mutableListOf<LibraryList>()
+        client.onLibraryWritten = { written += it }
+        server.enqueue(MockResponse().setBody("""{"items":[]}"""))
+        server.enqueue(MockResponse().setResponseCode(500))
+        client.probeLibrary(setOf(LibraryList.Albums))
+        runCatching { client.setFavorite("555", true) }
+        assertTrue(written.isEmpty())
+    }
+
     @Test fun anAnswerWithoutAListGivesAnEmptyProbe() = runBlocking {
         repeat(4) { server.enqueue(MockResponse().setBody("""{"items":[]}""")) }
         assertTrue(client.probeLibrary().values.all { it == ListProbe(-1, "") })

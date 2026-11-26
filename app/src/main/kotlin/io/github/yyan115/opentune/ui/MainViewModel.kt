@@ -8,6 +8,7 @@ import android.content.ComponentName
 import android.net.Uri
 import android.net.ConnectivityManager
 import android.net.Network
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -134,6 +135,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
+        app.tidal.onLibraryWritten = ::rememberOwnChange
         controllerFuture.addListener({
             try {
                 val player = controllerFuture.get()
@@ -318,10 +320,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // What the service showed of each list when the library was loaded last. A probe that differs from it means that the library changed elsewhere.
     private var libraryProbes: Map<LibraryList, ListProbe>? = null
     private var foregroundJob: Job? = null
+    // When the last load of the library failed. The app looks for changes again only after a wait, so that a service that answers with an error is not asked every minute.
+    private var syncFailedAt: Long? = null
+
+    /** A change that the app made itself is not a change elsewhere. The probe of that list is taken again, so that the change does not start a load of the whole library. */
+    private fun rememberOwnChange(list: LibraryList) {
+        if (libraryProbes == null) return
+        viewModelScope.launch {
+            val now = try { app.tidal.probeLibrary(setOf(list)) } catch (error: Exception) { if (error is CancellationException) throw error; return@launch }
+            libraryProbes = libraryProbes?.plus(now)
+        }
+    }
 
     /** Asks the service for one item of each list, and loads the library again only when a list changed elsewhere, such as on the TIDAL website. */
     fun checkLibrary() {
         if (!collectionReady || !app.tidal.signedIn || ui.value.settings.offline || ui.value.syncing) return
+        if (!LibraryFreshness.mayLook(syncFailedAt, SystemClock.elapsedRealtime())) return
         viewModelScope.launch {
             val now = try { app.tidal.probeLibrary() } catch (error: Exception) { if (error is CancellationException) throw error; return@launch }
             if (LibraryFreshness.changed(libraryProbes, now).isNotEmpty()) sync()
@@ -342,11 +356,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         syncJob = viewModelScope.launch {
             ui.update { it.copy(syncing = true, error = null) }
             try {
-                // The probe is taken before the library is loaded, so that a change during the load shows at the next look.
-                val before = try { app.tidal.probeLibrary() } catch (error: Exception) { if (error is CancellationException) throw error; null }
+                var before: Map<LibraryList, ListProbe>? = null
                 val account = app.tidal.accountId
                 favoriteSyncLock.withLock {
                     drainFavorites(account)
+                    // The probe is taken after the changes of the listener were sent and before the library is loaded, so that a change during the load shows at the next look.
+                    before = try { app.tidal.probeLibrary() } catch (error: Exception) { if (error is CancellationException) throw error; null }
                     cloudFavorites = app.tidal.allFavorites(); favoritesOffset = cloudFavorites.size
                     withContext(Dispatchers.IO) {
                         app.library.cache(account, "favorites", JsonCodec.encodeTracks(cloudFavorites))
@@ -367,9 +382,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val artists = app.tidal.followedArtists()
                 withContext(Dispatchers.IO) { app.library.cache(account, "artists", JsonCodec.encodeReleases(artists)) }
                 ui.update { it.copy(artists = artists) }
-                if (before != null) libraryProbes = before
+                before?.let { libraryProbes = it }
+                syncFailedAt = null
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
+                syncFailedAt = SystemClock.elapsedRealtime()
                 ui.update { it.copy(error = userMessage(error)) }
             } finally { ui.update { it.copy(syncing = false) } }
         }
@@ -1038,6 +1055,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
+        app.tidal.onLibraryWritten = null
         if (networkCallbackRegistered) runCatching { connectivity.unregisterNetworkCallback(networkCallback) }
         MediaController.releaseFuture(controllerFuture); super.onCleared()
     }

@@ -5,7 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.media3.common.util.UnstableApi
@@ -67,7 +71,8 @@ class ThemePreviewActivity : ComponentActivity() {
             lyrics = if (lyrics) sampleLyrics else null, lyricsStatus = if (lyrics) LyricsStatus.Ready else LyricsStatus.Idle, lyricsTrackId = tracks[0].id)
         setContent { OpenTuneTheme(themeId) {
             if (page == "icons") IconSheet()
-            else if (page == "appearance") AppearancePage(Settings(theme = themeId, welcomeDone = true), {})
+            // The page has no surface of its own, because the app draws it inside its root. The preview gives it the background of the theme.
+            else if (page == "appearance") Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { AppearancePage(Settings(theme = themeId, welcomeDone = true), {}) }
             else CompositionLocalProvider(LocalOfflineMode provides true, LocalPlaybackPosition provides MutableStateFlow(64_000L)) {
                 OpenTuneRoot(model, state, initialDestination = when (page) { "search" -> Destination.Search; "library" -> Destination.Library; "downloads", "device" -> Destination.Device; else -> Destination.Home },
                     initialPlayer = page == "player", initialSettings = page == "settings", initialLyrics = lyrics)
