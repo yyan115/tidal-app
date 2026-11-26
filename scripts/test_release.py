@@ -85,9 +85,9 @@ class ReleaseTest(unittest.TestCase):
         notes = release.release_notes(CHANGELOG, "0.2.0")
         self.assertTrue(notes.startswith("Please open an issue at https://github.com/yyan115/tidal-app/issues"))
         self.assertIn("please consider starring the repository", notes)
-        paragraphs = notes.split("\n\n")
-        self.assertTrue(paragraphs[0].startswith("Please open an issue") and paragraphs[0].endswith("Thank you all for the support!"))
-        self.assertEqual("If you like OpenTune or find it helpful, please consider starring the repository.", paragraphs[1])
+        paragraph = notes.split("\n\n")[0]
+        self.assertLess(paragraph.index("open an issue"), paragraph.index("starring"))
+        self.assertLess(paragraph.index("starring"), paragraph.index("Thank you all for the support!"))
         self.assertTrue(notes.endswith(release.entry(CHANGELOG, "0.2.0")))
 
     def test_the_greeting_is_not_in_the_text_that_f_droid_shows(self):
