@@ -71,10 +71,24 @@ class OutputSequenceTest {
 
     private val failures = mutableListOf<String>()
 
-    /** Waits until the song of [index] plays and its output is open, and checks the output against the kind of file. */
-    private fun heard(index: Int, step: String) {
+    private var lastIndex = -1
+
+    /**
+     * Gives the command of a step and waits until the song of [index] plays and its output is open, and checks the output against the kind of file.
+     * The position that the screen shows lags behind a change of song, so right after the change it can still tell that the old song plays. The output that
+     * is read then is the output of the old song. The player opens an output when it starts a song, so a change to another song waits for a new output.
+     * A song that starts again, such as a jump to the song that plays, opens none.
+     */
+    private fun heard(index: Int, step: String, command: () -> Unit) {
+        val opened = OutputFormat.opened
+        compose.runOnIdle(command)
         val (kind, track) = queue[index]
         compose.waitUntil(25_000) { model.state.value.playback.track?.id == track.id && model.state.value.playback.playing && model.position.value > 300 }
+        if (index != lastIndex) {
+            try { compose.waitUntil(10_000) { OutputFormat.opened > opened } }
+            catch (_: androidx.compose.ui.test.ComposeTimeoutException) { failures += "$step, ${kind.asset}: the player opened no output for the song" }
+        }
+        lastIndex = index
         val allowed = if (kind.highResolution) setOf(C.ENCODING_PCM_FLOAT, C.ENCODING_PCM_24BIT, C.ENCODING_PCM_32BIT) else setOf(C.ENCODING_PCM_16BIT)
         if (OutputFormat.encoding !in allowed) failures += "$step, ${kind.asset}: the output uses encoding ${OutputFormat.encoding}, allowed are $allowed"
         if (!OutputPolicy.state.floatAllowed) failures += "$step, ${kind.asset}: the check blocked the output: ${OutputPolicy.state.blockedReason}"
@@ -82,14 +96,13 @@ class OutputSequenceTest {
     }
 
     @Test fun everySongIsRightAfterEveryOtherKindOfSong() {
-        compose.runOnIdle { model.play(queue.map { it.second }, 0, "", shuffle = false) }
-        heard(0, "start")
-        for (index in 1..queue.lastIndex) { compose.runOnIdle { model.next() }; heard(index, "forward to $index") }
+        heard(0, "start") { model.play(queue.map { it.second }, 0, "", shuffle = false) }
+        for (index in 1..queue.lastIndex) heard(index, "forward to $index") { model.next() }
         // Back through the whole queue. A press of Previous within three seconds goes to the song before.
-        for (index in queue.lastIndex - 1 downTo 0) { compose.runOnIdle { model.previous() }; heard(index, "back to $index") }
+        for (index in queue.lastIndex - 1 downTo 0) heard(index, "back to $index") { model.previous() }
         // Jumps between kinds, the same song twice in a row and songs that came before.
         val jumps = listOf(2, 0, 3, 1, 3, 5.coerceAtMost(queue.lastIndex), 2, 2, 0)
-        for (jump in jumps) { compose.runOnIdle { model.jumpTo(jump) }; heard(jump, "jump to $jump") }
+        for (jump in jumps) heard(jump, "jump to $jump") { model.jumpTo(jump) }
         assertTrue("These songs reached the output wrongly after other songs had played:\n" + failures.joinToString("\n"), failures.isEmpty())
     }
 
