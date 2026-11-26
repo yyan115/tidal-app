@@ -16,8 +16,8 @@ VERSION_PATTERN = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*
 UNRELEASED = "## [Unreleased]"
 FASTLANE_LIMIT = 500
 # The first lines of the description of every release on GitHub. They ask for issues and for a star, and they thank the people who use the app.
-GREETING = ("Please open an issue at https://github.com/yyan115/tidal-app/issues if you find a problem or have feedback. "
-            "If you like OpenTune or find it helpful, please consider starring the repository. Thank you all for the support!")
+GREETING = ("Please open an issue at https://github.com/yyan115/tidal-app/issues if you find a problem or have feedback. Thank you all for the support!\n\n"
+            "If you like OpenTune or find it helpful, please consider starring the repository.")
 
 
 class ReleaseError(Exception):
