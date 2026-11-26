@@ -23,6 +23,7 @@ All notable changes to OpenTune are listed here. The format follows [Keep a Chan
 
 ### Fixed
 
+- Repeated tracks in the Library when the list changed on another device while it loaded
 - Period names cut off on the listening statistics page at large text sizes
 - Downloaded songs listed twice when their file is added by hand or found in a folder
 
